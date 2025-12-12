@@ -17,4 +17,7 @@ dist/
 # Prisma
 prisma/dev.db
 
-/generated/prisma
+src/generated/prisma/
+
+# Allow env example
+!.env.example
