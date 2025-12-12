@@ -9,51 +9,49 @@ datasource db {
 model Account {
   id        String   @id @default(uuid())
   name      String
-  createdAt DateTime @default(now())
-
   inboxes   Inbox[]
+  contacts  Contact[]
+  createdAt DateTime @default(now())
 }
 
 model Inbox {
-  id        String   @id @default(uuid())
-  provider  String   // "whatsapp"
-  externalId String  // id n8n / provider
-  createdAt DateTime @default(now())
-
-  account   Account  @relation(fields: [accountId], references: [id])
-  accountId String
-
+  id         String   @id @default(uuid())
+  provider   String
+  externalId String
+  accountId  String
+  account    Account  @relation(fields: [accountId], references: [id])
   conversations Conversation[]
+  createdAt  DateTime @default(now())
 }
 
 model Contact {
   id        String   @id @default(uuid())
   phone     String
+  accountId String
+  account   Account  @relation(fields: [accountId], references: [id])
+  conversations Conversation[]
   createdAt DateTime @default(now())
 
-  conversations Conversation[]
+  @@unique([accountId, phone])
 }
 
 model Conversation {
-  id        String   @id @default(uuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  inbox     Inbox    @relation(fields: [inboxId], references: [id])
-  inboxId   String
-
-  contact   Contact  @relation(fields: [contactId], references: [id])
-  contactId String
-
-  messages  Message[]
+  id             String   @id @default(uuid())
+  inboxId        String
+  contactId      String
+  inbox          Inbox    @relation(fields: [inboxId], references: [id])
+  contact        Contact  @relation(fields: [contactId], references: [id])
+  messages       Message[]
+  lastActivityAt DateTime @default(now())
+  createdAt      DateTime @default(now())
 }
 
 model Message {
-  id        String   @id @default(uuid())
-  direction String   // "IN" | "OUT"
-  content   String
-  createdAt DateTime @default(now())
-
-  conversation Conversation @relation(fields: [conversationId], references: [id])
+  id             String   @id @default(uuid())
   conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  direction      String
+  content        String
+  externalId     String?
+  createdAt      DateTime @default(now())
 }
