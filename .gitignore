@@ -16,3 +16,5 @@ dist/
 
 # Prisma
 prisma/dev.db
+
+/generated/prisma
