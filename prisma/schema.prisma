@@ -12,71 +12,72 @@ model Account {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  inboxes Inbox[]
+  inboxes   Inbox[]
+  contacts  Contact[]
+
+  @@index([createdAt])
 }
 
 model Inbox {
   id          String   @id @default(cuid())
   accountId   String
-  externalId  String   @unique
-  channel     String   @default("whatsapp")
-  name        String?
+  name        String
+  externalId  String?  @unique
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  account       Account        @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  contacts      Contact[]
+  account     Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
   conversations Conversation[]
 
   @@index([accountId])
+  @@index([createdAt])
 }
 
 model Contact {
   id        String   @id @default(cuid())
-  inboxId   String
+  accountId String
   phone     String
   name      String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  inbox         Inbox          @relation(fields: [inboxId], references: [id], onDelete: Cascade)
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
   conversations Conversation[]
 
-  @@unique([inboxId, phone])
-  @@index([inboxId])
+  @@unique([accountId, phone])
+  @@index([accountId])
 }
 
 model Conversation {
-  id             String   @id @default(cuid())
-  inboxId         String
-  contactId       String
-  status          String   @default("open")
-  lastActivityAt  DateTime @default(now())
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id          String   @id @default(cuid())
+  inboxId     String
+  contactId   String
+  status      String   @default("open")
+  lastActivityAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  inbox    Inbox    @relation(fields: [inboxId], references: [id], onDelete: Cascade)
-  contact  Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  messages Message[]
+  inbox       Inbox    @relation(fields: [inboxId], references: [id], onDelete: Cascade)
+  contact     Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  messages    Message[]
 
-  @@unique([inboxId, contactId])
   @@index([inboxId])
   @@index([contactId])
+  @@index([lastActivityAt])
 }
 
 model Message {
   id             String   @id @default(cuid())
   conversationId String
-  externalId     String?
   direction      String   // 'in' | 'out'
-  from           String?
-  to             String?
-  text           String?
+  provider       String?  // 'whatsapp'
+  providerMessageId String? @unique
+  text           String
   timestamp      DateTime @default(now())
   createdAt      DateTime @default(now())
 
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId])
-  @@index([externalId])
+  @@index([createdAt])
 }
