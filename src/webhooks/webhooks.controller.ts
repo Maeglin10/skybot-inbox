@@ -1,34 +1,28 @@
-import { Body, Controller, Get, HttpCode, Logger, Post, Query } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { WhatsappWebhookVerifyQueryDto } from './dto/whatsapp-webhook.dto';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { WebhooksService } from './webhooks.service';
+import type { WhatsAppCloudWebhook } from './dto/whatsapp-cloud.dto';
+import { parseWhatsAppCloudWebhook } from './whatsapp.parser';
 
 @Controller('webhooks/whatsapp')
 export class WebhooksController {
-  private readonly logger = new Logger(WebhooksController.name);
-
-  constructor(private readonly config: ConfigService) {}
+  constructor(private readonly webhooksService: WebhooksService) {}
 
   @Get()
-  verify(@Query() q: WhatsappWebhookVerifyQueryDto) {
-    const mode = q['hub.mode'];
-    const token = q['hub.verify_token'];
-    const challenge = q['hub.challenge'];
-
-    const expected = this.config.get<string>('WHATSAPP_VERIFY_TOKEN');
-    if (!expected) return 'Missing WHATSAPP_VERIFY_TOKEN';
-
-    if (mode === 'subscribe' && token === expected) {
-      return challenge ?? '';
+  verify(
+    @Query('hub.mode') mode?: string,
+    @Query('hub.verify_token') token?: string,
+    @Query('hub.challenge') challenge?: string,
+  ) {
+    if (mode === 'subscribe' && token === process.env.WHATSAPP_VERIFY_TOKEN && challenge) {
+      return challenge;
     }
-    return 'Forbidden';
+    return 'ok';
   }
 
   @Post()
-  @HttpCode(200)
-  receive(@Body() body: unknown) {
-    // v1: on accepte, on log, on ne casse pas le webhook.
-    this.logger.log(`Inbound webhook received`);
-    this.logger.debug(JSON.stringify(body));
+  async inbound(@Body() body: WhatsAppCloudWebhook) {
+    const parsed = parseWhatsAppCloudWebhook(body);
+    await this.webhooksService.handleIncoming(parsed);
     return { ok: true };
   }
 }
