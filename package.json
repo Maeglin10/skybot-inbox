@@ -18,7 +18,8 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "db:seed": "prisma db seed"  },
+    "db:seed": "prisma db seed"
+  },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
@@ -26,6 +27,8 @@
     "@nestjs/platform-express": "^11.0.1",
     "@prisma/adapter-pg": "^7.1.0",
     "@prisma/client": "^7.1.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.3",
     "dotenv": "^17.2.3",
     "pg": "^8.16.3",
     "prisma": "^7.1.0",
@@ -75,7 +78,7 @@
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",
     "prisma": {
-  "seed": "ts-node --transpile-only prisma/seed.ts"
-}
+      "seed": "ts-node --transpile-only prisma/seed.ts"
+    }
   }
 }
