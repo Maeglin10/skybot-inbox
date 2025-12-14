@@ -1,6 +1,14 @@
+import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
 
-const prisma = new PrismaClient();
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) throw new Error('DATABASE_URL missing');
+
+const pool = new Pool({ connectionString: databaseUrl });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
   const account =
@@ -8,8 +16,10 @@ async function main() {
     (await prisma.account.create({ data: { name: 'Demo' } }));
 
   await prisma.inbox.upsert({
-    where: { externalId: 'demo-inbox' },
-    update: { name: 'Demo Inbox', accountId: account.id },
+    where: {
+      accountId_externalId: { accountId: account.id, externalId: 'demo-inbox' },
+    },
+    update: { name: 'Demo Inbox' },
     create: {
       name: 'Demo Inbox',
       externalId: 'demo-inbox',
@@ -27,4 +37,5 @@ main()
   })
   .finally(async () => {
     await prisma.$disconnect();
+    await pool.end();
   });

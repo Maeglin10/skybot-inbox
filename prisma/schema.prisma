@@ -21,21 +21,21 @@ model Account {
 model Inbox {
   id         String   @id @default(cuid())
   accountId  String
+  externalId String
   name       String
-  externalId String?  @unique
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
   account       Account        @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  conversations Conversation[]
   contacts      Contact[]
+  conversations Conversation[]
 
+  @@unique([accountId, externalId], name: "accountId_externalId")
   @@index([accountId])
-  @@index([createdAt])
 }
 
 model Contact {
-  id        String   @id
+  id        String   @id @default(cuid())
   inboxId   String
   phone     String
   name      String?
@@ -47,7 +47,7 @@ model Contact {
   account       Account?       @relation(fields: [accountId], references: [id])
   accountId     String?
 
-  @@unique([inboxId, phone])
+  @@unique([inboxId, phone], name: "inboxId_phone")
   @@index([inboxId])
 }
 
@@ -55,7 +55,7 @@ model Conversation {
   id             String   @id @default(cuid())
   inboxId        String
   contactId      String
-  status         String   @default("open")
+  status         String   @default("OPEN")
   lastActivityAt DateTime @default(now())
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -66,11 +66,10 @@ model Conversation {
 
   @@index([inboxId])
   @@index([contactId])
-  @@index([lastActivityAt])
 }
 
 model Message {
-  id             String   @id
+  id             String   @id @default(cuid())
   conversationId String
   externalId     String?
   direction      String
@@ -82,7 +81,6 @@ model Message {
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
-  @@unique([externalId])
   @@index([conversationId])
   @@index([externalId])
 }

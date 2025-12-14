@@ -14,10 +14,11 @@
     "moduleResolution": "node"
   },
   "include": [
-    "src/**/*.ts",
-    "prisma/**/*.ts",
-    "generated/**/*.ts",
-    "generated/**/*.d.ts"
-  ],
+  "src/**/*.ts",
+  "prisma/**/*.ts",
+  "prisma.config.ts",
+  "generated/**/*.ts",
+  "generated/**/*.d.ts"
+],
   "exclude": ["node_modules", "dist"]
 }

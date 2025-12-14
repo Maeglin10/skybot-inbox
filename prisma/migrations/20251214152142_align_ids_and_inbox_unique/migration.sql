@@ -13,8 +13,7 @@ CREATE TABLE "Inbox" (
     "id" TEXT NOT NULL,
     "accountId" TEXT NOT NULL,
     "externalId" TEXT NOT NULL,
-    "channel" TEXT NOT NULL DEFAULT 'whatsapp',
-    "name" TEXT,
+    "name" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -29,6 +28,7 @@ CREATE TABLE "Contact" (
     "name" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "accountId" TEXT,
 
     CONSTRAINT "Contact_pkey" PRIMARY KEY ("id")
 );
@@ -38,7 +38,7 @@ CREATE TABLE "Conversation" (
     "id" TEXT NOT NULL,
     "inboxId" TEXT NOT NULL,
     "contactId" TEXT NOT NULL,
-    "status" TEXT NOT NULL DEFAULT 'open',
+    "status" TEXT NOT NULL DEFAULT 'OPEN',
     "lastActivityAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -62,10 +62,13 @@ CREATE TABLE "Message" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Inbox_externalId_key" ON "Inbox"("externalId");
+CREATE INDEX "Account_createdAt_idx" ON "Account"("createdAt");
 
 -- CreateIndex
 CREATE INDEX "Inbox_accountId_idx" ON "Inbox"("accountId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Inbox_accountId_externalId_key" ON "Inbox"("accountId", "externalId");
 
 -- CreateIndex
 CREATE INDEX "Contact_inboxId_idx" ON "Contact"("inboxId");
@@ -80,9 +83,6 @@ CREATE INDEX "Conversation_inboxId_idx" ON "Conversation"("inboxId");
 CREATE INDEX "Conversation_contactId_idx" ON "Conversation"("contactId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Conversation_inboxId_contactId_key" ON "Conversation"("inboxId", "contactId");
-
--- CreateIndex
 CREATE INDEX "Message_conversationId_idx" ON "Message"("conversationId");
 
 -- CreateIndex
@@ -93,6 +93,9 @@ ALTER TABLE "Inbox" ADD CONSTRAINT "Inbox_accountId_fkey" FOREIGN KEY ("accountI
 
 -- AddForeignKey
 ALTER TABLE "Contact" ADD CONSTRAINT "Contact_inboxId_fkey" FOREIGN KEY ("inboxId") REFERENCES "Inbox"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Contact" ADD CONSTRAINT "Contact_accountId_fkey" FOREIGN KEY ("accountId") REFERENCES "Account"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Conversation" ADD CONSTRAINT "Conversation_inboxId_fkey" FOREIGN KEY ("inboxId") REFERENCES "Inbox"("id") ON DELETE CASCADE ON UPDATE CASCADE;
