@@ -18,7 +18,11 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "db:seed": "ts-node --transpile-only prisma/seed.ts"
+    "db:seed": "ts-node --transpile-only prisma/seed.ts",
+    "db:up": "docker start skybot-postgres || docker run -d --name skybot-postgres -e POSTGRES_USER=skybot -e POSTGRES_PASSWORD=skybot -e POSTGRES_DB=skybot_inbox -p 5432:5432 postgres:16",
+    "db:down": "docker stop skybot-postgres",
+    "db:reset": "npx prisma migrate reset -f && npm run db:seed",
+    "dev": "nest start --watch"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
