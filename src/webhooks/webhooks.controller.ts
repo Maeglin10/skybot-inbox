@@ -1,11 +1,10 @@
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { WebhooksService } from './webhooks.service';
 import type { WhatsAppCloudWebhook } from './dto/whatsapp-cloud.dto';
-import { parseWhatsAppCloudWebhook } from './whatsapp.parser';
 
 @Controller('webhooks/whatsapp')
 export class WebhooksController {
-  constructor(private readonly webhooksService: WebhooksService) {}
+  constructor(private readonly webhooks: WebhooksService) {}
 
   @Get()
   verify(
@@ -13,16 +12,18 @@ export class WebhooksController {
     @Query('hub.verify_token') token?: string,
     @Query('hub.challenge') challenge?: string,
   ) {
-    if (mode === 'subscribe' && token === process.env.WHATSAPP_VERIFY_TOKEN && challenge) {
+    if (
+      mode === 'subscribe' &&
+      token === process.env.WHATSAPP_VERIFY_TOKEN &&
+      challenge
+    ) {
       return challenge;
     }
     return 'ok';
   }
 
   @Post()
-  async inbound(@Body() body: WhatsAppCloudWebhook) {
-    const parsed = parseWhatsAppCloudWebhook(body);
-    await this.webhooksService.handleIncoming(parsed);
-    return { ok: true };
+  inbound(@Body() body: WhatsAppCloudWebhook) {
+    return this.webhooks.handleWhatsAppWebhook(body);
   }
 }
