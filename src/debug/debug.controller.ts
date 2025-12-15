@@ -1,6 +1,6 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
 import { ApiKeyGuard } from '../auth/api-key.guard';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Controller('debug')
 @UseGuards(ApiKeyGuard)

@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { ConversationsService } from './conversations.service';
 import { ApiKeyGuard } from '../auth/api-key.guard';
+import { ListConversationsDto } from './dto/list-conversations.dto';
 
 @Controller('conversations')
 @UseGuards(ApiKeyGuard)
@@ -16,18 +17,8 @@ export class ConversationsController {
   constructor(private readonly conversationsService: ConversationsService) {}
 
   @Get()
-  findAll(
-    @Query('status') status?: 'OPEN' | 'PENDING' | 'CLOSED',
-    @Query('inboxId') inboxId?: string,
-    @Query('limit') limit?: string,
-    @Query('cursor') cursor?: string,
-  ) {
-    return this.conversationsService.findAll({
-      status,
-      inboxId,
-      limit: limit ? Number(limit) : undefined,
-      cursor,
-    });
+  findAll(@Query() query: ListConversationsDto) {
+    return this.conversationsService.findAll(query);
   }
 
   @Get(':id')

@@ -1,7 +1,16 @@
-import { Body, Controller, Get, Post, Query, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Query,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import type { Response } from 'express';
 import type { WhatsAppCloudWebhook } from './dto/whatsapp-cloud.dto';
 import { WebhooksService } from './webhooks.service';
+import { ApiKeyGuard } from '../auth/api-key.guard';
 
 @Controller('webhooks/whatsapp')
 export class WebhooksController {
@@ -21,7 +30,8 @@ export class WebhooksController {
   }
 
   @Post()
-  async incoming(@Body() body: WhatsAppCloudWebhook) {
+  @UseGuards(ApiKeyGuard)
+  incoming(@Body() body: WhatsAppCloudWebhook) {
     return this.webhooksService.handleWhatsAppWebhook(body);
   }
 }
