@@ -7,13 +7,22 @@ type Status = 'OPEN' | 'PENDING' | 'CLOSED';
 export class ConversationsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(params: { status?: Status }) {
-    const { status } = params;
+  // ✅ REMPLACE ton findAll par celui-ci
+  async findAll(params: {
+    status?: Status;
+    inboxId?: string;
+    limit?: number;
+    cursor?: string;
+  }) {
+    const { status, inboxId, limit = 20, cursor } = params;
 
-    return this.prisma.conversation.findMany({
+    const items = await this.prisma.conversation.findMany({
       where: {
         ...(status ? { status } : {}),
+        ...(inboxId ? { inboxId } : {}),
       },
+      take: limit,
+      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
       include: {
         inbox: true,
         contact: true,
@@ -24,6 +33,10 @@ export class ConversationsService {
       },
       orderBy: [{ lastActivityAt: 'desc' }, { createdAt: 'desc' }],
     });
+
+    const nextCursor =
+      items.length === limit ? items[items.length - 1].id : null;
+    return { items, nextCursor };
   }
 
   async findOne(conversationId: string) {

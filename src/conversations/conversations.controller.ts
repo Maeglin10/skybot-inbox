@@ -1,27 +1,45 @@
-import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Patch,
+  Param,
+  Query,
+  Body,
+  UseGuards,
+} from '@nestjs/common';
 import { ConversationsService } from './conversations.service';
-import { ListConversationsDto } from './dto/list-conversations.dto';
-import { UpdateConversationStatusDto } from './dto/update-conversation-status.dto';
+import { ApiKeyGuard } from '../auth/api-key.guard';
 
 @Controller('conversations')
+@UseGuards(ApiKeyGuard)
 export class ConversationsController {
   constructor(private readonly conversationsService: ConversationsService) {}
 
   @Get()
-  async list(@Query() query: ListConversationsDto) {
-    return this.conversationsService.findAll({ status: query.status });
+  findAll(
+    @Query('status') status?: 'OPEN' | 'PENDING' | 'CLOSED',
+    @Query('inboxId') inboxId?: string,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
+  ) {
+    return this.conversationsService.findAll({
+      status,
+      inboxId,
+      limit: limit ? Number(limit) : undefined,
+      cursor,
+    });
   }
 
   @Get(':id')
-  async getOne(@Param('id') id: string) {
+  findOne(@Param('id') id: string) {
     return this.conversationsService.findOne(id);
   }
 
   @Patch(':id/status')
-  async setStatus(
+  updateStatus(
     @Param('id') id: string,
-    @Body() dto: UpdateConversationStatusDto,
+    @Body() body: { status: 'OPEN' | 'PENDING' | 'CLOSED' },
   ) {
-    return this.conversationsService.updateStatus(id, dto.status);
+    return this.conversationsService.updateStatus(id, body.status);
   }
 }

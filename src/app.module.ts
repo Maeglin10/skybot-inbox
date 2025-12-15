@@ -9,6 +9,7 @@ import { ConversationsModule } from './conversations/conversations.module';
 import { MessagesModule } from './messages/messages.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { DebugModule } from './debug/debug.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -21,6 +22,8 @@ import { DebugModule } from './debug/debug.module';
     MessagesModule,
     WebhooksModule,
     DebugModule,
+    ConfigModule.forRoot({ isGlobal: true }),
+    AuthModule,
   ],
 })
 export class AppModule {}

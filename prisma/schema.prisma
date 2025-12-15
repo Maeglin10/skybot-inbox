@@ -52,11 +52,17 @@ model Contact {
   @@index([accountId])
 }
 
+enum ConversationStatus {
+  OPEN
+  PENDING
+  CLOSED
+}
+
 model Conversation {
   id             String   @id @default(cuid())
   inboxId        String
   contactId      String
-  status         String   @default("OPEN")
+  status ConversationStatus @default(OPEN)
   lastActivityAt DateTime @default(now())
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
