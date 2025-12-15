@@ -3,13 +3,14 @@ import {
   Get,
   Patch,
   Param,
-  Query,
   Body,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ConversationsService } from './conversations.service';
 import { ApiKeyGuard } from '../auth/api-key.guard';
 import { ListConversationsDto } from './dto/list-conversations.dto';
+import { UpdateConversationStatusDto } from './dto/update-conversation-status.dto';
 
 @Controller('conversations')
 @UseGuards(ApiKeyGuard)
@@ -29,8 +30,8 @@ export class ConversationsController {
   @Patch(':id/status')
   updateStatus(
     @Param('id') id: string,
-    @Body() body: { status: 'OPEN' | 'PENDING' | 'CLOSED' },
+    @Body() dto: UpdateConversationStatusDto,
   ) {
-    return this.conversationsService.updateStatus(id, body.status);
+    return this.conversationsService.updateStatus(id, dto.status);
   }
 }

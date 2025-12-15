@@ -31,7 +31,7 @@ export class WebhooksController {
 
   @Post()
   @UseGuards(ApiKeyGuard)
-  incoming(@Body() body: WhatsAppCloudWebhook) {
+  async incoming(@Body() body: WhatsAppCloudWebhook) {
     return this.webhooksService.handleWhatsAppWebhook(body);
   }
 }
