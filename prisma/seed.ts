@@ -15,7 +15,7 @@ async function main() {
     (await prisma.account.findFirst({ where: { name: 'Demo' } })) ??
     (await prisma.account.create({ data: { name: 'Demo' } }));
 
-  await prisma.inbox.upsert({
+  const inbox = await prisma.inbox.upsert({
     where: {
       accountId_externalId: { accountId: account.id, externalId: 'demo-inbox' },
     },
@@ -27,12 +27,24 @@ async function main() {
     },
   });
 
+  await prisma.contact.upsert({
+    where: { inboxId_phone: { inboxId: inbox.id, phone: '573001112233' } },
+    update: { name: 'Val', accountId: account.id },
+    create: {
+      accountId: account.id,
+      inboxId: inbox.id,
+      phone: '573001112233',
+      name: 'Val',
+    },
+  });
+
   console.log('Seed OK');
 }
 
 main()
-  .catch((e) => {
-    console.error(e);
+  .catch((err: unknown) => {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('Seed failed:', msg);
     process.exit(1);
   })
   .finally(async () => {

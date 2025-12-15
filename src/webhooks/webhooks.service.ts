@@ -25,50 +25,74 @@ export class WebhooksService {
     let stored = 0;
 
     for (const ev of events) {
-      const contact = await this.prisma.contact.upsert({
-        where: { inboxId_phone: { inboxId: inbox.id, phone: ev.phone } },
-        update: { name: ev.contactName ?? null },
-        create: {
-          inboxId: inbox.id,
-          phone: ev.phone,
-          name: ev.contactName ?? null,
-        },
-      });
+      const didStore = await this.prisma.$transaction(async (tx) => {
+        // 1) Contact upsert (scope inbox + phone)
+        const contact = await tx.contact.upsert({
+          where: { inboxId_phone: { inboxId: inbox.id, phone: ev.phone } },
+          update: { name: ev.contactName ?? undefined },
+          create: {
+            accountId: account.id,
+            inboxId: inbox.id,
+            phone: ev.phone,
+            name: ev.contactName ?? null,
+          },
+        });
 
-      const conversation =
-        (await this.prisma.conversation.findFirst({
+        // 2) Conversation find/create
+        let conversation = await tx.conversation.findFirst({
           where: { inboxId: inbox.id, contactId: contact.id },
           orderBy: { createdAt: 'desc' },
-        })) ??
-        (await this.prisma.conversation.create({
+        });
+
+        if (!conversation) {
+          conversation = await tx.conversation.create({
+            data: {
+              inboxId: inbox.id,
+              contactId: contact.id,
+              status: 'OPEN',
+              lastActivityAt: new Date(),
+            },
+          });
+        }
+
+        // 3) Dedupe via unique (conversationId, externalId) when externalId present
+        if (ev.providerMessageId) {
+          const existing = await tx.message.findFirst({
+            where: {
+              conversationId: conversation.id,
+              externalId: ev.providerMessageId,
+            },
+            select: { id: true },
+          });
+          if (existing) return false;
+        }
+
+        // 4) Create message
+        const message = await tx.message.create({
           data: {
-            inboxId: inbox.id,
-            contactId: contact.id,
-            status: 'OPEN',
-            lastActivityAt: new Date(),
+            conversationId: conversation.id,
+            externalId: ev.providerMessageId ?? null,
+            direction: 'IN',
+            from: ev.phone,
+            to: inbox.externalId ?? null,
+            text: ev.text ?? null,
+            timestamp: ev.sentAt ? new Date(ev.sentAt) : new Date(),
           },
-        }));
+        });
 
-      await this.prisma.message.create({
-        data: {
-          conversationId: conversation.id,
-          externalId: ev.providerMessageId ?? null,
-          direction: 'IN',
-          from: ev.phone,
-          to: inbox.externalId ?? null,
-          text: ev.text ?? null,
-          timestamp: ev.sentAt ? new Date(ev.sentAt) : new Date(),
-        },
-      });
-      await this.prisma.conversation.update({
-        where: { id: conversation.id },
-        data: {
-          lastActivityAt: new Date(),
-          ...(conversation.status === 'CLOSED' ? { status: 'OPEN' } : {}),
-        },
+        // 5) Update conversation: lastActivityAt + reopen
+        await tx.conversation.update({
+          where: { id: conversation.id },
+          data: {
+            lastActivityAt: message.createdAt,
+            ...(conversation.status === 'CLOSED' ? { status: 'OPEN' } : {}),
+          },
+        });
+
+        return true;
       });
 
-      stored += 1;
+      if (didStore) stored += 1;
     }
 
     return { ok: true, stored };
