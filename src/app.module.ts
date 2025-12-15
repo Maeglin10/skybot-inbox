@@ -8,6 +8,7 @@ import { ContactsModule } from './contacts/contacts.module';
 import { ConversationsModule } from './conversations/conversations.module';
 import { MessagesModule } from './messages/messages.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
+import { DebugModule } from './debug/debug.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
     ConversationsModule,
     MessagesModule,
     WebhooksModule,
+    DebugModule,
   ],
 })
 export class AppModule {}

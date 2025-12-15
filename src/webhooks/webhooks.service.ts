@@ -1,11 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import type { WhatsAppCloudWebhook } from './dto/whatsapp-cloud.dto';
-import {
-  parseWhatsAppCloudWebhook,
-  type ParsedIncomingMessage,
-} from './whatsapp.parser';
+import { parseWhatsAppCloudWebhook } from './whatsapp.parser';
 
 @Injectable()
 export class WebhooksService {
@@ -62,6 +58,13 @@ export class WebhooksService {
           to: inbox.externalId ?? null,
           text: ev.text ?? null,
           timestamp: ev.sentAt ? new Date(ev.sentAt) : new Date(),
+        },
+      });
+      await this.prisma.conversation.update({
+        where: { id: conversation.id },
+        data: {
+          lastActivityAt: new Date(),
+          ...(conversation.status === 'CLOSED' ? { status: 'OPEN' } : {}),
         },
       });
 
