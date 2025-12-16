@@ -8,20 +8,22 @@ export class ConversationsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(params: {
-    status?: 'OPEN' | 'PENDING' | 'CLOSED';
+    status?: Status;
     inboxId?: string;
     limit?: number;
     cursor?: string;
   }) {
-    const limit = params.limit ?? 20;
+    const { status, inboxId, limit = 20, cursor } = params;
 
-    const rows = await this.prisma.conversation.findMany({
-      where: {
-        ...(params.status ? { status: params.status } : {}),
-        ...(params.inboxId ? { inboxId: params.inboxId } : {}),
-      },
-      take: limit + 1,
-      ...(params.cursor ? { skip: 1, cursor: { id: params.cursor } } : {}),
+    const where = {
+      ...(status ? { status } : {}),
+      ...(inboxId ? { inboxId } : {}),
+      ...(cursor ? { id: { lt: cursor } } : {}),
+    };
+
+    const items = await this.prisma.conversation.findMany({
+      where,
+      take: limit,
       include: {
         inbox: true,
         contact: true,
@@ -30,12 +32,11 @@ export class ConversationsService {
           orderBy: { createdAt: 'desc' },
         },
       },
-      orderBy: [{ lastActivityAt: 'desc' }, { id: 'desc' }],
+      orderBy: [{ lastActivityAt: 'desc' }, { createdAt: 'desc' }],
     });
 
-    const hasNext = rows.length > limit;
-    const items = hasNext ? rows.slice(0, limit) : rows;
-    const nextCursor = hasNext ? items[items.length - 1]?.id : null;
+    const nextCursor =
+      items.length === limit ? items[items.length - 1].id : null;
 
     return { items, nextCursor };
   }
