@@ -3,17 +3,18 @@ import {
   Get,
   Patch,
   Param,
-  Body,
   Query,
+  Body,
   UseGuards,
 } from '@nestjs/common';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import { ConversationsService } from './conversations.service';
 import { ApiKeyGuard } from '../auth/api-key.guard';
 import { ListConversationsDto } from './dto/list-conversations.dto';
 import { UpdateConversationStatusDto } from './dto/update-conversation-status.dto';
 
 @Controller('conversations')
-@UseGuards(ApiKeyGuard)
+@UseGuards(ApiKeyGuard, ThrottlerGuard)
 export class ConversationsController {
   constructor(private readonly conversationsService: ConversationsService) {}
 
@@ -30,8 +31,8 @@ export class ConversationsController {
   @Patch(':id/status')
   updateStatus(
     @Param('id') id: string,
-    @Body() dto: UpdateConversationStatusDto,
+    @Body() body: UpdateConversationStatusDto,
   ) {
-    return this.conversationsService.updateStatus(id, dto.status);
+    return this.conversationsService.updateStatus(id, body.status);
   }
 }

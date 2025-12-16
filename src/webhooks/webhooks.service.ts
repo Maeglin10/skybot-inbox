@@ -1,15 +1,23 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import type { WhatsAppCloudWebhook } from './dto/whatsapp-cloud.dto';
 import { parseWhatsAppCloudWebhook } from './whatsapp.parser';
 
 @Injectable()
 export class WebhooksService {
+  private readonly logger = new Logger(WebhooksService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   async handleWhatsAppWebhook(body: WhatsAppCloudWebhook) {
     const events = parseWhatsAppCloudWebhook(body);
-    if (events.length === 0) return { ok: true, stored: 0 };
+
+    // LOG 1 — nombre d’événements reçus
+    this.logger.log(`events=${events.length}`);
+
+    if (events.length === 0) {
+      return { ok: true, stored: 0 };
+    }
 
     const account = await this.prisma.account.findFirst({
       where: { name: 'Demo' },
@@ -26,10 +34,17 @@ export class WebhooksService {
 
     for (const ev of events) {
       const didStore = await this.prisma.$transaction(async (tx) => {
-        // 1) Contact upsert (scope inbox + phone)
+        // 1) Contact upsert
         const contact = await tx.contact.upsert({
-          where: { inboxId_phone: { inboxId: inbox.id, phone: ev.phone } },
-          update: { name: ev.contactName ?? undefined },
+          where: {
+            inboxId_phone: {
+              inboxId: inbox.id,
+              phone: ev.phone,
+            },
+          },
+          update: {
+            name: ev.contactName ?? undefined,
+          },
           create: {
             accountId: account.id,
             inboxId: inbox.id,
@@ -53,9 +68,14 @@ export class WebhooksService {
               lastActivityAt: new Date(),
             },
           });
+
+          // LOG 2 — conversation créée
+          this.logger.log(
+            `conversation:create inbox=${inbox.externalId} contact=${contact.phone}`,
+          );
         }
 
-        // 3) Dedupe via unique (conversationId, externalId) when externalId present
+        // 3) DEDUPE
         if (ev.providerMessageId) {
           const existing = await tx.message.findFirst({
             where: {
@@ -64,7 +84,14 @@ export class WebhooksService {
             },
             select: { id: true },
           });
-          if (existing) return false;
+
+          if (existing) {
+            // LOG 3 — déduplication
+            this.logger.debug(
+              `dedupe externalId=${ev.providerMessageId} conv=${conversation.id}`,
+            );
+            return false;
+          }
         }
 
         // 4) Create message
@@ -80,7 +107,11 @@ export class WebhooksService {
           },
         });
 
-        // 5) Update conversation: lastActivityAt + reopen
+        // 5) Update conversation (reopen si CLOSED)
+        if (conversation.status === 'CLOSED') {
+          this.logger.log(`conversation:reopen id=${conversation.id}`);
+        }
+
         await tx.conversation.update({
           where: { id: conversation.id },
           data: {

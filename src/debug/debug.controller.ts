@@ -1,9 +1,10 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import { ApiKeyGuard } from '../auth/api-key.guard';
 import { PrismaService } from '../prisma/prisma.service';
+import { ThrottlerGuard } from '@nestjs/throttler';
 
 @Controller('debug')
-@UseGuards(ApiKeyGuard)
+@UseGuards(ApiKeyGuard, ThrottlerGuard)
 export class DebugController {
   constructor(private readonly prisma: PrismaService) {}
 

@@ -1,23 +1,21 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
-import * as bodyParser from 'body-parser';
+import * as express from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // ✅ Capture du raw body POUR WhatsApp (signature Meta)
+  // JSON global + capture rawBody uniquement pour le webhook
   app.use(
-    '/webhooks/whatsapp',
-    bodyParser.json({
+    express.json({
       verify: (req: any, _res, buf) => {
-        req.rawBody = buf;
+        if (req.originalUrl?.startsWith('/webhooks/whatsapp')) {
+          req.rawBody = buf;
+        }
       },
     }),
   );
-
-  // ✅ JSON normal pour le reste de l’API
-  app.use(bodyParser.json());
 
   app.useGlobalPipes(
     new ValidationPipe({
