@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import StatusSelect from './StatusSelect';
 import Composer from './Composer';
-import { apiGet } from '@/lib/api';
+import { apiGetClient as apiGet, apiPostClient as apiPost } from '@/lib/api.client';
 
 type Msg = {
   id: string;

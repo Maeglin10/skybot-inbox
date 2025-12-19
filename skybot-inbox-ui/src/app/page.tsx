@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { apiGet } from "@/lib/api";
+import { apiGetServer as apiGet } from '@/lib/api.server';
 
 type ConvItem = {
   id: string;

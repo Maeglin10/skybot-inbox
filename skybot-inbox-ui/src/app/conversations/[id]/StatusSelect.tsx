@@ -1,6 +1,6 @@
 'use client';
 
-import { apiFetch } from '@/lib/api';
+import { apiGetClient as apiGet, apiPostClient as apiPost } from '@/lib/api.client';
 
 export default function StatusSelect({
   id,
