@@ -1,14 +1,53 @@
-import ConversationClient from './ConversationClient';
-import { apiGetServer as apiGet } from '@/lib/api.server';
+import Link from 'next/link';
+import { apiGetServer } from '@/lib/api.server';
+import Composer from './Composer';
+import StatusSelect from './StatusSelect';
+
+type Msg = {
+  id: string;
+  direction: 'IN' | 'OUT';
+  text: string | null;
+  externalId: string | null;
+  createdAt: string;
+};
 
 export default async function ConversationPage(props: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await props.params;
 
-  const res = await fetch(`/api/_proxy/conversations/${id}`, { cache: 'no-store' });
-  const conv = await res.json();
-  if (!res.ok) throw new Error(JSON.stringify(conv));
+  const conv = await apiGetServer(`/conversations/${id}`);
+  const title = conv.contact?.name ?? conv.contact?.phone ?? conv.id;
+  const messages: Msg[] = conv.messages ?? [];
 
-  return <ConversationClient convId={id} initial={conv} />;
+  return (
+    <main className="p-6 space-y-4">
+      <header className="flex items-center justify-between">
+        <Link href="/" className="text-sm underline">
+          Back
+        </Link>
+        <StatusSelect id={conv.id} status={conv.status} />
+      </header>
+
+      <h1 className="text-xl font-semibold">{title}</h1>
+
+      <div className="space-y-2">
+        {messages.map((m) => (
+          <div key={m.id} className="rounded border p-3">
+            <div className="text-xs text-gray-500">
+              {m.direction} • {m.externalId ?? ''} •{' '}
+              {new Date(m.createdAt).toLocaleString()}
+            </div>
+            <div className="text-sm">{m.text ?? ''}</div>
+          </div>
+        ))}
+
+        {messages.length === 0 && (
+          <div className="text-sm text-gray-500">No messages</div>
+        )}
+      </div>
+
+      <Composer conversationId={conv.id} />
+    </main>
+  );
 }

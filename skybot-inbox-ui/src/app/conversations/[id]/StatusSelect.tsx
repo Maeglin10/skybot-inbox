@@ -1,27 +1,38 @@
 'use client';
 
-import { apiGetClient as apiGet, apiPostClient as apiPost } from '@/lib/api.client';
+import { useState } from 'react';
+import { apiFetchClient } from '@/lib/api.client';
 
 export default function StatusSelect({
   id,
   status,
 }: {
   id: string;
-  status: 'OPEN' | 'PENDING' | 'CLOSED' | string;
+  status: 'OPEN' | 'PENDING' | 'CLOSED';
 }) {
-  async function change(e: React.ChangeEvent<HTMLSelectElement>) {
-    await apiFetch(`/conversations/${id}/status`, {
-      method: 'PATCH',
-      body: JSON.stringify({ status: e.target.value }),
-    });
-    location.reload();
+  const [value, setValue] = useState(status);
+  const [loading, setLoading] = useState(false);
+
+  async function update(next: typeof value) {
+    setValue(next);
+    setLoading(true);
+    try {
+      await apiFetchClient(`/conversations/${id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: next }),
+      });
+      location.reload();
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
     <select
-      defaultValue={status}
-      onChange={change}
-      className="text-xs border rounded px-2 py-1"
+      className="border rounded px-2 py-1 text-sm"
+      value={value}
+      disabled={loading}
+      onChange={(e) => update(e.target.value as typeof value)}
     >
       <option value="OPEN">OPEN</option>
       <option value="PENDING">PENDING</option>

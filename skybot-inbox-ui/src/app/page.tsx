@@ -1,17 +1,15 @@
-import Link from "next/link";
-import { apiGetServer as apiGet } from '@/lib/api.server';
+import Link from 'next/link';
+import { apiGetServer } from '@/lib/api.server';
 
 type ConvItem = {
   id: string;
-  status: "OPEN" | "PENDING" | "CLOSED";
-  lastActivityAt: string;
-  inbox?: { name?: string; externalId?: string };
+  status: 'OPEN' | 'PENDING' | 'CLOSED';
   contact?: { name?: string | null; phone?: string };
-  messages?: { text?: string | null; createdAt: string }[];
+  messages?: { text?: string | null }[];
 };
 
 export default async function Home() {
-  const data = await apiGet("/conversations?limit=20");
+  const data = await apiGetServer('/conversations?limit=20');
   const items: ConvItem[] = data.items ?? [];
 
   return (
@@ -23,9 +21,8 @@ export default async function Home() {
 
       <div className="space-y-2">
         {items.map((c) => {
-          if (!c?.id) return null;
           const title = c.contact?.name ?? c.contact?.phone ?? c.id;
-          const preview = c.messages?.[0]?.text ?? "";
+          const preview = c.messages?.[0]?.text ?? '';
           return (
             <Link
               key={c.id}
