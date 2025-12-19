@@ -1,9 +1,9 @@
-import Link from "next/link";
-import { apiGet } from "@/lib/api";
+import Link from 'next/link';
+import { apiGet } from '@/lib/api';
 
 type ConvItem = {
   id: string;
-  status: "OPEN" | "PENDING" | "CLOSED";
+  status: 'OPEN' | 'PENDING' | 'CLOSED';
   lastActivityAt: string;
   inbox?: { name?: string; externalId?: string };
   contact?: { name?: string | null; phone?: string };
@@ -11,7 +11,7 @@ type ConvItem = {
 };
 
 export default async function Home() {
-  const data = await apiGet("/conversations?limit=20");
+  const data = await apiGet('/conversations?limit=20');
   const items: ConvItem[] = data.items ?? [];
 
   return (
@@ -23,8 +23,11 @@ export default async function Home() {
 
       <div className="space-y-2">
         {items.map((c) => {
+          if (!c?.id) return null;
+
           const title = c.contact?.name ?? c.contact?.phone ?? c.id;
-          const preview = c.messages?.[0]?.text ?? "";
+          const preview = c.messages?.[0]?.text ?? '';
+
           return (
             <Link
               key={c.id}
