@@ -5,7 +5,6 @@ type ConvItem = {
   id: string;
   status: 'OPEN' | 'PENDING' | 'CLOSED';
   lastActivityAt: string;
-  inbox?: { name?: string; externalId?: string };
   contact?: { name?: string | null; phone?: string };
   messages?: { text?: string | null; createdAt: string }[];
 };
@@ -42,6 +41,7 @@ export default async function Home() {
             </Link>
           );
         })}
+
         {items.length === 0 && (
           <div className="text-sm text-gray-500">No conversations</div>
         )}
