@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { apiGet } from '@/lib/api';
+import Composer from './Composer';
+import StatusSelect from './StatusSelect';
 
 type Msg = {
   id: string;
@@ -24,7 +26,7 @@ export default async function ConversationPage(props: {
         <Link href="/" className="text-sm underline">
           Back
         </Link>
-        <div className="text-xs text-gray-500">{conv.status}</div>
+        <StatusSelect id={conv.id} status={conv.status} />
       </header>
 
       <h1 className="text-xl font-semibold">{title}</h1>
@@ -46,4 +48,5 @@ export default async function ConversationPage(props: {
       </div>
     </main>
   );
+  <Composer conversationId={conv.id} />
 }
