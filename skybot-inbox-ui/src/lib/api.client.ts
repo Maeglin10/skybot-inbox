@@ -1,14 +1,14 @@
-const BASE = '/api/_proxy';
-const KEY = process.env.NEXT_PUBLIC_API_KEY ?? '';
+// src/lib/api.client.ts
+'use client';
 
 export async function apiFetchClient(path: string, init: RequestInit = {}) {
-  const url = `${BASE}${path.startsWith('/') ? path : `/${path}`}`;
+  const p = path.startsWith('/') ? path : `/${path}`;
+  const url = `/api/_proxy${p}`;
 
   const res = await fetch(url, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': KEY,
       ...(init.headers ?? {}),
     },
     cache: 'no-store',
@@ -22,5 +22,9 @@ export async function apiFetchClient(path: string, init: RequestInit = {}) {
 }
 
 export const apiGetClient = (path: string) => apiFetchClient(path);
+
 export const apiPostClient = (path: string, body: unknown) =>
   apiFetchClient(path, { method: 'POST', body: JSON.stringify(body) });
+
+export const apiPatchClient = (path: string, body: unknown) =>
+  apiFetchClient(path, { method: 'PATCH', body: JSON.stringify(body) });

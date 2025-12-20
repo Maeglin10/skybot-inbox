@@ -1,27 +1,17 @@
 'use client';
 
 import { useState } from 'react';
-import { apiFetchClient } from '@/lib/api.client';
+import { apiPatchClient } from '@/lib/api.client';
 
-export default function StatusSelect({
-  id,
-  status,
-}: {
-  id: string;
-  status: 'OPEN' | 'PENDING' | 'CLOSED';
-}) {
+export default function StatusSelect({ id, status }: { id: string; status: string }) {
   const [value, setValue] = useState(status);
   const [loading, setLoading] = useState(false);
 
-  async function update(next: typeof value) {
+  async function onChange(next: string) {
     setValue(next);
     setLoading(true);
     try {
-      await apiFetchClient(`/conversations/${id}/status`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status: next }),
-      });
-      location.reload();
+      await apiPatchClient(`/conversations/${id}/status`, { status: next });
     } finally {
       setLoading(false);
     }
@@ -29,10 +19,10 @@ export default function StatusSelect({
 
   return (
     <select
-      className="border rounded px-2 py-1 text-sm"
       value={value}
       disabled={loading}
-      onChange={(e) => update(e.target.value as typeof value)}
+      onChange={(e) => void onChange(e.target.value)}
+      className="border rounded px-2 py-1 text-sm"
     >
       <option value="OPEN">OPEN</option>
       <option value="PENDING">PENDING</option>
