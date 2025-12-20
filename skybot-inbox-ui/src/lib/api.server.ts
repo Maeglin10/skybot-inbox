@@ -1,8 +1,7 @@
-// src/lib/api.server.ts
 import 'server-only';
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:3001';
-const KEY = process.env.API_KEY ?? process.env.NEXT_PUBLIC_API_KEY ?? '';
+const BASE = process.env.API_URL ?? 'http://127.0.0.1:3001';
+const KEY  = process.env.API_KEY ?? '';
 
 export async function apiServerFetch(path: string, init: RequestInit = {}) {
   const url = `${BASE}${path.startsWith('/') ? path : `/${path}`}`;
@@ -10,18 +9,17 @@ export async function apiServerFetch(path: string, init: RequestInit = {}) {
   const res = await fetch(url, {
     ...init,
     headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': KEY,
       ...(init.headers ?? {}),
+      'x-api-key': KEY,
+      'content-type': 'application/json',
     },
     cache: 'no-store',
   });
 
-  if (!res.ok) {
-    const txt = await res.text().catch(() => '');
-    throw new Error(`HTTP ${res.status} ${res.statusText} ${txt}`);
-  }
-  return res.json();
+  const txt = await res.text();
+  if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText} ${txt}`);
+
+  return txt ? JSON.parse(txt) : null;
 }
 
 export const apiGetServer = (path: string) => apiServerFetch(path);

@@ -1,24 +1,11 @@
-// src/lib/api.client.ts
 'use client';
 
 export async function apiFetchClient(path: string, init: RequestInit = {}) {
   const p = path.startsWith('/') ? path : `/${path}`;
-  const url = `/api/_proxy${p}`;
+  const url = `/api/proxy${p}`; // <- ici
 
-  const res = await fetch(url, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init.headers ?? {}),
-    },
-    cache: 'no-store',
-  });
-
-  if (!res.ok) {
-    const txt = await res.text().catch(() => '');
-    throw new Error(`HTTP ${res.status} ${res.statusText} ${txt}`);
-  }
-  return res.json();
+  const res = await fetch(url, { ...init, cache: 'no-store' });
+  return res;
 }
 
 export const apiGetClient = (path: string) => apiFetchClient(path);
