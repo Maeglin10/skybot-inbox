@@ -1,17 +1,26 @@
 'use client';
 
-export async function apiFetchClient(path: string, init: RequestInit = {}) {
-  const p = path.startsWith('/') ? path : `/${path}`;
-  const url = `/api/proxy${p}`; // <- ici
+export async function apiClientFetch(path: string, init: RequestInit = {}) {
+  const url = `/api/proxy${path.startsWith('/') ? path : `/${path}`}`;
 
-  const res = await fetch(url, { ...init, cache: 'no-store' });
-  return res;
+  const res = await fetch(url, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(init.headers ?? {}),
+    },
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '');
+    throw new Error(`HTTP ${res.status} ${res.statusText} ${txt}`);
+  }
+  return res.json();
 }
 
-export const apiGetClient = (path: string) => apiFetchClient(path);
-
+export const apiGetClient = (path: string) => apiClientFetch(path);
 export const apiPostClient = (path: string, body: unknown) =>
-  apiFetchClient(path, { method: 'POST', body: JSON.stringify(body) });
-
+  apiClientFetch(path, { method: 'POST', body: JSON.stringify(body) });
 export const apiPatchClient = (path: string, body: unknown) =>
-  apiFetchClient(path, { method: 'PATCH', body: JSON.stringify(body) });
+  apiClientFetch(path, { method: 'PATCH', body: JSON.stringify(body) });

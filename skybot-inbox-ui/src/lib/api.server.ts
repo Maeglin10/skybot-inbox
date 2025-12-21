@@ -1,25 +1,24 @@
 import 'server-only';
 
-const BASE = process.env.API_URL ?? 'http://127.0.0.1:3001';
-const KEY  = process.env.API_KEY ?? '';
+const BASE = process.env.APP_URL ?? 'http://localhost:3000';
 
 export async function apiServerFetch(path: string, init: RequestInit = {}) {
-  const url = `${BASE}${path.startsWith('/') ? path : `/${path}`}`;
+  const url = `${BASE}/api/proxy${path.startsWith('/') ? path : `/${path}`}`;
 
   const res = await fetch(url, {
     ...init,
     headers: {
+      'Content-Type': 'application/json',
       ...(init.headers ?? {}),
-      'x-api-key': KEY,
-      'content-type': 'application/json',
     },
     cache: 'no-store',
   });
 
-  const txt = await res.text();
-  if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText} ${txt}`);
-
-  return txt ? JSON.parse(txt) : null;
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '');
+    throw new Error(`HTTP ${res.status} ${res.statusText} ${txt}`);
+  }
+  return res.json();
 }
 
 export const apiGetServer = (path: string) => apiServerFetch(path);
