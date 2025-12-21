@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001';
+const API_BASE = process.env.API_URL || 'http://127.0.0.1:3001';
 const API_KEY = process.env.API_KEY || '';
 
 async function forward(req: Request, { params }: { params: Promise<{ path: string[] }> }) {
