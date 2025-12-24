@@ -1,22 +1,34 @@
-"use client";
+'use client';
 
-import * as React from "react";
-import { InboxList } from "./list";
-import { InboxThread } from "./thread";
-import { fetchConversation } from "@/lib/inbox.client";
+import * as React from 'react';
+import { InboxList } from './list';
+import { InboxThread } from './thread';
+import { fetchConversation } from '@/lib/inbox.client';
 
 export type InboxConversation = {
   id: string;
   status?: string;
   contact?: { name?: string | null; phone?: string | null };
   lastActivityAt?: string;
-  messages?: Array<{ text?: string | null; timestamp?: string }>;
+  messages?: Array<{
+    text?: string | null;
+    timestamp?: string;
+    direction?: 'IN' | 'OUT';
+  }>;
 };
 
-export function InboxShell({ initialItems }: { initialItems: InboxConversation[] }) {
+export function InboxShell({
+  initialItems,
+}: {
+  initialItems: InboxConversation[];
+}) {
   const [items, setItems] = React.useState<InboxConversation[]>(initialItems);
-  const [activeId, setActiveId] = React.useState<string | null>(items[0]?.id ?? null);
-  const [active, setActive] = React.useState<InboxConversation | null>(items[0] ?? null);
+  const [activeId, setActiveId] = React.useState<string | null>(
+    items[0]?.id ?? null,
+  );
+  const [active, setActive] = React.useState<InboxConversation | null>(
+    items[0] ?? null,
+  );
   const [loading, setLoading] = React.useState(false);
 
   async function select(id: string) {
@@ -25,7 +37,9 @@ export function InboxShell({ initialItems }: { initialItems: InboxConversation[]
     try {
       const full = (await fetchConversation(id)) as InboxConversation;
       setActive(full);
-      setItems((prev) => prev.map((c) => (c.id === id ? { ...c, ...full } : c)));
+      setItems((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, ...full } : c)),
+      );
     } finally {
       setLoading(false);
     }
@@ -33,7 +47,9 @@ export function InboxShell({ initialItems }: { initialItems: InboxConversation[]
 
   function refresh(full: InboxConversation) {
     setActive(full);
-    setItems((prev) => prev.map((c) => (c.id === full.id ? { ...c, ...full } : c)));
+    setItems((prev) =>
+      prev.map((c) => (c.id === full.id ? { ...c, ...full } : c)),
+    );
   }
 
   React.useEffect(() => {
@@ -48,7 +64,11 @@ export function InboxShell({ initialItems }: { initialItems: InboxConversation[]
           <InboxList items={items} activeId={activeId} onSelect={select} />
         </div>
         <div className="min-w-0">
-          <InboxThread conversation={active} loading={loading} onRefresh={refresh} />
+          <InboxThread
+            conversation={active}
+            loading={loading}
+            onRefresh={refresh}
+          />
         </div>
       </div>
     </div>
