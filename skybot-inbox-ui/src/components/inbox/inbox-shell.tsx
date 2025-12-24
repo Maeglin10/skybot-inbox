@@ -25,12 +25,15 @@ export function InboxShell({ initialItems }: { initialItems: InboxConversation[]
     try {
       const full = (await fetchConversation(id)) as InboxConversation;
       setActive(full);
-
-      // optionnel: rafraîchir preview/messages dans la liste
       setItems((prev) => prev.map((c) => (c.id === id ? { ...c, ...full } : c)));
     } finally {
       setLoading(false);
     }
+  }
+
+  function refresh(full: InboxConversation) {
+    setActive(full);
+    setItems((prev) => prev.map((c) => (c.id === full.id ? { ...c, ...full } : c)));
   }
 
   React.useEffect(() => {
@@ -45,7 +48,7 @@ export function InboxShell({ initialItems }: { initialItems: InboxConversation[]
           <InboxList items={items} activeId={activeId} onSelect={select} />
         </div>
         <div className="min-w-0">
-          <InboxThread conversation={active} loading={loading} />
+          <InboxThread conversation={active} loading={loading} onRefresh={refresh} />
         </div>
       </div>
     </div>

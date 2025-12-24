@@ -2,15 +2,20 @@
 
 import * as React from "react";
 import type { InboxConversation } from "./inbox-shell";
+import { sendMessage } from "@/lib/messages.client";
+import { fetchConversation } from "@/lib/inbox.client";
 
 export function InboxThread({
   conversation,
   loading,
+  onRefresh,
 }: {
   conversation: InboxConversation | null;
   loading?: boolean;
+  onRefresh?: (full: InboxConversation) => void;
 }) {
   const [text, setText] = React.useState("");
+  const [sending, setSending] = React.useState(false);
 
   if (!conversation) {
     return (
@@ -20,8 +25,29 @@ export function InboxThread({
     );
   }
 
+  const conversationId = conversation.id;
   const name = conversation.contact?.name || conversation.contact?.phone || "Unknown";
   const phone = conversation.contact?.phone || "";
+
+  async function handleSend() {
+    const t = text.trim();
+    if (!t || !phone) return;
+
+    setSending(true);
+    try {
+      await sendMessage({
+        conversationId,
+        to: phone,
+        text: t,
+      });
+      setText("");
+
+      const full = (await fetchConversation(conversationId)) as InboxConversation;
+      onRefresh?.(full);
+    } finally {
+      setSending(false);
+    }
+  }
 
   return (
     <div className="h-full flex flex-col">
@@ -30,7 +56,9 @@ export function InboxThread({
           <div className="text-sm font-semibold">{name}</div>
           <div className="text-xs text-muted-foreground">{phone}</div>
         </div>
-        {loading ? <div className="text-xs text-muted-foreground">Loading…</div> : null}
+        <div className="text-xs text-muted-foreground">
+          {loading ? "Loading…" : sending ? "Sending…" : null}
+        </div>
       </div>
 
       <div className="flex-1 overflow-auto p-4 space-y-3">
@@ -50,11 +78,15 @@ export function InboxThread({
           onChange={(e) => setText(e.target.value)}
           placeholder="Écrire un message…"
           className="flex-1 h-10 rounded-md border bg-background px-3 text-sm"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) void handleSend();
+          }}
         />
         <button
           type="button"
-          className="h-10 rounded-md border px-4 text-sm hover:bg-muted"
-          onClick={() => setText("")}
+          className="h-10 rounded-md border px-4 text-sm hover:bg-muted disabled:opacity-50"
+          disabled={sending || !text.trim() || !phone}
+          onClick={() => void handleSend()}
         >
           Send
         </button>
