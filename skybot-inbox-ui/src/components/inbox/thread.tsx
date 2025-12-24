@@ -1,89 +1,64 @@
-'use client';
+"use client";
 
-import * as React from 'react';
-import { apiGetClient, apiPostClient } from '@/lib/api.client';
+import * as React from "react";
+import type { InboxConversation } from "./inbox-shell";
 
-type Msg = {
-  id: string;
-  direction: 'IN' | 'OUT';
-  text?: string | null;
-  timestamp?: string;
-  createdAt?: string;
-};
+export function InboxThread({
+  conversation,
+  loading,
+}: {
+  conversation: InboxConversation | null;
+  loading?: boolean;
+}) {
+  const [text, setText] = React.useState("");
 
-export function Thread({ conversationId }: { conversationId: string | null }) {
-  const [loading, setLoading] = React.useState(false);
-  const [messages, setMessages] = React.useState<Msg[]>([]);
-  const [to, setTo] = React.useState('573001112233');
-  const [text, setText] = React.useState('');
-
-  async function load() {
-    if (!conversationId) return;
-    setLoading(true);
-    try {
-      const data = await apiGetClient(`/conversations/${conversationId}`);
-      setMessages(data?.messages ?? []);
-      if (data?.contact?.phone) setTo(data.contact.phone);
-    } finally {
-      setLoading(false);
-    }
+  if (!conversation) {
+    return (
+      <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+        Sélectionne une conversation
+      </div>
+    );
   }
 
-  React.useEffect(() => {
-    void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversationId]);
-
-  async function send() {
-    if (!conversationId) return;
-    const payload = { conversationId, to, text };
-    setText('');
-    await apiPostClient('/messages', payload);
-    await load();
-  }
+  const name = conversation.contact?.name || conversation.contact?.phone || "Unknown";
+  const phone = conversation.contact?.phone || "";
 
   return (
-    <section className="h-dvh flex flex-col min-w-0">
-      <header className="border-b p-3">
-        <div className="text-sm font-semibold">Thread</div>
-        <div className="text-xs text-muted-foreground">
-          {conversationId ?? '—'}
+    <div className="h-full flex flex-col">
+      <div className="border-b p-4 flex items-center justify-between">
+        <div>
+          <div className="text-sm font-semibold">{name}</div>
+          <div className="text-xs text-muted-foreground">{phone}</div>
         </div>
-      </header>
-
-      <div className="flex-1 overflow-auto p-3 space-y-2">
-        {loading ? (
-          <div className="text-sm text-muted-foreground">Loading…</div>
-        ) : (
-          messages.map((m) => (
-            <div
-              key={m.id}
-              className={[
-                'max-w-[70%] rounded-lg border px-3 py-2 text-sm whitespace-pre-wrap',
-                m.direction === 'OUT' ? 'ml-auto bg-muted' : '',
-              ].join(' ')}
-            >
-              {m.text ?? ''}
-            </div>
-          ))
-        )}
+        {loading ? <div className="text-xs text-muted-foreground">Loading…</div> : null}
       </div>
 
-      <footer className="border-t p-3 flex gap-2">
+      <div className="flex-1 overflow-auto p-4 space-y-3">
+        {(conversation.messages ?? []).slice().reverse().map((m, idx) => (
+          <div key={idx} className="max-w-[720px] rounded-lg border p-3">
+            <div className="text-sm">{m.text ?? ""}</div>
+            {m.timestamp ? (
+              <div className="mt-1 text-[10px] text-muted-foreground">{m.timestamp}</div>
+            ) : null}
+          </div>
+        ))}
+      </div>
+
+      <div className="border-t p-4 flex gap-2">
         <input
-          className="flex-1 border rounded-md px-3 py-2 text-sm"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Write a message…"
+          placeholder="Écrire un message…"
+          className="flex-1 h-10 rounded-md border bg-background px-3 text-sm"
         />
         <button
-          className="border rounded-md px-3 py-2 text-sm"
-          onClick={() => void send()}
-          disabled={!text.trim() || !conversationId}
+          type="button"
+          className="h-10 rounded-md border px-4 text-sm hover:bg-muted"
+          onClick={() => setText("")}
         >
           Send
         </button>
-      </footer>
-    </section>
+      </div>
+    </div>
   );
 }
