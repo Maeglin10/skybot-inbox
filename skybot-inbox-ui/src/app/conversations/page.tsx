@@ -9,7 +9,7 @@ export default async function ConversationsPage() {
     <main style={{ padding: 16 }}>
       <h1>Conversations</h1>
       <ul>
-        {items.map((c: any) => (
+        {items.map((c: { id: string; status?: string }) => (
           <li key={c.id}>
             <Link href={`/conversations/${c.id}`}>{c.id} — {c.status}</Link>
           </li>

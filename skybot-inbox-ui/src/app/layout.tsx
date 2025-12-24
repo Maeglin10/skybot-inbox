@@ -1,14 +1,12 @@
-import "./globals.css";
-
-export const metadata = {
-  title: "Skybot Inbox",
-  description: "Inbox UI",
-};
+import './globals.css';
+import { Providers } from '@/components/providers';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="fr" suppressHydrationWarning>
+      <body>
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }
