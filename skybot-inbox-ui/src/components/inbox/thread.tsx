@@ -4,6 +4,7 @@ import * as React from "react";
 import type { InboxConversation } from "./inbox-shell";
 import { sendMessage } from "@/lib/messages.client";
 import { fetchConversation } from "@/lib/inbox.client";
+import { patchConversationStatus } from "@/lib/status.client";
 
 type Msg = {
   text?: string | null;
@@ -52,8 +53,44 @@ export function InboxThread({
   React.useEffect(() => {
     if (!conversationId) return;
     scrollToBottom();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId, messages.length]);
+
+  async function refreshFromServer(id: string) {
+    const full = (await fetchConversation(id)) as InboxConversation;
+    onRefresh?.(full);
+    return full;
+  }
+
+  async function setStatus(status: "OPEN" | "CLOSED") {
+    if (!conversationId || sending) return;
+
+    setError(null);
+    setSending(true);
+    try {
+      await patchConversationStatus({ conversationId, status });
+
+      // optimistic UI: update status immédiatement
+      onRefresh?.({
+        id: conversationId,
+        status,
+        contact: conversation?.contact,
+        lastActivityAt: conversation?.lastActivityAt,
+        messages: conversation?.messages ?? [],
+      });
+
+      await refreshFromServer(conversationId);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg || "Status update failed");
+      try {
+        await refreshFromServer(conversationId);
+      } catch {
+        // ignore
+      }
+    } finally {
+      setSending(false);
+    }
+  }
 
   async function handleSend() {
     const t = text.trim();
@@ -82,16 +119,13 @@ export function InboxThread({
 
     try {
       await sendMessage({ conversationId, to: phone, text: t });
-
-      const full = (await fetchConversation(conversationId)) as InboxConversation;
-      onRefresh?.(full);
+      await refreshFromServer(conversationId);
       scrollToBottom("smooth");
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg || "Send failed");
       try {
-        const full = (await fetchConversation(conversationId)) as InboxConversation;
-        onRefresh?.(full);
+        await refreshFromServer(conversationId);
       } catch {
         // ignore
       }
@@ -114,10 +148,35 @@ export function InboxThread({
         <div className="min-w-0">
           <div className="text-sm font-semibold truncate">{name}</div>
           <div className="text-xs text-muted-foreground truncate">{phone}</div>
+
+          <div className="mt-2 flex items-center gap-2">
+            <button
+              type="button"
+              className="h-8 rounded-md border px-3 text-xs hover:bg-muted disabled:opacity-50"
+              disabled={sending}
+              onClick={() => void setStatus("OPEN")}
+            >
+              Open
+            </button>
+            <button
+              type="button"
+              className="h-8 rounded-md border px-3 text-xs hover:bg-muted disabled:opacity-50"
+              disabled={sending}
+              onClick={() => void setStatus("CLOSED")}
+            >
+              Close
+            </button>
+
+            <div className="ml-2 text-[10px] text-muted-foreground">
+              status: {conversation?.status ?? "—"}
+            </div>
+          </div>
+
           {error ? <div className="mt-2 text-xs text-red-500 truncate">{error}</div> : null}
         </div>
+
         <div className="shrink-0 text-xs text-muted-foreground">
-          {loading ? "Loading…" : sending ? "Sending…" : null}
+          {loading ? "Loading…" : sending ? "Working…" : null}
         </div>
       </div>
 
