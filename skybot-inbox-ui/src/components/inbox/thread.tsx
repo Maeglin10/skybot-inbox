@@ -30,7 +30,7 @@ export function InboxThread({
   const name = conversation?.contact?.name || conversation?.contact?.phone || "Unknown";
   const phone = conversation?.contact?.phone || "";
 
-  const messages: Msg[] = ((conversation?.messages ?? []) as Msg[]) ?? [];
+  const messages: Msg[] = (conversation?.messages ?? []) as Msg[];
 
   function scrollToBottom() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -120,11 +120,11 @@ export function InboxThread({
             <div key={idx} className={["flex", isOut ? "justify-end" : "justify-start"].join(" ")}>
               <div
                 className={[
-                  "max-w-[720px] rounded-lg border px-3 py-2 text-sm",
+                  "max-w-[720px] rounded-lg border p-3",
                   isOut ? "bg-muted" : "bg-background",
                 ].join(" ")}
               >
-                <div>{m.text ?? ""}</div>
+                <div className="text-sm whitespace-pre-wrap">{m.text ?? ""}</div>
                 {m.timestamp ? (
                   <div className="mt-1 text-[10px] text-muted-foreground">{m.timestamp}</div>
                 ) : null}
