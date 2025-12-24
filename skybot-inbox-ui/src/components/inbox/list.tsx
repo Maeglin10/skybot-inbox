@@ -4,8 +4,8 @@ import * as React from "react";
 import type { InboxConversation } from "./inbox-shell";
 
 function previewText(c: InboxConversation) {
-  const msg = c.messages?.[0]?.text ?? "";
-  return (msg || "").slice(0, 80);
+  const last = c.messages?.[c.messages.length - 1]?.text ?? "";
+  return (last || "").slice(0, 80);
 }
 
 export function InboxList({

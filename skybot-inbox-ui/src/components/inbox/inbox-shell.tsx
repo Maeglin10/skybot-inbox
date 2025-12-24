@@ -13,14 +13,11 @@ export type InboxConversation = {
   messages?: Array<{ text?: string | null; timestamp?: string; direction?: "IN" | "OUT" }>;
 };
 
-const POLL_MS = 5000;
-
 export function InboxShell({ initialItems }: { initialItems: InboxConversation[] }) {
   const [items, setItems] = React.useState<InboxConversation[]>(initialItems);
   const [activeId, setActiveId] = React.useState<string | null>(items[0]?.id ?? null);
   const [active, setActive] = React.useState<InboxConversation | null>(items[0] ?? null);
   const [loading, setLoading] = React.useState(false);
-  const [isVisible, setIsVisible] = React.useState(true);
 
   async function select(id: string) {
     setActiveId(id);
@@ -38,46 +35,30 @@ export function InboxShell({ initialItems }: { initialItems: InboxConversation[]
     setItems((prev) => prev.map((c) => (c.id === full.id ? { ...c, ...full } : c)));
   }
 
-  // Initial fetch (si besoin)
-  React.useEffect(() => {
-    if (activeId && (!active || active.id !== activeId)) void select(activeId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Tab visibility tracking (pause polling quand onglet inactif)
-  React.useEffect(() => {
-    const onVis = () => setIsVisible(document.visibilityState === "visible");
-    onVis();
-    document.addEventListener("visibilitychange", onVis);
-    return () => document.removeEventListener("visibilitychange", onVis);
-  }, []);
-
-  // Polling conversation active
+  // poll conversation active
   React.useEffect(() => {
     if (!activeId) return;
-    if (!isVisible) return;
 
-    let cancelled = false;
-
+    let alive = true;
     const tick = async () => {
       try {
         const full = (await fetchConversation(activeId)) as InboxConversation;
-        if (!cancelled) refresh(full);
+        if (!alive) return;
+        refresh(full);
       } catch {
-        // ignore (réseau / backend down)
+        // ignore (dev / backend restart)
       }
     };
 
-    // tick immédiat + interval
     void tick();
-    const t = setInterval(() => void tick(), POLL_MS);
+    const t = setInterval(() => void tick(), 3000);
 
     return () => {
-      cancelled = true;
+      alive = false;
       clearInterval(t);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeId, isVisible]);
+  }, [activeId]);
 
   return (
     <div className="h-[calc(100vh-1px)] w-full">
