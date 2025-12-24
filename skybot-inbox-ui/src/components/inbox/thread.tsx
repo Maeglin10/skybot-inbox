@@ -11,6 +11,19 @@ type Msg = {
   direction?: "IN" | "OUT";
 };
 
+function fmt(ts?: string) {
+  if (!ts) return "";
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return ts;
+  return d.toLocaleString(undefined, {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function InboxThread({
   conversation,
   loading,
@@ -32,13 +45,14 @@ export function InboxThread({
 
   const messages: Msg[] = (conversation?.messages ?? []) as Msg[];
 
-  function scrollToBottom() {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  function scrollToBottom(behavior: ScrollBehavior = "auto") {
+    bottomRef.current?.scrollIntoView({ behavior, block: "end" });
   }
 
   React.useEffect(() => {
     if (!conversationId) return;
     scrollToBottom();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId, messages.length]);
 
   async function handleSend() {
@@ -58,24 +72,20 @@ export function InboxThread({
       id: conversationId,
       status: conversation?.status,
       contact: conversation?.contact,
-      lastActivityAt: conversation?.lastActivityAt,
+      lastActivityAt: new Date().toISOString(),
       messages: [...(conversation?.messages ?? []), optimistic],
     };
 
     onRefresh?.(optimisticConv);
     setText("");
-    scrollToBottom();
+    scrollToBottom("smooth");
 
     try {
-      await sendMessage({
-        conversationId,
-        to: phone,
-        text: t,
-      });
+      await sendMessage({ conversationId, to: phone, text: t });
 
       const full = (await fetchConversation(conversationId)) as InboxConversation;
       onRefresh?.(full);
-      scrollToBottom();
+      scrollToBottom("smooth");
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg || "Send failed");
@@ -120,13 +130,13 @@ export function InboxThread({
             <div key={idx} className={["flex", isOut ? "justify-end" : "justify-start"].join(" ")}>
               <div
                 className={[
-                  "max-w-[720px] rounded-lg border p-3",
+                  "max-w-[720px] rounded-lg border px-3 py-2 text-sm",
                   isOut ? "bg-muted" : "bg-background",
                 ].join(" ")}
               >
-                <div className="text-sm whitespace-pre-wrap">{m.text ?? ""}</div>
+                <div className="whitespace-pre-wrap break-words">{m.text ?? ""}</div>
                 {m.timestamp ? (
-                  <div className="mt-1 text-[10px] text-muted-foreground">{m.timestamp}</div>
+                  <div className="mt-1 text-[10px] text-muted-foreground">{fmt(m.timestamp)}</div>
                 ) : null}
               </div>
             </div>
