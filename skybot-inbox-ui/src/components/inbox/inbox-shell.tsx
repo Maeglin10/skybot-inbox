@@ -7,7 +7,7 @@ import { fetchConversation } from "@/lib/inbox.client";
 
 export type InboxConversation = {
   id: string;
-  status?: string;
+  status?: "OPEN" | "CLOSED";
   contact?: { name?: string | null; phone?: string | null };
   lastActivityAt?: string;
   messages?: Array<{ text?: string | null; timestamp?: string; direction?: "IN" | "OUT" }>;

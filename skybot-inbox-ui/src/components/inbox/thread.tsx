@@ -43,8 +43,10 @@ export function InboxThread({
   const conversationId = conversation?.id ?? null;
   const name = conversation?.contact?.name || conversation?.contact?.phone || "Unknown";
   const phone = conversation?.contact?.phone || "";
-
   const messages: Msg[] = (conversation?.messages ?? []) as Msg[];
+
+  const currentStatus = (conversation?.status ?? "OPEN") as "OPEN" | "CLOSED";
+  const nextStatus: "OPEN" | "CLOSED" = currentStatus === "OPEN" ? "CLOSED" : "OPEN";
 
   function scrollToBottom(behavior: ScrollBehavior = "auto") {
     bottomRef.current?.scrollIntoView({ behavior, block: "end" });
@@ -61,23 +63,21 @@ export function InboxThread({
     return full;
   }
 
-  async function setStatus(status: "OPEN" | "CLOSED") {
-    if (!conversationId || sending) return;
+  async function toggleStatus() {
+    if (!conversationId || sending || !conversation) return;
 
     setError(null);
     setSending(true);
+
+    // optimistic d’abord
+    onRefresh?.({
+      ...conversation,
+      status: nextStatus,
+      lastActivityAt: new Date().toISOString(),
+    });
+
     try {
-      await patchConversationStatus({ conversationId, status });
-
-      // optimistic UI: update status immédiatement
-      onRefresh?.({
-        id: conversationId,
-        status,
-        contact: conversation?.contact,
-        lastActivityAt: conversation?.lastActivityAt,
-        messages: conversation?.messages ?? [],
-      });
-
+      await patchConversationStatus({ conversationId, status: nextStatus });
       await refreshFromServer(conversationId);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -94,7 +94,7 @@ export function InboxThread({
 
   async function handleSend() {
     const t = text.trim();
-    if (!t || !phone || !conversationId || sending) return;
+    if (!t || !phone || !conversationId || sending || !conversation) return;
 
     setError(null);
     setSending(true);
@@ -105,15 +105,12 @@ export function InboxThread({
       timestamp: new Date().toISOString(),
     };
 
-    const optimisticConv: InboxConversation = {
-      id: conversationId,
-      status: conversation?.status,
-      contact: conversation?.contact,
+    onRefresh?.({
+      ...conversation,
       lastActivityAt: new Date().toISOString(),
-      messages: [...(conversation?.messages ?? []), optimistic],
-    };
+      messages: [...(conversation.messages ?? []), optimistic],
+    });
 
-    onRefresh?.(optimisticConv);
     setText("");
     scrollToBottom("smooth");
 
@@ -134,7 +131,7 @@ export function InboxThread({
     }
   }
 
-  if (!conversationId) {
+  if (!conversationId || !conversation) {
     return (
       <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
         Sélectionne une conversation
@@ -150,26 +147,18 @@ export function InboxThread({
           <div className="text-xs text-muted-foreground truncate">{phone}</div>
 
           <div className="mt-2 flex items-center gap-2">
-            <button
-              type="button"
-              className="h-8 rounded-md border px-3 text-xs hover:bg-muted disabled:opacity-50"
-              disabled={sending}
-              onClick={() => void setStatus("OPEN")}
-            >
-              Open
-            </button>
-            <button
-              type="button"
-              className="h-8 rounded-md border px-3 text-xs hover:bg-muted disabled:opacity-50"
-              disabled={sending}
-              onClick={() => void setStatus("CLOSED")}
-            >
-              Close
-            </button>
+            <span className="text-[10px] rounded px-2 py-1 border">
+              {currentStatus}
+            </span>
 
-            <div className="ml-2 text-[10px] text-muted-foreground">
-              status: {conversation?.status ?? "—"}
-            </div>
+            <button
+              type="button"
+              className="h-8 rounded-md border px-3 text-xs hover:bg-muted disabled:opacity-50"
+              disabled={sending}
+              onClick={() => void toggleStatus()}
+            >
+              {currentStatus === "OPEN" ? "Close" : "Reopen"}
+            </button>
           </div>
 
           {error ? <div className="mt-2 text-xs text-red-500 truncate">{error}</div> : null}
