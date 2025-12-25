@@ -14,6 +14,13 @@ function pillClass(status?: string) {
   return "border-zinc-400/40 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300";
 }
 
+function fmt(ts?: string) {
+  if (!ts) return "";
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return ts;
+  return d.toLocaleString(undefined, { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
 export function InboxList({
   items,
   activeId,

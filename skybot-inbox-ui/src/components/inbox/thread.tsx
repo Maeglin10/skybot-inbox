@@ -1,27 +1,27 @@
-"use client";
+'use client';
 
-import * as React from "react";
-import type { InboxConversation } from "./inbox-shell";
-import { sendMessage } from "@/lib/messages.client";
-import { fetchConversation } from "@/lib/inbox.client";
-import { patchConversationStatus } from "@/lib/status.client";
+import * as React from 'react';
+import type { InboxConversation } from './inbox-shell';
+import { sendMessage } from '@/lib/messages.client';
+import { fetchConversation } from '@/lib/inbox.client';
+import { patchConversationStatus } from '@/lib/status.client';
 
 type Msg = {
   text?: string | null;
   timestamp?: string;
-  direction?: "IN" | "OUT";
+  direction?: 'IN' | 'OUT';
 };
 
 function fmt(ts?: string) {
-  if (!ts) return "";
+  if (!ts) return '';
   const d = new Date(ts);
   if (Number.isNaN(d.getTime())) return ts;
   return d.toLocaleString(undefined, {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 }
 
@@ -34,22 +34,24 @@ export function InboxThread({
   loading?: boolean;
   onRefresh?: (full: InboxConversation) => void;
 }) {
-  const [text, setText] = React.useState("");
+  const [text, setText] = React.useState('');
   const [sending, setSending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   const bottomRef = React.useRef<HTMLDivElement | null>(null);
 
   const conversationId = conversation?.id ?? null;
-  const name = conversation?.contact?.name || conversation?.contact?.phone || "Unknown";
-  const phone = conversation?.contact?.phone || "";
+  const name =
+    conversation?.contact?.name || conversation?.contact?.phone || 'Unknown';
+  const phone = conversation?.contact?.phone || '';
   const messages: Msg[] = (conversation?.messages ?? []) as Msg[];
 
-  const currentStatus = (conversation?.status ?? "OPEN") as "OPEN" | "CLOSED";
-  const nextStatus: "OPEN" | "CLOSED" = currentStatus === "OPEN" ? "CLOSED" : "OPEN";
+  const currentStatus = (conversation?.status ?? 'OPEN') as 'OPEN' | 'CLOSED';
+  const nextStatus: 'OPEN' | 'CLOSED' =
+    currentStatus === 'OPEN' ? 'CLOSED' : 'OPEN';
 
-  function scrollToBottom(behavior: ScrollBehavior = "auto") {
-    bottomRef.current?.scrollIntoView({ behavior, block: "end" });
+  function scrollToBottom(behavior: ScrollBehavior = 'auto') {
+    bottomRef.current?.scrollIntoView({ behavior, block: 'end' });
   }
 
   React.useEffect(() => {
@@ -81,7 +83,7 @@ export function InboxThread({
       await refreshFromServer(conversationId);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      setError(msg || "Status update failed");
+      setError(msg || 'Status update failed');
       try {
         await refreshFromServer(conversationId);
       } catch {
@@ -101,7 +103,7 @@ export function InboxThread({
 
     const optimistic: Msg = {
       text: t,
-      direction: "OUT",
+      direction: 'OUT',
       timestamp: new Date().toISOString(),
     };
 
@@ -111,16 +113,16 @@ export function InboxThread({
       messages: [...(conversation.messages ?? []), optimistic],
     });
 
-    setText("");
-    scrollToBottom("smooth");
+    setText('');
+    scrollToBottom('smooth');
 
     try {
       await sendMessage({ conversationId, to: phone, text: t });
       await refreshFromServer(conversationId);
-      scrollToBottom("smooth");
+      scrollToBottom('smooth');
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      setError(msg || "Send failed");
+      setError(msg || 'Send failed');
       try {
         await refreshFromServer(conversationId);
       } catch {
@@ -157,34 +159,55 @@ export function InboxThread({
               disabled={sending}
               onClick={() => void toggleStatus()}
             >
-              {currentStatus === "OPEN" ? "Close" : "Reopen"}
+              {currentStatus === 'OPEN' ? 'Close' : 'Reopen'}
+            </button>
+            <button
+              type="button"
+              className="h-8 rounded-md border px-3 text-xs hover:bg-muted disabled:opacity-50"
+              disabled={sending || loading}
+              onClick={() =>
+                conversationId && void refreshFromServer(conversationId)
+              }
+            >
+              Refresh
             </button>
           </div>
 
-          {error ? <div className="mt-2 text-xs text-red-500 truncate">{error}</div> : null}
+          {error ? (
+            <div className="mt-2 text-xs text-red-500 truncate">{error}</div>
+          ) : null}
         </div>
 
         <div className="shrink-0 text-xs text-muted-foreground">
-          {loading ? "Loading…" : sending ? "Working…" : null}
+          {loading ? 'Loading…' : sending ? 'Working…' : null}
         </div>
       </div>
 
       <div className="flex-1 overflow-auto p-4 space-y-3">
         {messages.map((m, idx) => {
-          const dir = m.direction ?? "IN";
-          const isOut = dir === "OUT";
+          const dir = m.direction ?? 'IN';
+          const isOut = dir === 'OUT';
 
           return (
-            <div key={idx} className={["flex", isOut ? "justify-end" : "justify-start"].join(" ")}>
+            <div
+              key={idx}
+              className={['flex', isOut ? 'justify-end' : 'justify-start'].join(
+                ' ',
+              )}
+            >
               <div
                 className={[
-                  "max-w-[720px] rounded-lg border px-3 py-2 text-sm",
-                  isOut ? "bg-muted" : "bg-background",
-                ].join(" ")}
+                  'max-w-[720px] rounded-lg border px-3 py-2 text-sm',
+                  isOut ? 'bg-muted' : 'bg-background',
+                ].join(' ')}
               >
-                <div className="whitespace-pre-wrap break-words">{m.text ?? ""}</div>
+                <div className="whitespace-pre-wrap break-words">
+                  {m.text ?? ''}
+                </div>
                 {m.timestamp ? (
-                  <div className="mt-1 text-[10px] text-muted-foreground">{fmt(m.timestamp)}</div>
+                  <div className="mt-1 text-[10px] text-muted-foreground">
+                    {fmt(m.timestamp)}
+                  </div>
                 ) : null}
               </div>
             </div>
@@ -200,7 +223,7 @@ export function InboxThread({
           placeholder="Écrire un message…"
           className="flex-1 h-10 rounded-md border bg-background px-3 text-sm"
           onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) void handleSend();
+            if (e.key === 'Enter' && !e.shiftKey) void handleSend();
           }}
         />
         <button

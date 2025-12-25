@@ -35,16 +35,18 @@ export function InboxShell({
   const [loading, setLoading] = React.useState(false);
 
   const select = React.useCallback(async (id: string) => {
-  setActiveId(id);
-  setLoading(true);
-  try {
-    const full = (await fetchConversation(id)) as InboxConversation;
-    setActive(full);
-    setItems((prev) => prev.map((c) => (c.id === id ? { ...c, ...full } : c)));
-  } finally {
-    setLoading(false);
-  }
-}, []);
+    setActiveId(id);
+    setLoading(true);
+    try {
+      const full = (await fetchConversation(id)) as InboxConversation;
+      setActive(full);
+      setItems((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, ...full } : c)),
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   function refresh(full: InboxConversation) {
     setActive(full);
@@ -82,16 +84,26 @@ export function InboxShell({
   }
 
   React.useEffect(() => {
-  if (!activeId) return;
-  void select(activeId);
-}, [activeId, select]);
+    if (!activeId) return;
+    void select(activeId);
+  }, [activeId, select]);
+
+  const sortedItems = React.useMemo(() => {
+    const copy = [...items];
+    copy.sort((a, b) => {
+      const ta = a.lastActivityAt ? Date.parse(a.lastActivityAt) : 0;
+      const tb = b.lastActivityAt ? Date.parse(b.lastActivityAt) : 0;
+      return tb - ta;
+    });
+    return copy;
+  }, [items]);
 
   return (
     <div className="h-[calc(100vh-1px)] w-full">
       <div className="grid h-full grid-cols-[360px_1fr]">
         <div className="border-r">
           <InboxList
-            items={items}
+            items={sortedItems}
             activeId={activeId}
             onSelect={select}
             onToggleStatus={toggleStatus}
