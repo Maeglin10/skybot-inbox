@@ -24,7 +24,8 @@ export function InboxShell({ initialItems }: { initialItems: InboxConversation[]
     setLoading(true);
     try {
       const full = (await fetchConversation(id)) as InboxConversation;
-      refresh(full);
+      setActive(full);
+      setItems((prev) => prev.map((c) => (c.id === id ? { ...c, ...full } : c)));
     } finally {
       setLoading(false);
     }
@@ -35,29 +36,29 @@ export function InboxShell({ initialItems }: { initialItems: InboxConversation[]
     setItems((prev) => prev.map((c) => (c.id === full.id ? { ...c, ...full } : c)));
   }
 
-  // poll conversation active
+  React.useEffect(() => {
+    if (activeId && (!active || active.id !== activeId)) void select(activeId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   React.useEffect(() => {
     if (!activeId) return;
 
-    let alive = true;
+    let stopped = false;
     const tick = async () => {
       try {
         const full = (await fetchConversation(activeId)) as InboxConversation;
-        if (!alive) return;
-        refresh(full);
+        if (!stopped) refresh(full);
       } catch {
-        // ignore (dev / backend restart)
+        // ignore
       }
     };
 
-    void tick();
-    const t = setInterval(() => void tick(), 3000);
-
+    const id = window.setInterval(tick, 2500);
     return () => {
-      alive = false;
-      clearInterval(t);
+      stopped = true;
+      window.clearInterval(id);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId]);
 
   return (

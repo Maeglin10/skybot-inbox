@@ -1,18 +1,22 @@
 export default function AlertsPage() {
+  const items = [
+    { title: "IA n’a pas répondu", detail: "0 (stub)" },
+    { title: "Erreur workflow", detail: "0 (stub)" },
+    { title: "Hot lead détecté", detail: "0 (stub)" },
+    { title: "Conversation à reprendre", detail: "0 (stub)" },
+    { title: "Ticket en retard / prioritaire", detail: "0 (stub)" },
+  ];
+
   return (
-    <div className="p-6">
-      <div className="text-lg font-semibold">Alertes</div>
-      <div className="mt-2 text-sm text-muted-foreground">
-        Aucun signal pour le moment.
-      </div>
-      <div className="mt-6 rounded-lg border p-4 text-sm">
-        À brancher ensuite:
-        <ul className="mt-2 list-disc pl-5 space-y-1 text-muted-foreground">
-          <li>IA n’a pas répondu</li>
-          <li>Erreur workflow</li>
-          <li>Hot lead détecté</li>
-          <li>Conversation à reprendre</li>
-        </ul>
+    <div className="p-6 space-y-4">
+      <h1 className="text-lg font-semibold">Alertes</h1>
+      <div className="grid gap-3">
+        {items.map((a) => (
+          <div key={a.title} className="rounded-lg border p-4">
+            <div className="text-sm font-medium">{a.title}</div>
+            <div className="text-xs text-muted-foreground">{a.detail}</div>
+          </div>
+        ))}
       </div>
     </div>
   );
