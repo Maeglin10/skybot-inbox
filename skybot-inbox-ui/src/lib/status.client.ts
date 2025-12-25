@@ -1,11 +1,10 @@
 import { apiPatchClient } from "@/lib/api.client";
 
-export type ConversationStatus = "OPEN" | "CLOSED";
-
 export async function patchConversationStatus(params: {
   conversationId: string;
-  status: ConversationStatus;
+  status: "OPEN" | "CLOSED";
 }) {
-  const { conversationId, status } = params;
-  return apiPatchClient(`/conversations/${conversationId}/status`, { status });
+  return apiPatchClient(`/conversations/${params.conversationId}/status`, {
+    status: params.status,
+  });
 }

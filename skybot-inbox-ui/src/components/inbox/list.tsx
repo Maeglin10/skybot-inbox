@@ -4,18 +4,26 @@ import * as React from "react";
 import type { InboxConversation } from "./inbox-shell";
 
 function previewText(c: InboxConversation) {
-  const last = c.messages?.[c.messages.length - 1]?.text ?? "";
-  return (last || "").slice(0, 80);
+  const msg = c.messages?.[c.messages.length - 1]?.text ?? c.messages?.[0]?.text ?? "";
+  return (msg || "").slice(0, 80);
+}
+
+function pillClass(status?: string) {
+  if (status === "OPEN") return "border-emerald-400/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
+  if (status === "CLOSED") return "border-zinc-400/40 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300";
+  return "border-zinc-400/40 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300";
 }
 
 export function InboxList({
   items,
   activeId,
   onSelect,
+  onToggleStatus,
 }: {
   items: InboxConversation[];
   activeId: string | null;
   onSelect: (id: string) => void;
+  onToggleStatus?: (id: string, next: "OPEN" | "CLOSED") => void;
 }) {
   return (
     <div className="h-full">
@@ -29,29 +37,62 @@ export function InboxList({
           const name = c.contact?.name || c.contact?.phone || "Unknown";
           const phone = c.contact?.phone || "";
           const isActive = c.id === activeId;
+          const status = c.status ?? "—";
+          const next = c.status === "OPEN" ? "CLOSED" : "OPEN";
 
           return (
-            <button
+            <div
               key={c.id}
-              onClick={() => onSelect(c.id)}
               className={[
-                "w-full text-left px-4 py-3 border-b hover:bg-muted/50",
+                "border-b",
                 isActive ? "bg-muted" : "bg-background",
               ].join(" ")}
             >
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-medium">{name}</div>
-                  <div className="truncate text-xs text-muted-foreground">{phone}</div>
+              <button
+                onClick={() => onSelect(c.id)}
+                className="w-full text-left px-4 py-3 hover:bg-muted/50"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium">{name}</div>
+                    <div className="truncate text-xs text-muted-foreground">{phone}</div>
+                  </div>
+
+                  <div className="shrink-0 flex items-center gap-2">
+                    <div
+                      className={[
+                        "text-[10px] rounded px-2 py-1 border",
+                        pillClass(c.status),
+                      ].join(" ")}
+                      title="Status"
+                    >
+                      {status}
+                    </div>
+                  </div>
                 </div>
-                <div className="shrink-0 text-[10px] rounded px-2 py-1 border">
-                  {c.status ?? "—"}
+
+                <div className="mt-2 truncate text-xs text-muted-foreground">
+                  {previewText(c)}
                 </div>
-              </div>
-              <div className="mt-2 truncate text-xs text-muted-foreground">
-                {previewText(c)}
-              </div>
-            </button>
+              </button>
+
+              {onToggleStatus ? (
+                <div className="px-4 pb-3">
+                  <button
+                    type="button"
+                    className="h-8 rounded-md border px-3 text-xs hover:bg-muted disabled:opacity-50"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onToggleStatus(c.id, next);
+                    }}
+                    disabled={!c.id}
+                  >
+                    Set {next}
+                  </button>
+                </div>
+              ) : null}
+            </div>
           );
         })}
       </div>
