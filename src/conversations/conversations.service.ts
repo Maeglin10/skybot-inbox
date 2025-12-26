@@ -12,8 +12,9 @@ export class ConversationsService {
     inboxId?: string;
     limit?: number;
     cursor?: string;
+    lite?: boolean;
   }) {
-    const { status, inboxId, limit = 20, cursor } = params;
+    const { status, inboxId, limit = 20, cursor, lite } = params;
 
     const where = {
       ...(status ? { status } : {}),
@@ -21,6 +22,57 @@ export class ConversationsService {
       ...(cursor ? { id: { lt: cursor } } : {}),
     };
 
+    // MODE LITE (LISTING)
+    if (lite) {
+      const conversations = await this.prisma.conversation.findMany({
+        where,
+        take: limit,
+        orderBy: [{ lastActivityAt: 'desc' }, { createdAt: 'desc' }],
+        select: {
+          id: true,
+          status: true,
+          lastActivityAt: true,
+          contact: {
+            select: {
+              name: true,
+              phone: true,
+            },
+          },
+          messages: {
+            take: 1,
+            orderBy: { createdAt: 'desc' },
+            select: {
+              text: true,
+              timestamp: true,
+              direction: true,
+            },
+          },
+        },
+      });
+
+      const items = conversations.map((c) => ({
+        id: c.id,
+        status: c.status,
+        lastActivityAt: c.lastActivityAt,
+        contact: c.contact ?? undefined,
+        preview: c.messages[0]
+          ? {
+              text: c.messages[0].text,
+              timestamp: c.messages[0].timestamp,
+              direction: c.messages[0].direction,
+            }
+          : undefined,
+      }));
+
+      const nextCursor =
+        conversations.length === limit
+          ? conversations[conversations.length - 1].id
+          : null;
+
+      return { items, nextCursor };
+    }
+
+    // MODE FULL (DÉTAIL / LEGACY)
     const items = await this.prisma.conversation.findMany({
       where,
       take: limit,
@@ -28,8 +80,7 @@ export class ConversationsService {
         inbox: true,
         contact: true,
         messages: {
-          take: 1,
-          orderBy: { createdAt: 'desc' },
+          orderBy: { createdAt: 'asc' },
         },
       },
       orderBy: [{ lastActivityAt: 'desc' }, { createdAt: 'desc' }],
