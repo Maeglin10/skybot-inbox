@@ -8,6 +8,22 @@ function previewText(c: InboxConversation) {
   return (t || "").slice(0, 80);
 }
 
+function fmtLite(ts?: string) {
+  if (!ts) return "";
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return ts;
+  return d.toLocaleString(undefined, {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function lastTs(c: InboxConversation) {
+  return c.preview?.timestamp ?? c.lastActivityAt ?? c.messages?.[c.messages.length - 1]?.timestamp;
+}
+
 function statusMeta(status?: string) {
   if (status === "OPEN") {
     return {
@@ -58,6 +74,7 @@ export function InboxList({
 
           const meta = statusMeta(c.status);
           const next = c.status === "OPEN" ? "CLOSED" : "OPEN";
+          const ts = lastTs(c);
 
           return (
             <div
@@ -65,6 +82,7 @@ export function InboxList({
               className={["border-b", isActive ? "bg-muted" : "bg-background"].join(" ")}
             >
               <button
+                type="button"
                 onClick={() => onSelect(c.id)}
                 className="w-full text-left px-4 py-3 hover:bg-muted/50"
               >
@@ -74,7 +92,7 @@ export function InboxList({
                     <div className="truncate text-xs text-muted-foreground">{phone}</div>
                   </div>
 
-                  <div className="shrink-0 flex items-center gap-2">
+                  <div className="shrink-0 flex flex-col items-end gap-2">
                     <div
                       className={[
                         "inline-flex items-center gap-2 text-[10px] rounded px-2 py-1 border",
@@ -84,6 +102,10 @@ export function InboxList({
                     >
                       <span className={["h-2 w-2 rounded-full", meta.dot].join(" ")} />
                       <span>{meta.label}</span>
+                    </div>
+
+                    <div className="text-[10px] text-muted-foreground">
+                      {fmtLite(ts)}
                     </div>
                   </div>
                 </div>
@@ -102,6 +124,10 @@ export function InboxList({
                       e.preventDefault();
                       e.stopPropagation();
                       onToggleStatus(c.id, next);
+                    }}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
                     }}
                     disabled={!c.id}
                   >

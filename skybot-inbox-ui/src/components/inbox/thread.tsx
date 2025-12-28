@@ -3,7 +3,7 @@
 import * as React from 'react';
 import type { InboxConversation } from './inbox-shell';
 import { sendMessage } from '@/lib/messages.client';
-import { fetchConversation } from "@/lib/inbox.client";
+import { fetchConversation } from '@/lib/inbox.client';
 
 function fmt(ts?: string) {
   if (!ts) return '';
@@ -21,6 +21,28 @@ function dirLabel(d?: 'IN' | 'OUT') {
   return d === 'OUT' ? 'You' : 'Contact';
 }
 
+type Msg = NonNullable<InboxConversation['messages']>[number];
+
+function msgKey(m: Msg, idx: number) {
+  const ts = typeof m.timestamp === 'string' ? m.timestamp : '';
+  const dir = m.direction === 'IN' || m.direction === 'OUT' ? m.direction : '';
+  const text = typeof m.text === 'string' ? m.text : '';
+  const base = `${ts}|${dir}|${text}`;
+  return base === '||' ? `idx:${idx}` : base;
+}
+
+function dedupeMessages(messages: Msg[]): Msg[] {
+  const seen = new Set<string>();
+  const out: Msg[] = [];
+  for (let i = 0; i < messages.length; i++) {
+    const k = msgKey(messages[i], i);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(messages[i]);
+  }
+  return out;
+}
+
 export function InboxThread({
   conversation,
   loading,
@@ -33,8 +55,38 @@ export function InboxThread({
   const [text, setText] = React.useState('');
   const [sending, setSending] = React.useState(false);
 
-  const msgs = conversation?.messages ?? [];
+  const containerRef = React.useRef<HTMLDivElement | null>(null);
+  const stickToBottomRef = React.useRef(true);
+
+  const msgs = React.useMemo(() => {
+    const arr = conversation?.messages ?? [];
+    return dedupeMessages(arr);
+  }, [conversation?.messages]);
+
   const to = conversation?.contact?.phone ?? '';
+
+  // track user scroll intent (stick to bottom only if user is near bottom)
+  React.useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const onScroll = () => {
+      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      stickToBottomRef.current = distanceFromBottom < 80;
+    };
+
+    el.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => el.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // auto-scroll on new messages if user stayed near bottom
+  React.useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    if (!stickToBottomRef.current) return;
+    el.scrollTop = el.scrollHeight;
+  }, [msgs.length, conversation?.id]);
 
   async function send() {
     if (!conversation?.id) return;
@@ -44,9 +96,9 @@ export function InboxThread({
 
     setSending(true);
 
-    const optimistic = {
+    const optimistic: Msg = {
       text: trimmed,
-      direction: 'OUT' as const,
+      direction: 'OUT',
       timestamp: new Date().toISOString(),
     };
 
@@ -54,7 +106,7 @@ export function InboxThread({
       ...conversation,
       messages: [...msgs, optimistic],
       preview: {
-        text: optimistic.text,
+        text: optimistic.text ?? null,
         timestamp: optimistic.timestamp,
         direction: optimistic.direction,
       },
@@ -65,12 +117,12 @@ export function InboxThread({
     setText('');
 
     try {
-  await sendMessage({ conversationId: conversation.id, to, text: trimmed });
-  const full = (await fetchConversation(conversation.id)) as InboxConversation;
-  onRefresh?.(full);
-} finally {
-  setSending(false);
-}
+      await sendMessage({ conversationId: conversation.id, to, text: trimmed });
+      const full = (await fetchConversation(conversation.id)) as InboxConversation;
+      onRefresh?.(full);
+    } finally {
+      setSending(false);
+    }
   }
 
   return (
@@ -92,7 +144,7 @@ export function InboxThread({
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto p-4 space-y-3">
+      <div ref={containerRef} className="flex-1 overflow-auto p-4 space-y-3">
         {conversation == null ? (
           <div className="text-sm text-muted-foreground">
             No conversation selected.
@@ -104,7 +156,7 @@ export function InboxThread({
             const isOut = m.direction === 'OUT';
             return (
               <div
-                key={idx}
+                key={msgKey(m, idx)}
                 className={[
                   'max-w-[80%] rounded-md border px-3 py-2 text-sm',
                   isOut ? 'ml-auto bg-muted' : 'mr-auto bg-background',
