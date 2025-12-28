@@ -5,18 +5,27 @@ import { InboxList } from "./list";
 import { InboxThread } from "./thread";
 import { fetchConversation } from "@/lib/inbox.client";
 
-export type InboxConversationStatus = "OPEN" | "CLOSED";
+export type InboxConversationStatus = 'OPEN' | 'CLOSED';
 
 export type InboxConversation = {
   id: string;
   status?: InboxConversationStatus;
   contact?: { name?: string | null; phone?: string | null };
   lastActivityAt?: string;
+
+  // détail (thread)
   messages?: Array<{
     text?: string | null;
     timestamp?: string;
-    direction?: "IN" | "OUT";
+    direction?: 'IN' | 'OUT';
   }>;
+
+  // listing lite (liste)
+  preview?: {
+    text?: string | null;
+    timestamp?: string;
+    direction?: 'IN' | 'OUT';
+  };
 };
 
 export function InboxShell({ initialItems }: { initialItems: InboxConversation[] }) {

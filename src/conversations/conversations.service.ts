@@ -32,20 +32,11 @@ export class ConversationsService {
           id: true,
           status: true,
           lastActivityAt: true,
-          contact: {
-            select: {
-              name: true,
-              phone: true,
-            },
-          },
+          contact: { select: { name: true, phone: true } },
           messages: {
             take: 1,
             orderBy: { createdAt: 'desc' },
-            select: {
-              text: true,
-              timestamp: true,
-              direction: true,
-            },
+            select: { text: true, timestamp: true, direction: true },
           },
         },
       });
@@ -54,10 +45,12 @@ export class ConversationsService {
         id: c.id,
         status: c.status,
         lastActivityAt: c.lastActivityAt,
-        contact: c.contact ?? undefined,
-        preview: c.messages[0]
+        contact: c.contact
+          ? { name: c.contact.name, phone: c.contact.phone }
+          : undefined,
+        preview: c.messages?.[0]
           ? {
-              text: c.messages[0].text,
+              text: c.messages[0].text ?? null,
               timestamp: c.messages[0].timestamp,
               direction: c.messages[0].direction,
             }
@@ -72,23 +65,20 @@ export class ConversationsService {
       return { items, nextCursor };
     }
 
-    // MODE FULL (DÉTAIL / LEGACY)
+    // MODE NORMAL (DETAIL LISTING)
     const items = await this.prisma.conversation.findMany({
       where,
       take: limit,
       include: {
         inbox: true,
         contact: true,
-        messages: {
-          orderBy: { createdAt: 'asc' },
-        },
+        messages: true,
       },
       orderBy: [{ lastActivityAt: 'desc' }, { createdAt: 'desc' }],
     });
 
     const nextCursor =
       items.length === limit ? items[items.length - 1].id : null;
-
     return { items, nextCursor };
   }
 

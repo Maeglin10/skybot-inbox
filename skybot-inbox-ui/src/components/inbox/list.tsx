@@ -5,10 +5,8 @@ import * as React from "react";
 import type { InboxConversation } from "./inbox-shell";
 
 function previewText(c: InboxConversation) {
-  const msgs = c.messages ?? [];
-  const last = msgs.length ? msgs[msgs.length - 1] : null;
-  const text = last?.text ?? "";
-  return String(text || "").slice(0, 80);
+  const t = c.preview?.text ?? "";
+  return (t || "").slice(0, 80);
 }
 
 function pillClass(status?: InboxConversation["status"]) {
