@@ -1,4 +1,8 @@
-import { InboxShell, type InboxConversation, type InboxConversationStatus } from '@/components/inbox/inbox-shell';
+import {
+  InboxShell,
+  type InboxConversation,
+  type InboxConversationStatus,
+} from '@/components/inbox/inbox-shell';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +23,11 @@ type RawConversationLite = {
   contact?: RawContact;
   lastActivityAt?: unknown;
   preview?: RawPreview;
+};
+
+type RawListResponse = {
+  items?: unknown;
+  nextCursor?: unknown;
 };
 
 function asString(v: unknown): string {
@@ -46,18 +55,28 @@ export default async function InboxPage() {
     cache: 'no-store',
   });
 
-  const data = (await res.json()) as { items?: unknown };
+  const data = (await res.json()) as RawListResponse;
 
-const rawItems: RawConversationLite[] = Array.isArray(data.items)
-  ? (data.items as RawConversationLite[])
-  : [];
+  const rawItems: RawConversationLite[] = Array.isArray(data.items)
+    ? (data.items as RawConversationLite[])
+    : [];
 
   const items: InboxConversation[] = rawItems.map((c) => {
     const contact =
       c.contact && typeof c.contact === 'object'
         ? {
-            name: typeof c.contact.name === 'string' ? c.contact.name : c.contact.name == null ? null : String(c.contact.name),
-            phone: typeof c.contact.phone === 'string' ? c.contact.phone : c.contact.phone == null ? null : String(c.contact.phone),
+            name:
+              typeof c.contact.name === 'string'
+                ? c.contact.name
+                : c.contact.name == null
+                  ? null
+                  : String(c.contact.name),
+            phone:
+              typeof c.contact.phone === 'string'
+                ? c.contact.phone
+                : c.contact.phone == null
+                  ? null
+                  : String(c.contact.phone),
           }
         : undefined;
 
@@ -70,7 +89,10 @@ const rawItems: RawConversationLite[] = Array.isArray(data.items)
                 : c.preview.text == null
                   ? null
                   : String(c.preview.text),
-            timestamp: typeof c.preview.timestamp === 'string' ? c.preview.timestamp : undefined,
+            timestamp:
+              typeof c.preview.timestamp === 'string'
+                ? c.preview.timestamp
+                : undefined,
             direction: normalizeDir(c.preview.direction),
           }
         : undefined;
@@ -79,10 +101,16 @@ const rawItems: RawConversationLite[] = Array.isArray(data.items)
       id: asString(c.id),
       status: normalizeStatus(c.status),
       contact,
-      lastActivityAt: typeof c.lastActivityAt === 'string' ? c.lastActivityAt : undefined,
+      lastActivityAt:
+        typeof c.lastActivityAt === 'string' ? c.lastActivityAt : undefined,
       preview,
     };
   });
 
-  return <InboxShell initialItems={items} />;
+  const initialCursor =
+    typeof data.nextCursor === 'string' && data.nextCursor.length
+      ? data.nextCursor
+      : null;
+
+  return <InboxShell initialItems={items} initialCursor={initialCursor} />;
 }
