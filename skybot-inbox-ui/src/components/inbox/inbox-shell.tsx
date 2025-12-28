@@ -27,6 +27,17 @@ export type InboxConversation = {
   };
 };
 
+function derivePreview(c: InboxConversation): InboxConversation['preview'] {
+  const msgs = c.messages ?? [];
+  const last = msgs.length ? msgs[msgs.length - 1] : undefined;
+  if (!last) return undefined;
+  return {
+    text: last.text ?? null,
+    timestamp: last.timestamp,
+    direction: last.direction,
+  };
+}
+
 export function InboxShell({
   initialItems,
   initialCursor,
@@ -52,9 +63,13 @@ export function InboxShell({
     setLoading(true);
     try {
       const full = (await fetchConversation(id)) as InboxConversation;
+      const preview = derivePreview(full);
+
       setActive(full);
       setItems((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, ...full } : c)),
+        prev.map((c) =>
+          c.id === id ? { ...c, ...full, preview: preview ?? c.preview } : c,
+        ),
       );
     } finally {
       setLoading(false);
@@ -62,9 +77,15 @@ export function InboxShell({
   }, []);
 
   const refresh = React.useCallback((full: InboxConversation) => {
+    const preview = derivePreview(full);
+
     setActive(full);
     setItems((prev) =>
-      prev.map((c) => (c.id === full.id ? { ...c, ...full } : c)),
+      prev.map((c) =>
+        c.id === full.id
+          ? { ...c, ...full, preview: preview ?? c.preview }
+          : c,
+      ),
     );
   }, []);
 

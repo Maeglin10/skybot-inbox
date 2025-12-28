@@ -3,6 +3,7 @@
 import * as React from 'react';
 import type { InboxConversation } from './inbox-shell';
 import { sendMessage } from '@/lib/messages.client';
+import { fetchConversation } from "@/lib/inbox.client";
 
 function fmt(ts?: string) {
   if (!ts) return '';
@@ -64,10 +65,12 @@ export function InboxThread({
     setText('');
 
     try {
-      await sendMessage({ conversationId: conversation.id, to, text: trimmed });
-    } finally {
-      setSending(false);
-    }
+  await sendMessage({ conversationId: conversation.id, to, text: trimmed });
+  const full = (await fetchConversation(conversation.id)) as InboxConversation;
+  onRefresh?.(full);
+} finally {
+  setSending(false);
+}
   }
 
   return (
