@@ -43,6 +43,11 @@ function dedupeMessages(messages: Msg[]): Msg[] {
   return out;
 }
 
+function isNearBottom(el: HTMLElement, px = 140) {
+  const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
+  return dist <= px;
+}
+
 export function InboxThread({
   conversation,
   loading,
@@ -55,8 +60,13 @@ export function InboxThread({
   const [text, setText] = React.useState('');
   const [sending, setSending] = React.useState(false);
 
-  const containerRef = React.useRef<HTMLDivElement | null>(null);
-  const stickToBottomRef = React.useRef(true);
+  const scrollRef = React.useRef<HTMLDivElement | null>(null);
+  const bottomRef = React.useRef<HTMLDivElement | null>(null);
+
+  const [autoStick, setAutoStick] = React.useState(true);
+  const [showJump, setShowJump] = React.useState(false);
+
+  const convId = conversation?.id ?? null;
 
   const msgs = React.useMemo(() => {
     const arr = conversation?.messages ?? [];
@@ -65,31 +75,43 @@ export function InboxThread({
 
   const to = conversation?.contact?.phone ?? '';
 
-  // track user scroll intent (stick to bottom only if user is near bottom)
+  // Reset scroll behavior on conversation change
   React.useEffect(() => {
-    const el = containerRef.current;
+    setAutoStick(true);
+    setShowJump(false);
+    // next tick: scroll to bottom
+    queueMicrotask(() => {
+      bottomRef.current?.scrollIntoView({ block: 'end' });
+    });
+  }, [convId]);
+
+  // Track user scroll -> determine if we should autoscroll
+  React.useEffect(() => {
+    const el = scrollRef.current;
     if (!el) return;
 
     const onScroll = () => {
-      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-      stickToBottomRef.current = distanceFromBottom < 80;
+      const atBottom = isNearBottom(el);
+      setAutoStick(atBottom);
+      setShowJump(!atBottom);
     };
 
     el.addEventListener('scroll', onScroll, { passive: true });
     onScroll();
+
     return () => el.removeEventListener('scroll', onScroll);
   }, []);
 
-  // auto-scroll on new messages if user stayed near bottom
+  // When messages change: autoscroll only if user is at bottom (autoStick)
   React.useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    if (!stickToBottomRef.current) return;
-    el.scrollTop = el.scrollHeight;
-  }, [msgs.length, conversation?.id]);
+    if (!autoStick) return;
+    bottomRef.current?.scrollIntoView({ block: 'end' });
+  }, [autoStick, msgs.length]);
 
   async function send() {
     if (!conversation?.id) return;
+    const id = conversation.id;
+
     const trimmed = text.trim();
     if (!trimmed) return;
     if (!to) return;
@@ -117,12 +139,23 @@ export function InboxThread({
     setText('');
 
     try {
-      await sendMessage({ conversationId: conversation.id, to, text: trimmed });
-      const full = (await fetchConversation(conversation.id)) as InboxConversation;
+      await sendMessage({ conversationId: id, to, text: trimmed });
+
+      const full = (await fetchConversation(id)) as InboxConversation;
       onRefresh?.(full);
     } finally {
       setSending(false);
+      // after sending, force stick-to-bottom
+      setAutoStick(true);
+      setShowJump(false);
+      queueMicrotask(() => bottomRef.current?.scrollIntoView({ block: 'end' }));
     }
+  }
+
+  function jumpToLatest() {
+    setAutoStick(true);
+    setShowJump(false);
+    bottomRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' });
   }
 
   return (
@@ -140,39 +173,55 @@ export function InboxThread({
         </div>
 
         <div className="text-xs text-muted-foreground">
-          {loading ? 'Loading…' : (conversation?.status ?? '')}
+          {loading ? 'Loading…' : conversation?.status ?? ''}
         </div>
       </div>
 
-      <div ref={containerRef} className="flex-1 overflow-auto p-4 space-y-3">
-        {conversation == null ? (
-          <div className="text-sm text-muted-foreground">
-            No conversation selected.
+      <div className="relative flex-1 min-h-0">
+        {showJump ? (
+          <div className="absolute right-4 bottom-4 z-10">
+            <button
+              type="button"
+              className="h-9 rounded-md border bg-background px-3 text-sm hover:bg-muted"
+              onClick={jumpToLatest}
+            >
+              Jump to latest
+            </button>
           </div>
-        ) : msgs.length === 0 ? (
-          <div className="text-sm text-muted-foreground">No messages.</div>
-        ) : (
-          msgs.map((m, idx) => {
-            const isOut = m.direction === 'OUT';
-            return (
-              <div
-                key={msgKey(m, idx)}
-                className={[
-                  'max-w-[80%] rounded-md border px-3 py-2 text-sm',
-                  isOut ? 'ml-auto bg-muted' : 'mr-auto bg-background',
-                ].join(' ')}
-              >
-                <div className="text-[11px] text-muted-foreground flex items-center justify-between gap-2">
-                  <span>{dirLabel(m.direction)}</span>
-                  <span>{fmt(m.timestamp)}</span>
+        ) : null}
+
+        <div ref={scrollRef} className="h-full overflow-auto p-4 space-y-3">
+          {conversation == null ? (
+            <div className="text-sm text-muted-foreground">
+              No conversation selected.
+            </div>
+          ) : msgs.length === 0 ? (
+            <div className="text-sm text-muted-foreground">No messages.</div>
+          ) : (
+            msgs.map((m, idx) => {
+              const isOut = m.direction === 'OUT';
+              return (
+                <div
+                  key={msgKey(m, idx)}
+                  className={[
+                    'max-w-[80%] rounded-md border px-3 py-2 text-sm',
+                    isOut ? 'ml-auto bg-muted' : 'mr-auto bg-background',
+                  ].join(' ')}
+                >
+                  <div className="text-[11px] text-muted-foreground flex items-center justify-between gap-2">
+                    <span>{dirLabel(m.direction)}</span>
+                    <span>{fmt(m.timestamp)}</span>
+                  </div>
+                  <div className="mt-1 whitespace-pre-wrap break-words">
+                    {m.text ?? ''}
+                  </div>
                 </div>
-                <div className="mt-1 whitespace-pre-wrap break-words">
-                  {m.text ?? ''}
-                </div>
-              </div>
-            );
-          })
-        )}
+              );
+            })
+          )}
+
+          <div ref={bottomRef} />
+        </div>
       </div>
 
       <div className="p-4 border-t flex gap-2">
