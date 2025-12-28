@@ -11,7 +11,7 @@ import { ConversationStatus } from '@prisma/client';
 
 export class ListConversationsDto {
   @IsOptional()
-  @IsEnum(ConversationStatus)
+  @IsEnum(ConversationStatus as unknown as object)
   status?: ConversationStatus;
 
   @IsOptional()
