@@ -38,6 +38,34 @@ function derivePreview(c: InboxConversation): InboxConversation['preview'] {
   };
 }
 
+function mergeLiteIntoItems(
+  prev: InboxConversation[],
+  incoming: InboxConversation[],
+): InboxConversation[] {
+  const byId = new Map(prev.map((c) => [c.id, c]));
+
+  for (const lite of incoming) {
+    if (!lite?.id) continue;
+
+    const old = byId.get(lite.id);
+    if (!old) {
+      byId.set(lite.id, lite);
+      continue;
+    }
+
+    // merge uniquement "lite", ne touche pas messages
+    byId.set(lite.id, {
+      ...old,
+      status: lite.status ?? old.status,
+      lastActivityAt: lite.lastActivityAt ?? old.lastActivityAt,
+      contact: lite.contact ?? old.contact,
+      preview: lite.preview ?? old.preview,
+    });
+  }
+
+  return Array.from(byId.values());
+}
+
 export function InboxShell({
   initialItems,
   initialCursor,
@@ -93,6 +121,37 @@ export function InboxShell({
     if (!activeId) return;
     void select(activeId);
   }, [activeId, select]);
+
+  // Poll lite: refresh la colonne gauche sans écraser messages
+  const pollingRef = React.useRef(false);
+  React.useEffect(() => {
+    let t: ReturnType<typeof setInterval> | null = null;
+
+    async function pollLite() {
+      if (pollingRef.current) return;
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+
+      pollingRef.current = true;
+      try {
+        const data = await fetchConversations({ limit: 50, lite: true });
+        const nextItems = (Array.isArray(data.items) ? data.items : []) as InboxConversation[];
+
+        setItems((prev) => mergeLiteIntoItems(prev, nextItems));
+
+        // ne remplace pas un cursor existant; initialise juste si null
+        setCursor((cur) => cur ?? (data.nextCursor ?? null));
+      } finally {
+        pollingRef.current = false;
+      }
+    }
+
+    void pollLite();
+    t = setInterval(() => void pollLite(), 5000);
+
+    return () => {
+      if (t) clearInterval(t);
+    };
+  }, []);
 
   async function toggleStatus(id: string, next: 'OPEN' | 'CLOSED') {
     setItems((prev) =>
