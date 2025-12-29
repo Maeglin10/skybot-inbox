@@ -116,4 +116,52 @@ export class ConversationsService {
       },
     });
   }
+  async listMessages(
+    conversationId: string,
+    params: { limit?: number; cursor?: string },
+  ) {
+    const limit = Math.min(Math.max(params.limit ?? 20, 1), 100);
+    const cursor = params.cursor;
+
+    const where = {
+      conversationId,
+      ...(cursor ? { createdAt: { lt: new Date(cursor) } } : {}),
+    };
+
+    const rows = await this.prisma.message.findMany({
+      where,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        text: true,
+        timestamp: true,
+        createdAt: true,
+        direction: true,
+        from: true,
+        to: true,
+      },
+    });
+
+    const items = rows
+      .slice()
+      .reverse()
+      .map((m) => ({
+        id: m.id,
+        text: m.text ?? null,
+        timestamp:
+          (m.timestamp as unknown as Date | null)?.toISOString?.() ??
+          m.createdAt.toISOString(),
+        direction: m.direction,
+        from: m.from ?? undefined,
+        to: m.to ?? undefined,
+      }));
+
+    const nextCursor =
+      rows.length === limit
+        ? rows[rows.length - 1].createdAt.toISOString()
+        : null;
+
+    return { items, nextCursor };
+  }
 }

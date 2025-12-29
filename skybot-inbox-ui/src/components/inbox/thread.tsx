@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import type { InboxConversation } from './inbox-shell';
-import { sendMessage } from '@/lib/messages.client';
+import { sendMessage, listMessages } from '@/lib/messages.client';
 import { fetchConversation } from '@/lib/inbox.client';
 
 function fmt(ts?: string) {
@@ -43,9 +43,16 @@ function dedupeMessages(messages: Msg[]): Msg[] {
   return out;
 }
 
-function isNearBottom(el: HTMLElement, px = 140) {
-  const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
-  return dist <= px;
+function toThreadMsg(m: {
+  text: string | null;
+  timestamp: string;
+  direction: unknown;
+}): Msg {
+  return {
+    text: m.text ?? null,
+    timestamp: m.timestamp,
+    direction: m.direction === 'IN' || m.direction === 'OUT' ? m.direction : 'IN',
+  };
 }
 
 export function InboxThread({
@@ -60,13 +67,19 @@ export function InboxThread({
   const [text, setText] = React.useState('');
   const [sending, setSending] = React.useState(false);
 
-  const scrollRef = React.useRef<HTMLDivElement | null>(null);
-  const bottomRef = React.useRef<HTMLDivElement | null>(null);
+  // pagination state (older messages)
+  const [olderCursor, setOlderCursor] = React.useState<string | null>(null);
+  const [loadingOlder, setLoadingOlder] = React.useState(false);
 
-  const [autoStick, setAutoStick] = React.useState(true);
-  const [showJump, setShowJump] = React.useState(false);
+  const listRef = React.useRef<HTMLDivElement | null>(null);
+  const lockRef = React.useRef(false);
 
-  const convId = conversation?.id ?? null;
+  // reset when conversation changes
+  React.useEffect(() => {
+    setOlderCursor(null);
+    setLoadingOlder(false);
+    lockRef.current = false;
+  }, [conversation?.id]);
 
   const msgs = React.useMemo(() => {
     const arr = conversation?.messages ?? [];
@@ -75,42 +88,9 @@ export function InboxThread({
 
   const to = conversation?.contact?.phone ?? '';
 
-  // Reset scroll behavior on conversation change
-  React.useEffect(() => {
-    setAutoStick(true);
-    setShowJump(false);
-    // next tick: scroll to bottom
-    queueMicrotask(() => {
-      bottomRef.current?.scrollIntoView({ block: 'end' });
-    });
-  }, [convId]);
-
-  // Track user scroll -> determine if we should autoscroll
-  React.useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-
-    const onScroll = () => {
-      const atBottom = isNearBottom(el);
-      setAutoStick(atBottom);
-      setShowJump(!atBottom);
-    };
-
-    el.addEventListener('scroll', onScroll, { passive: true });
-    onScroll();
-
-    return () => el.removeEventListener('scroll', onScroll);
-  }, []);
-
-  // When messages change: autoscroll only if user is at bottom (autoStick)
-  React.useEffect(() => {
-    if (!autoStick) return;
-    bottomRef.current?.scrollIntoView({ block: 'end' });
-  }, [autoStick, msgs.length]);
-
   async function send() {
     if (!conversation?.id) return;
-    const id = conversation.id;
+    const convId = conversation.id;
 
     const trimmed = text.trim();
     if (!trimmed) return;
@@ -139,24 +119,96 @@ export function InboxThread({
     setText('');
 
     try {
-      await sendMessage({ conversationId: id, to, text: trimmed });
-
-      const full = (await fetchConversation(id)) as InboxConversation;
+      await sendMessage({ conversationId: convId, to, text: trimmed });
+      const full = (await fetchConversation(convId)) as InboxConversation;
       onRefresh?.(full);
     } finally {
       setSending(false);
-      // after sending, force stick-to-bottom
-      setAutoStick(true);
-      setShowJump(false);
-      queueMicrotask(() => bottomRef.current?.scrollIntoView({ block: 'end' }));
     }
   }
 
-  function jumpToLatest() {
-    setAutoStick(true);
-    setShowJump(false);
-    bottomRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' });
+  // initialize olderCursor from backend (needs first page cursor)
+  React.useEffect(() => {
+    if (!conversation?.id) return;
+    if (olderCursor !== null) return; // already initialized
+    // use last message timestamp as starting cursor (backend uses createdAt cursor; timestamps align enough for paging)
+    const first = msgs[0];
+    const start = first?.timestamp ?? null;
+    setOlderCursor(start);
+  }, [conversation?.id, msgs, olderCursor]);
+
+  async function loadOlder() {
+    if (!conversation?.id) return;
+    if (loadingOlder) return;
+    if (!olderCursor) return;
+
+    const el = listRef.current;
+    if (!el) return;
+
+    // prevent multiple triggers while scroll event floods
+    if (lockRef.current) return;
+    lockRef.current = true;
+
+    setLoadingOlder(true);
+
+    const prevScrollHeight = el.scrollHeight;
+    const prevScrollTop = el.scrollTop;
+
+    try {
+      const data = await listMessages({
+        conversationId: conversation.id,
+        limit: 20,
+        cursor: olderCursor,
+      });
+
+      const older = (Array.isArray(data.items) ? data.items : []).map(toThreadMsg);
+      if (older.length === 0) {
+        setOlderCursor(null);
+        return;
+      }
+
+      const merged = dedupeMessages([...(older as Msg[]), ...msgs]);
+
+      const nextConv: InboxConversation = {
+        ...conversation,
+        messages: merged,
+      };
+
+      onRefresh?.(nextConv);
+      setOlderCursor(data.nextCursor ?? null);
+
+      // restore anchor after DOM updates
+      requestAnimationFrame(() => {
+        const el2 = listRef.current;
+        if (!el2) return;
+        const newScrollHeight = el2.scrollHeight;
+        const delta = newScrollHeight - prevScrollHeight;
+        el2.scrollTop = prevScrollTop + delta;
+      });
+    } finally {
+      setLoadingOlder(false);
+      // small delay to avoid immediate retrigger at top
+      window.setTimeout(() => {
+        lockRef.current = false;
+      }, 150);
+    }
   }
+
+    React.useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+
+    const onScroll = () => {
+      // guard TS + runtime
+      const cur = listRef.current;
+      if (!cur) return;
+      if (cur.scrollTop < 80) void loadOlder();
+    };
+
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversation?.id, olderCursor, msgs, loadingOlder]);
 
   return (
     <div className="h-full flex flex-col">
@@ -173,32 +225,37 @@ export function InboxThread({
         </div>
 
         <div className="text-xs text-muted-foreground">
-          {loading ? 'Loading…' : conversation?.status ?? ''}
+          {loading ? 'Loading…' : (conversation?.status ?? '')}
         </div>
       </div>
 
-      <div className="relative flex-1 min-h-0">
-        {showJump ? (
-          <div className="absolute right-4 bottom-4 z-10">
-            <button
-              type="button"
-              className="h-9 rounded-md border bg-background px-3 text-sm hover:bg-muted"
-              onClick={jumpToLatest}
-            >
-              Jump to latest
-            </button>
+      <div ref={listRef} className="flex-1 overflow-auto p-4 space-y-3">
+        {conversation == null ? (
+          <div className="text-sm text-muted-foreground">
+            No conversation selected.
           </div>
-        ) : null}
+        ) : msgs.length === 0 ? (
+          <div className="text-sm text-muted-foreground">No messages.</div>
+        ) : (
+          <>
+            {olderCursor ? (
+              <div className="pb-2">
+                <button
+                  type="button"
+                  className="h-8 rounded-md border px-3 text-xs hover:bg-muted disabled:opacity-50"
+                  disabled={loadingOlder}
+                  onClick={() => void loadOlder()}
+                >
+                  {loadingOlder ? 'Loading…' : 'Load older'}
+                </button>
+              </div>
+            ) : (
+              <div className="text-[11px] text-muted-foreground pb-2">
+                Start of conversation
+              </div>
+            )}
 
-        <div ref={scrollRef} className="h-full overflow-auto p-4 space-y-3">
-          {conversation == null ? (
-            <div className="text-sm text-muted-foreground">
-              No conversation selected.
-            </div>
-          ) : msgs.length === 0 ? (
-            <div className="text-sm text-muted-foreground">No messages.</div>
-          ) : (
-            msgs.map((m, idx) => {
+            {msgs.map((m, idx) => {
               const isOut = m.direction === 'OUT';
               return (
                 <div
@@ -217,11 +274,9 @@ export function InboxThread({
                   </div>
                 </div>
               );
-            })
-          )}
-
-          <div ref={bottomRef} />
-        </div>
+            })}
+          </>
+        )}
       </div>
 
       <div className="p-4 border-t flex gap-2">

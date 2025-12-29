@@ -12,6 +12,7 @@ import { ConversationsService } from './conversations.service';
 import { ApiKeyGuard } from '../auth/api-key.guard';
 import { ListConversationsDto } from './dto/list-conversations.dto';
 import { UpdateConversationStatusDto } from './dto/update-conversation-status.dto';
+import { ListMessagesDto } from './dto/list-messages.dto';
 
 @Controller('conversations')
 @UseGuards(ApiKeyGuard, ThrottlerGuard)
@@ -26,6 +27,11 @@ export class ConversationsController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.conversationsService.findOne(id);
+  }
+
+  @Get(':id/messages')
+  listMessages(@Param('id') id: string, @Query() q: ListMessagesDto) {
+    return this.conversationsService.listMessages(id, q);
   }
 
   @Patch(':id/status')
