@@ -1,44 +1,76 @@
-import {
-  Controller,
-  Get,
-  Patch,
-  Param,
-  Query,
-  Body,
-  UseGuards,
-} from '@nestjs/common';
-import { ThrottlerGuard } from '@nestjs/throttler';
+import { Controller, Get, Param, Patch, Query, Body } from '@nestjs/common';
 import { ConversationsService } from './conversations.service';
-import { ApiKeyGuard } from '../auth/api-key.guard';
-import { ListConversationsDto } from './dto/list-conversations.dto';
-import { UpdateConversationStatusDto } from './dto/update-conversation-status.dto';
-import { ListMessagesDto } from './dto/list-messages.dto';
+
+function asInt(v: unknown, fallback: number) {
+  if (typeof v === 'string') {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : fallback;
+  }
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  return fallback;
+}
+function asBool(v: unknown) {
+  if (v === true) return true;
+  if (v === false) return false;
+  if (typeof v !== 'string') return false;
+  return v === '1' || v.toLowerCase() === 'true';
+}
+function asString(v: unknown) {
+  return typeof v === 'string' ? v : undefined;
+}
 
 @Controller('conversations')
-@UseGuards(ApiKeyGuard, ThrottlerGuard)
 export class ConversationsController {
   constructor(private readonly conversationsService: ConversationsService) {}
 
   @Get()
-  findAll(@Query() query: ListConversationsDto) {
-    return this.conversationsService.findAll(query);
+  async list(@Query() q: Record<string, unknown>) {
+    const limit = asInt(q.limit, 20);
+    const lite = asBool(q.lite);
+    const cursor = asString(q.cursor);
+    const status = asString(q.status) as
+      | 'OPEN'
+      | 'PENDING'
+      | 'CLOSED'
+      | undefined;
+    const inboxId = asString(q.inboxId);
+
+    return this.conversationsService.findAll({
+      limit,
+      lite,
+      cursor,
+      status,
+      inboxId,
+    });
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
+  async getOne(@Param('id') id: string) {
     return this.conversationsService.findOne(id);
   }
 
-  @Get(':id/messages')
-  listMessages(@Param('id') id: string, @Query() q: ListMessagesDto) {
-    return this.conversationsService.listMessages(id, q);
+  @Patch(':id/status')
+  async patchStatus(
+    @Param('id') id: string,
+    @Body() body: { status?: 'OPEN' | 'PENDING' | 'CLOSED' },
+  ) {
+    const next = body?.status;
+    return this.conversationsService.updateStatus(
+      id,
+      next === 'OPEN' || next === 'PENDING' || next === 'CLOSED'
+        ? next
+        : 'OPEN',
+    );
   }
 
-  @Patch(':id/status')
-  updateStatus(
+  // ✅ route messages (si déjà déclarée ici chez toi)
+  @Get(':id/messages')
+  async listMessages(
     @Param('id') id: string,
-    @Body() body: UpdateConversationStatusDto,
+    @Query() q: Record<string, unknown>,
   ) {
-    return this.conversationsService.updateStatus(id, body.status);
+    const limit = asInt(q.limit, 20);
+    const cursor = asString(q.cursor);
+    return this.conversationsService.listMessages(id, { limit, cursor });
   }
 }

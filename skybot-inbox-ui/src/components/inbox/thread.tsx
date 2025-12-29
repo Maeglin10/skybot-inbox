@@ -44,6 +44,7 @@ function dedupeMessages(messages: Msg[]): Msg[] {
 }
 
 function toThreadMsg(m: {
+  id: string;
   text: string | null;
   timestamp: string;
   direction: unknown;
@@ -67,19 +68,14 @@ export function InboxThread({
   const [text, setText] = React.useState('');
   const [sending, setSending] = React.useState(false);
 
-  // pagination state (older messages)
+  // older pagination
   const [olderCursor, setOlderCursor] = React.useState<string | null>(null);
   const [loadingOlder, setLoadingOlder] = React.useState(false);
 
+  // scroll
   const listRef = React.useRef<HTMLDivElement | null>(null);
   const lockRef = React.useRef(false);
-
-  // reset when conversation changes
-  React.useEffect(() => {
-    setOlderCursor(null);
-    setLoadingOlder(false);
-    lockRef.current = false;
-  }, [conversation?.id]);
+  const stickToBottomRef = React.useRef(true);
 
   const msgs = React.useMemo(() => {
     const arr = conversation?.messages ?? [];
@@ -88,56 +84,60 @@ export function InboxThread({
 
   const to = conversation?.contact?.phone ?? '';
 
-  async function send() {
-    if (!conversation?.id) return;
-    const convId = conversation.id;
+  // reset per conversation
+  React.useEffect(() => {
+    setOlderCursor(null);
+    setLoadingOlder(false);
+    lockRef.current = false;
+    stickToBottomRef.current = true;
 
-    const trimmed = text.trim();
-    if (!trimmed) return;
-    if (!to) return;
+    // go bottom after paint
+    requestAnimationFrame(() => {
+      const el = listRef.current;
+      if (!el) return;
+      el.scrollTop = el.scrollHeight;
+    });
+  }, [conversation?.id]);
 
-    setSending(true);
+  const updateStickiness = React.useCallback(() => {
+    const el = listRef.current;
+    if (!el) return;
+    const threshold = 120;
+    stickToBottomRef.current =
+      el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+  }, []);
 
-    const optimistic: Msg = {
-      text: trimmed,
-      direction: 'OUT',
-      timestamp: new Date().toISOString(),
-    };
-
-    const nextConv: InboxConversation = {
-      ...conversation,
-      messages: [...msgs, optimistic],
-      preview: {
-        text: optimistic.text ?? null,
-        timestamp: optimistic.timestamp,
-        direction: optimistic.direction,
-      },
-      lastActivityAt: optimistic.timestamp,
-    };
-
-    onRefresh?.(nextConv);
-    setText('');
-
-    try {
-      await sendMessage({ conversationId: convId, to, text: trimmed });
-      const full = (await fetchConversation(convId)) as InboxConversation;
-      onRefresh?.(full);
-    } finally {
-      setSending(false);
-    }
-  }
-
-  // initialize olderCursor from backend (needs first page cursor)
+  // keep bottom only if user is near bottom
   React.useEffect(() => {
     if (!conversation?.id) return;
-    if (olderCursor !== null) return; // already initialized
-    // use last message timestamp as starting cursor (backend uses createdAt cursor; timestamps align enough for paging)
-    const first = msgs[0];
-    const start = first?.timestamp ?? null;
-    setOlderCursor(start);
-  }, [conversation?.id, msgs, olderCursor]);
+    if (!stickToBottomRef.current) return;
 
-  async function loadOlder() {
+    requestAnimationFrame(() => {
+      const el = listRef.current;
+      if (!el) return;
+      el.scrollTop = el.scrollHeight;
+    });
+  }, [conversation?.id, msgs.length]);
+
+  // bootstrap cursor from API (server cursor is createdAt ISO)
+  React.useEffect(() => {
+    if (!conversation?.id) return;
+    if (olderCursor !== null) return;
+
+    void (async () => {
+      try {
+        const data = await listMessages({
+          conversationId: conversation.id,
+          limit: 1,
+        });
+        setOlderCursor(data.nextCursor ?? null);
+      } catch {
+        setOlderCursor(null);
+      }
+    })();
+  }, [conversation?.id, olderCursor]);
+
+  const loadOlder = React.useCallback(async () => {
     if (!conversation?.id) return;
     if (loadingOlder) return;
     if (!olderCursor) return;
@@ -145,7 +145,6 @@ export function InboxThread({
     const el = listRef.current;
     if (!el) return;
 
-    // prevent multiple triggers while scroll event floods
     if (lockRef.current) return;
     lockRef.current = true;
 
@@ -169,12 +168,11 @@ export function InboxThread({
 
       const merged = dedupeMessages([...(older as Msg[]), ...msgs]);
 
-      const nextConv: InboxConversation = {
+      onRefresh?.({
         ...conversation,
         messages: merged,
-      };
+      });
 
-      onRefresh?.(nextConv);
       setOlderCursor(data.nextCursor ?? null);
 
       // restore anchor after DOM updates
@@ -187,28 +185,68 @@ export function InboxThread({
       });
     } finally {
       setLoadingOlder(false);
-      // small delay to avoid immediate retrigger at top
       window.setTimeout(() => {
         lockRef.current = false;
       }, 150);
     }
-  }
+  }, [conversation, loadingOlder, olderCursor, msgs, onRefresh]);
 
-    React.useEffect(() => {
+  // scroll listener
+  React.useEffect(() => {
     const el = listRef.current;
     if (!el) return;
 
     const onScroll = () => {
-      // guard TS + runtime
       const cur = listRef.current;
       if (!cur) return;
+
+      updateStickiness();
+
       if (cur.scrollTop < 80) void loadOlder();
     };
 
     el.addEventListener('scroll', onScroll, { passive: true });
     return () => el.removeEventListener('scroll', onScroll);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversation?.id, olderCursor, msgs, loadingOlder]);
+  }, [loadOlder, updateStickiness]);
+
+  async function send() {
+    if (!conversation?.id) return;
+    const convId = conversation.id;
+
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    if (!to) return;
+
+    setSending(true);
+
+    const optimistic: Msg = {
+      text: trimmed,
+      direction: 'OUT',
+      timestamp: new Date().toISOString(),
+    };
+
+    onRefresh?.({
+      ...conversation,
+      messages: [...msgs, optimistic],
+      preview: {
+        text: optimistic.text ?? null,
+        timestamp: optimistic.timestamp,
+        direction: optimistic.direction,
+      },
+      lastActivityAt: optimistic.timestamp,
+    });
+
+    setText('');
+    stickToBottomRef.current = true;
+
+    try {
+      await sendMessage({ conversationId: convId, to, text: trimmed });
+      const full = (await fetchConversation(convId)) as InboxConversation;
+      onRefresh?.(full);
+    } finally {
+      setSending(false);
+    }
+  }
 
   return (
     <div className="h-full flex flex-col">

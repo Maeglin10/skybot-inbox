@@ -51,7 +51,10 @@ export class ConversationsService {
         preview: c.messages?.[0]
           ? {
               text: c.messages[0].text ?? null,
-              timestamp: c.messages[0].timestamp,
+              timestamp:
+                (
+                  c.messages[0].timestamp as unknown as Date | null
+                )?.toISOString?.() ?? undefined,
               direction: c.messages[0].direction,
             }
           : undefined,
@@ -79,6 +82,7 @@ export class ConversationsService {
 
     const nextCursor =
       items.length === limit ? items[items.length - 1].id : null;
+
     return { items, nextCursor };
   }
 
@@ -116,12 +120,21 @@ export class ConversationsService {
       },
     });
   }
+
+  // ✅ FIX: méthode attendue par ConversationsController
   async listMessages(
     conversationId: string,
     params: { limit?: number; cursor?: string },
   ) {
     const limit = Math.min(Math.max(params.limit ?? 20, 1), 100);
     const cursor = params.cursor;
+
+    // sécurité: conversation existe
+    const conv = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      select: { id: true },
+    });
+    if (!conv) throw new NotFoundException('Conversation not found');
 
     const where = {
       conversationId,
@@ -143,6 +156,7 @@ export class ConversationsService {
       },
     });
 
+    // rows = newest -> oldest, on renvoie oldest -> newest
     const items = rows
       .slice()
       .reverse()
