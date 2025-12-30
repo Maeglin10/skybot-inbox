@@ -22,7 +22,6 @@ export class ConversationsService {
       ...(cursor ? { id: { lt: cursor } } : {}),
     };
 
-    // MODE LITE (LISTING)
     if (lite) {
       const conversations = await this.prisma.conversation.findMany({
         where,
@@ -51,10 +50,7 @@ export class ConversationsService {
         preview: c.messages?.[0]
           ? {
               text: c.messages[0].text ?? null,
-              timestamp:
-                (
-                  c.messages[0].timestamp as unknown as Date | null
-                )?.toISOString?.() ?? undefined,
+              timestamp: c.messages[0].timestamp,
               direction: c.messages[0].direction,
             }
           : undefined,
@@ -68,15 +64,10 @@ export class ConversationsService {
       return { items, nextCursor };
     }
 
-    // MODE NORMAL (DETAIL LISTING)
     const items = await this.prisma.conversation.findMany({
       where,
       take: limit,
-      include: {
-        inbox: true,
-        contact: true,
-        messages: true,
-      },
+      include: { inbox: true, contact: true, messages: true },
       orderBy: [{ lastActivityAt: 'desc' }, { createdAt: 'desc' }],
     });
 
@@ -113,15 +104,12 @@ export class ConversationsService {
       include: {
         inbox: true,
         contact: true,
-        messages: {
-          take: 1,
-          orderBy: { createdAt: 'desc' },
-        },
+        messages: { take: 1, orderBy: { createdAt: 'desc' } },
       },
     });
   }
 
-  // ✅ FIX: méthode attendue par ConversationsController
+  // REQUIRED BY conversations.controller.ts
   async listMessages(
     conversationId: string,
     params: { limit?: number; cursor?: string },
@@ -129,12 +117,12 @@ export class ConversationsService {
     const limit = Math.min(Math.max(params.limit ?? 20, 1), 100);
     const cursor = params.cursor;
 
-    // sécurité: conversation existe
-    const conv = await this.prisma.conversation.findUnique({
+    // ensure conversation exists (clean 404)
+    const exists = await this.prisma.conversation.findUnique({
       where: { id: conversationId },
       select: { id: true },
     });
-    if (!conv) throw new NotFoundException('Conversation not found');
+    if (!exists) throw new NotFoundException('Conversation not found');
 
     const where = {
       conversationId,
@@ -156,7 +144,6 @@ export class ConversationsService {
       },
     });
 
-    // rows = newest -> oldest, on renvoie oldest -> newest
     const items = rows
       .slice()
       .reverse()

@@ -84,21 +84,6 @@ export function InboxThread({
 
   const to = conversation?.contact?.phone ?? '';
 
-  // reset per conversation
-  React.useEffect(() => {
-    setOlderCursor(null);
-    setLoadingOlder(false);
-    lockRef.current = false;
-    stickToBottomRef.current = true;
-
-    // go bottom after paint
-    requestAnimationFrame(() => {
-      const el = listRef.current;
-      if (!el) return;
-      el.scrollTop = el.scrollHeight;
-    });
-  }, [conversation?.id]);
-
   const updateStickiness = React.useCallback(() => {
     const el = listRef.current;
     if (!el) return;
@@ -106,6 +91,20 @@ export function InboxThread({
     stickToBottomRef.current =
       el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
   }, []);
+
+  // reset per conversation
+  React.useEffect(() => {
+    setOlderCursor(null);
+    setLoadingOlder(false);
+    lockRef.current = false;
+    stickToBottomRef.current = true;
+
+    requestAnimationFrame(() => {
+      const el = listRef.current;
+      if (!el) return;
+      el.scrollTop = el.scrollHeight;
+    });
+  }, [conversation?.id]);
 
   // keep bottom only if user is near bottom
   React.useEffect(() => {
@@ -119,17 +118,14 @@ export function InboxThread({
     });
   }, [conversation?.id, msgs.length]);
 
-  // bootstrap cursor from API (server cursor is createdAt ISO)
+  // init olderCursor from API (bootstrap by fetching limit=1 and reading nextCursor)
   React.useEffect(() => {
     if (!conversation?.id) return;
     if (olderCursor !== null) return;
 
-    void (async () => {
+    (async () => {
       try {
-        const data = await listMessages({
-          conversationId: conversation.id,
-          limit: 1,
-        });
+        const data = await listMessages({ conversationId: conversation.id, limit: 1 });
         setOlderCursor(data.nextCursor ?? null);
       } catch {
         setOlderCursor(null);
@@ -175,7 +171,6 @@ export function InboxThread({
 
       setOlderCursor(data.nextCursor ?? null);
 
-      // restore anchor after DOM updates
       requestAnimationFrame(() => {
         const el2 = listRef.current;
         if (!el2) return;
@@ -207,7 +202,7 @@ export function InboxThread({
 
     el.addEventListener('scroll', onScroll, { passive: true });
     return () => el.removeEventListener('scroll', onScroll);
-  }, [loadOlder, updateStickiness]);
+  }, [updateStickiness, loadOlder]);
 
   async function send() {
     if (!conversation?.id) return;
@@ -269,9 +264,7 @@ export function InboxThread({
 
       <div ref={listRef} className="flex-1 overflow-auto p-4 space-y-3">
         {conversation == null ? (
-          <div className="text-sm text-muted-foreground">
-            No conversation selected.
-          </div>
+          <div className="text-sm text-muted-foreground">No conversation selected.</div>
         ) : msgs.length === 0 ? (
           <div className="text-sm text-muted-foreground">No messages.</div>
         ) : (
