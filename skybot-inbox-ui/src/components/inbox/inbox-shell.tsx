@@ -38,32 +38,18 @@ function derivePreview(c: InboxConversation): InboxConversation['preview'] {
   };
 }
 
-function mergeLiteIntoItems(
-  prev: InboxConversation[],
-  incoming: InboxConversation[],
-): InboxConversation[] {
-  const byId = new Map(prev.map((c) => [c.id, c]));
+function applyDerivedFields(c: InboxConversation): InboxConversation {
+  const p = c.preview ?? derivePreview(c);
+  const la =
+    c.lastActivityAt ??
+    p?.timestamp ??
+    (c.messages?.length ? c.messages[c.messages.length - 1]?.timestamp : undefined);
 
-  for (const lite of incoming) {
-    if (!lite?.id) continue;
-
-    const old = byId.get(lite.id);
-    if (!old) {
-      byId.set(lite.id, lite);
-      continue;
-    }
-
-    // merge uniquement "lite", ne touche pas messages
-    byId.set(lite.id, {
-      ...old,
-      status: lite.status ?? old.status,
-      lastActivityAt: lite.lastActivityAt ?? old.lastActivityAt,
-      contact: lite.contact ?? old.contact,
-      preview: lite.preview ?? old.preview,
-    });
-  }
-
-  return Array.from(byId.values());
+  return {
+    ...c,
+    preview: p,
+    lastActivityAt: la,
+  };
 }
 
 export function InboxShell({
@@ -73,97 +59,74 @@ export function InboxShell({
   initialItems: InboxConversation[];
   initialCursor: string | null;
 }) {
-  const [items, setItems] = React.useState<InboxConversation[]>(initialItems);
+  const [items, setItems] = React.useState<InboxConversation[]>(
+    initialItems.map(applyDerivedFields),
+  );
   const [cursor, setCursor] = React.useState<string | null>(initialCursor);
 
   const [activeId, setActiveId] = React.useState<string | null>(
     initialItems[0]?.id ?? null,
   );
   const [active, setActive] = React.useState<InboxConversation | null>(
-    initialItems[0] ?? null,
+    initialItems[0] ? applyDerivedFields(initialItems[0]) : null,
   );
 
   const [loading, setLoading] = React.useState(false);
   const [loadingMore, setLoadingMore] = React.useState(false);
 
-  const select = React.useCallback(async (id: string) => {
-    setActiveId(id);
-    setLoading(true);
-    try {
-      const full = (await fetchConversation(id)) as InboxConversation;
-      const preview = derivePreview(full);
+  const upsert = React.useCallback((full: InboxConversation) => {
+    const normalized = applyDerivedFields(full);
 
-      setActive(full);
-      setItems((prev) =>
-        prev.map((c) =>
-          c.id === id ? { ...c, ...full, preview: preview ?? c.preview } : c,
-        ),
-      );
-    } finally {
-      setLoading(false);
-    }
+    setItems((prev) => {
+      const next = prev.slice();
+      const idx = next.findIndex((x) => x.id === normalized.id);
+      if (idx >= 0) next[idx] = { ...next[idx], ...normalized };
+      else next.push(normalized);
+      return next;
+    });
+
+    setActive((cur) => (cur?.id === normalized.id ? normalized : cur));
   }, []);
 
-  const refresh = React.useCallback((full: InboxConversation) => {
-    const preview = derivePreview(full);
+  const select = React.useCallback(
+    async (id: string) => {
+      setActiveId(id);
+      setLoading(true);
+      try {
+        const full = (await fetchConversation(id)) as InboxConversation;
+        const normalized = applyDerivedFields(full);
+        setActive(normalized);
+        setItems((prev) =>
+          prev.map((c) => (c.id === id ? { ...c, ...normalized } : c)),
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
 
-    setActive(full);
-    setItems((prev) =>
-      prev.map((c) =>
-        c.id === full.id
-          ? { ...c, ...full, preview: preview ?? c.preview }
-          : c,
-      ),
-    );
-  }, []);
+  const refresh = React.useCallback(
+    (full: InboxConversation) => {
+      upsert(full);
+    },
+    [upsert],
+  );
 
   React.useEffect(() => {
     if (!activeId) return;
     void select(activeId);
   }, [activeId, select]);
 
-  // Poll lite: refresh la colonne gauche sans écraser messages
-  const pollingRef = React.useRef(false);
-  React.useEffect(() => {
-    let t: ReturnType<typeof setInterval> | null = null;
-
-    async function pollLite() {
-      if (pollingRef.current) return;
-      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
-
-      pollingRef.current = true;
-      try {
-        const data = await fetchConversations({ limit: 50, lite: true });
-        const nextItems = (Array.isArray(data.items) ? data.items : []) as InboxConversation[];
-
-        setItems((prev) => mergeLiteIntoItems(prev, nextItems));
-
-        // ne remplace pas un cursor existant; initialise juste si null
-        setCursor((cur) => cur ?? (data.nextCursor ?? null));
-      } finally {
-        pollingRef.current = false;
-      }
-    }
-
-    void pollLite();
-    t = setInterval(() => void pollLite(), 5000);
-
-    return () => {
-      if (t) clearInterval(t);
-    };
-  }, []);
-
   async function toggleStatus(id: string, next: 'OPEN' | 'CLOSED') {
     setItems((prev) =>
       prev.map((c) => (c.id === id ? { ...c, status: next } : c)),
     );
-    if (active?.id === id) setActive({ ...active, status: next });
+    setActive((cur) => (cur?.id === id ? { ...cur, status: next } : cur));
 
     try {
       await patchConversationStatus({ conversationId: id, status: next });
-      const full = (await fetchConversation(id)) as InboxConversation;
-      refresh(full);
-    } catch {
+    } finally {
       try {
         const full = (await fetchConversation(id)) as InboxConversation;
         refresh(full);
@@ -190,15 +153,15 @@ export function InboxShell({
       const data = await fetchConversations({ limit: 20, lite: true, cursor });
       const next = data.nextCursor ?? null;
 
-      const more = (
-        Array.isArray(data.items) ? data.items : []
-      ) as InboxConversation[];
+      const more = (Array.isArray(data.items) ? data.items : []) as InboxConversation[];
 
       setItems((prev) => {
         const seen = new Set(prev.map((x) => x.id));
         const merged = [...prev];
         for (const c of more) {
-          if (c?.id && !seen.has(c.id)) merged.push(c);
+          if (!c?.id) continue;
+          if (seen.has(c.id)) continue;
+          merged.push(applyDerivedFields(c));
         }
         return merged;
       });
@@ -216,7 +179,7 @@ export function InboxShell({
           <InboxList
             items={sortedItems}
             activeId={activeId}
-            onSelect={select}
+            onSelect={(id) => void select(id)}
             onToggleStatus={toggleStatus}
           />
 
@@ -233,11 +196,7 @@ export function InboxShell({
         </div>
 
         <div className="min-w-0">
-          <InboxThread
-            conversation={active}
-            loading={loading}
-            onRefresh={refresh}
-          />
+          <InboxThread conversation={active} loading={loading} onRefresh={refresh} />
         </div>
       </div>
     </div>
