@@ -57,22 +57,15 @@ function statusMeta(status?: string) {
   }
   return {
     label: status ?? '—',
-    pill: 'border-zinc-400/40 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300',
+    pill:
+      'border-zinc-400/40 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300',
     dot: 'bg-zinc-400',
   };
 }
 
-function nextStatus(s?: InboxConversationStatus): InboxConversationStatus {
-  // règle simple et prédictible:
-  // OPEN -> PENDING -> CLOSED -> OPEN
-  if (s === 'OPEN') return 'PENDING';
-  if (s === 'PENDING') return 'CLOSED';
-  return 'OPEN';
-}
-
-function tabBtn(active: boolean) {
+function filterButtonClass(active: boolean) {
   return [
-    'h-8 rounded-md border px-2 text-xs',
+    'h-8 px-2 rounded-md border text-xs',
     active ? 'bg-muted' : 'bg-background hover:bg-muted/50',
   ].join(' ');
 }
@@ -83,7 +76,6 @@ export function InboxList({
   onSelect,
   onToggleStatus,
   filter,
-  counts,
   onFilterChange,
 }: {
   items: InboxConversation[];
@@ -92,44 +84,60 @@ export function InboxList({
   onToggleStatus?: (id: string, next: InboxConversationStatus) => void;
 
   filter: Filter;
-  counts: { all: number; open: number; pending: number; closed: number };
-  onFilterChange: (f: Filter) => void;
+  onFilterChange: (next: Filter) => void;
 }) {
+  const counts = React.useMemo(() => {
+    let open = 0,
+      pending = 0,
+      closed = 0;
+    for (const c of items) {
+      if (c.status === 'OPEN') open++;
+      else if (c.status === 'PENDING') pending++;
+      else if (c.status === 'CLOSED') closed++;
+    }
+    return {
+      all: items.length,
+      open,
+      pending,
+      closed,
+    };
+  }, [items]);
+
   return (
     <div className="h-full">
       <div className="p-4 border-b space-y-3">
-        <div>
+        <div className="flex items-baseline justify-between gap-3">
           <div className="text-sm font-semibold">Conversations</div>
           <div className="text-xs text-muted-foreground">
-            {counts.all} total
+            {counts.all} loaded
           </div>
         </div>
 
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            className={tabBtn(filter === 'ALL')}
+            className={filterButtonClass(filter === 'ALL')}
             onClick={() => onFilterChange('ALL')}
           >
             All ({counts.all})
           </button>
           <button
             type="button"
-            className={tabBtn(filter === 'OPEN')}
+            className={filterButtonClass(filter === 'OPEN')}
             onClick={() => onFilterChange('OPEN')}
           >
             Open ({counts.open})
           </button>
           <button
             type="button"
-            className={tabBtn(filter === 'PENDING')}
+            className={filterButtonClass(filter === 'PENDING')}
             onClick={() => onFilterChange('PENDING')}
           >
             Pending ({counts.pending})
           </button>
           <button
             type="button"
-            className={tabBtn(filter === 'CLOSED')}
+            className={filterButtonClass(filter === 'CLOSED')}
             onClick={() => onFilterChange('CLOSED')}
           >
             Closed ({counts.closed})
@@ -137,22 +145,33 @@ export function InboxList({
         </div>
       </div>
 
-      <div className="h-[calc(100%-116px)] overflow-auto">
+      <div className="h-[calc(100%-112px)] overflow-auto">
         {items.map((c) => {
           const name = c.contact?.name || c.contact?.phone || 'Unknown';
           const phone = c.contact?.phone || '';
           const isActive = c.id === activeId;
 
           const meta = statusMeta(c.status);
-          const next = nextStatus(c.status);
           const ts = lastTs(c);
+
+          // Quick action rule:
+          // - OPEN -> CLOSED
+          // - CLOSED -> OPEN
+          // - PENDING -> OPEN (resolve it)
+          const next: InboxConversationStatus =
+            c.status === 'CLOSED'
+              ? 'OPEN'
+              : c.status === 'PENDING'
+                ? 'OPEN'
+                : 'CLOSED';
 
           return (
             <div
               key={c.id}
-              className={['border-b', isActive ? 'bg-muted' : 'bg-background'].join(
-                ' ',
-              )}
+              className={[
+                'border-b',
+                isActive ? 'bg-muted' : 'bg-background',
+              ].join(' ')}
             >
               <button
                 type="button"

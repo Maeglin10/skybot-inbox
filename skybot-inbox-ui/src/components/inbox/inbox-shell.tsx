@@ -40,24 +40,11 @@ function derivePreview(c: InboxConversation): InboxConversation['preview'] {
   };
 }
 
-function normalizeStatus(s?: string): InboxConversationStatus | undefined {
-  if (s === 'OPEN' || s === 'PENDING' || s === 'CLOSED') return s;
-  return undefined;
-}
-
-function computeCounts(items: InboxConversation[]) {
-  let open = 0;
-  let pending = 0;
-  let closed = 0;
-
-  for (const c of items) {
-    const s = normalizeStatus(c.status);
-    if (s === 'OPEN') open++;
-    else if (s === 'PENDING') pending++;
-    else if (s === 'CLOSED') closed++;
-  }
-
-  return { all: items.length, open, pending, closed };
+function computePollMs() {
+  const msRaw = process.env.NEXT_PUBLIC_INBOX_POLL_MS;
+  const n = msRaw ? Number(msRaw) : 3000;
+  if (!Number.isFinite(n)) return 3000;
+  return Math.min(Math.max(n, 1000), 15000);
 }
 
 export function InboxShell({
@@ -67,6 +54,8 @@ export function InboxShell({
   initialItems: InboxConversation[];
   initialCursor: string | null;
 }) {
+  const [filter, setFilter] = React.useState<Filter>('ALL');
+
   const [items, setItems] = React.useState<InboxConversation[]>(initialItems);
   const [cursor, setCursor] = React.useState<string | null>(initialCursor);
 
@@ -77,10 +66,9 @@ export function InboxShell({
     initialItems[0] ?? null,
   );
 
-  const [filter, setFilter] = React.useState<Filter>('ALL');
-
   const [loading, setLoading] = React.useState(false);
   const [loadingMore, setLoadingMore] = React.useState(false);
+  const pollMs = React.useMemo(() => computePollMs(), []);
 
   const select = React.useCallback(async (id: string) => {
     setActiveId(id);
@@ -113,24 +101,66 @@ export function InboxShell({
     );
   }, []);
 
+  const loadFirstPage = React.useCallback(
+    async (nextFilter: Filter) => {
+      setLoading(true);
+      try {
+        const data = await fetchConversations({
+          limit: 20,
+          lite: true,
+          cursor: null,
+          status: nextFilter === 'ALL' ? undefined : nextFilter,
+        });
+
+        const nextItems = (Array.isArray(data.items)
+          ? data.items
+          : []) as InboxConversation[];
+
+        setItems(nextItems);
+        setCursor(data.nextCursor ?? null);
+
+        const firstId = nextItems[0]?.id ?? null;
+        setActiveId(firstId);
+        setActive(nextItems[0] ?? null);
+
+        if (firstId) {
+          const full = (await fetchConversation(firstId)) as InboxConversation;
+          setActive(full);
+          setItems((prev) =>
+            prev.map((c) =>
+              c.id === firstId
+                ? { ...c, ...full, preview: derivePreview(full) ?? c.preview }
+                : c,
+            ),
+          );
+        }
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
+
+  // initial select
   React.useEffect(() => {
     if (!activeId) return;
     void select(activeId);
   }, [activeId, select]);
 
+  // polling (active thread only)
   React.useEffect(() => {
     if (!activeId) return;
-
-    const msRaw = process.env.NEXT_PUBLIC_INBOX_POLL_MS;
-    const ms = (() => {
-      const n = msRaw ? Number(msRaw) : 3000;
-      if (!Number.isFinite(n)) return 3000;
-      return Math.min(Math.max(n, 1000), 15000);
-    })();
-
-    const t = window.setInterval(() => void select(activeId), ms);
+    const t = window.setInterval(() => void select(activeId), pollMs);
     return () => window.clearInterval(t);
-  }, [activeId, select]);
+  }, [activeId, select, pollMs]);
+
+  const onFilterChange = React.useCallback(
+    (nextFilter: Filter) => {
+      setFilter(nextFilter);
+      void loadFirstPage(nextFilter);
+    },
+    [loadFirstPage],
+  );
 
   const toggleStatus = React.useCallback(
     async (id: string, next: InboxConversationStatus) => {
@@ -156,21 +186,14 @@ export function InboxShell({
   );
 
   const sortedItems = React.useMemo(() => {
-    const list =
-      filter === 'ALL'
-        ? items
-        : items.filter((c) => normalizeStatus(c.status) === filter);
-
-    const copy = [...list];
+    const copy = [...items];
     copy.sort((a, b) => {
       const ta = a.lastActivityAt ? Date.parse(a.lastActivityAt) : 0;
       const tb = b.lastActivityAt ? Date.parse(b.lastActivityAt) : 0;
       return tb - ta;
     });
     return copy;
-  }, [items, filter]);
-
-  const counts = React.useMemo(() => computeCounts(items), [items]);
+  }, [items]);
 
   const loadMore = React.useCallback(async () => {
     if (!cursor || loadingMore) return;
@@ -184,10 +207,7 @@ export function InboxShell({
       });
 
       const next = data.nextCursor ?? null;
-
-      const more = (
-        Array.isArray(data.items) ? data.items : []
-      ) as InboxConversation[];
+      const more = (Array.isArray(data.items) ? data.items : []) as InboxConversation[];
 
       setItems((prev) => {
         const seen = new Set(prev.map((x) => x.id));
@@ -204,12 +224,6 @@ export function InboxShell({
     }
   }, [cursor, loadingMore, filter]);
 
-  // reset pagination when changing filter
-  React.useEffect(() => {
-    setCursor(initialCursor);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter]);
-
   return (
     <div className="h-[calc(100vh-1px)] w-full">
       <div className="grid h-full grid-cols-[360px_1fr]">
@@ -220,8 +234,7 @@ export function InboxShell({
             onSelect={select}
             onToggleStatus={toggleStatus}
             filter={filter}
-            counts={counts}
-            onFilterChange={(f) => setFilter(f)}
+            onFilterChange={onFilterChange}
           />
 
           <div className="p-3 border-t">
@@ -237,11 +250,7 @@ export function InboxShell({
         </div>
 
         <div className="min-w-0">
-          <InboxThread
-            conversation={active}
-            loading={loading}
-            onRefresh={refresh}
-          />
+          <InboxThread conversation={active} loading={loading} onRefresh={refresh} />
         </div>
       </div>
     </div>
