@@ -66,9 +66,9 @@ function statusMeta(status?: string) {
 }
 
 type Filter = 'ALL' | InboxConversationStatus;
+type SortMode = 'RECENT' | 'NAME';
 
 function nextStatus(s?: InboxConversationStatus): InboxConversationStatus {
-  // cycle: OPEN -> PENDING -> CLOSED -> OPEN
   if (s === 'OPEN') return 'PENDING';
   if (s === 'PENDING') return 'CLOSED';
   return 'OPEN';
@@ -100,6 +100,17 @@ function TabButton({
   );
 }
 
+function normalize(s: string) {
+  return s.trim().toLowerCase();
+}
+
+function conversationHaystack(c: InboxConversation) {
+  const name = c.contact?.name ?? '';
+  const phone = c.contact?.phone ?? '';
+  const prev = c.preview?.text ?? '';
+  return normalize(`${name} ${phone} ${prev}`);
+}
+
 export function InboxList({
   items,
   activeId,
@@ -119,6 +130,35 @@ export function InboxList({
   onSelect: (id: string) => void;
   onToggleStatus?: (id: string, next: InboxConversationStatus) => void;
 }) {
+  const [query, setQuery] = React.useState('');
+  const [sort, setSort] = React.useState<SortMode>('RECENT');
+
+  const filtered = React.useMemo(() => {
+    const q = normalize(query);
+    if (!q) return items;
+
+    return items.filter((c) => conversationHaystack(c).includes(q));
+  }, [items, query]);
+
+  const sorted = React.useMemo(() => {
+    const copy = [...filtered];
+    if (sort === 'NAME') {
+      copy.sort((a, b) => {
+        const na = normalize(a.contact?.name ?? a.contact?.phone ?? '');
+        const nb = normalize(b.contact?.name ?? b.contact?.phone ?? '');
+        return na.localeCompare(nb);
+      });
+      return copy;
+    }
+
+    copy.sort((a, b) => {
+      const ta = lastTs(a) ? Date.parse(String(lastTs(a))) : 0;
+      const tb = lastTs(b) ? Date.parse(String(lastTs(b))) : 0;
+      return tb - ta;
+    });
+    return copy;
+  }, [filtered, sort]);
+
   return (
     <div className="h-full">
       <div className="p-4 border-b space-y-3">
@@ -157,10 +197,34 @@ export function InboxList({
             onClick={() => onFilterChange('CLOSED')}
           />
         </div>
+
+        <div className="flex gap-2">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="h-9 flex-1 rounded-md border px-3 text-sm"
+            placeholder="Search name, phone, preview…"
+          />
+
+          <button
+            type="button"
+            className="h-9 rounded-md border px-3 text-xs hover:bg-muted"
+            onClick={() => setSort((s) => (s === 'RECENT' ? 'NAME' : 'RECENT'))}
+            title="Toggle sort"
+          >
+            Sort: {sort === 'RECENT' ? 'Recent' : 'Name'}
+          </button>
+        </div>
+
+        {query ? (
+          <div className="text-[11px] text-muted-foreground">
+            {sorted.length} match
+          </div>
+        ) : null}
       </div>
 
-      <div className="h-[calc(100%-120px)] overflow-auto">
-        {items.map((c) => {
+      <div className="h-[calc(100%-168px)] overflow-auto">
+        {sorted.map((c) => {
           const name = c.contact?.name || c.contact?.phone || 'Unknown';
           const phone = c.contact?.phone || '';
           const isActive = c.id === activeId;
