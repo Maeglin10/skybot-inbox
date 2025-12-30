@@ -40,9 +40,24 @@ function derivePreview(c: InboxConversation): InboxConversation['preview'] {
   };
 }
 
-function asStatus(s?: string): InboxConversationStatus | undefined {
+function normalizeStatus(s?: string): InboxConversationStatus | undefined {
   if (s === 'OPEN' || s === 'PENDING' || s === 'CLOSED') return s;
   return undefined;
+}
+
+function computeCounts(items: InboxConversation[]) {
+  let open = 0;
+  let pending = 0;
+  let closed = 0;
+
+  for (const c of items) {
+    const s = normalizeStatus(c.status);
+    if (s === 'OPEN') open++;
+    else if (s === 'PENDING') pending++;
+    else if (s === 'CLOSED') closed++;
+  }
+
+  return { all: items.length, open, pending, closed };
 }
 
 export function InboxShell({
@@ -55,8 +70,6 @@ export function InboxShell({
   const [items, setItems] = React.useState<InboxConversation[]>(initialItems);
   const [cursor, setCursor] = React.useState<string | null>(initialCursor);
 
-  const [filter, setFilter] = React.useState<Filter>('ALL');
-
   const [activeId, setActiveId] = React.useState<string | null>(
     initialItems[0]?.id ?? null,
   );
@@ -64,8 +77,28 @@ export function InboxShell({
     initialItems[0] ?? null,
   );
 
+  const [filter, setFilter] = React.useState<Filter>('ALL');
+
   const [loading, setLoading] = React.useState(false);
   const [loadingMore, setLoadingMore] = React.useState(false);
+
+  const select = React.useCallback(async (id: string) => {
+    setActiveId(id);
+    setLoading(true);
+    try {
+      const full = (await fetchConversation(id)) as InboxConversation;
+      const preview = derivePreview(full);
+
+      setActive(full);
+      setItems((prev) =>
+        prev.map((c) =>
+          c.id === id ? { ...c, ...full, preview: preview ?? c.preview } : c,
+        ),
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const refresh = React.useCallback((full: InboxConversation) => {
     const preview = derivePreview(full);
@@ -80,34 +113,11 @@ export function InboxShell({
     );
   }, []);
 
-  const select = React.useCallback(
-    async (id: string) => {
-      setActiveId(id);
-      setLoading(true);
-      try {
-        const full = (await fetchConversation(id)) as InboxConversation;
-        const preview = derivePreview(full);
-
-        setActive(full);
-        setItems((prev) =>
-          prev.map((c) =>
-            c.id === id ? { ...c, ...full, preview: preview ?? c.preview } : c,
-          ),
-        );
-      } finally {
-        setLoading(false);
-      }
-    },
-    [],
-  );
-
-  // initial select
   React.useEffect(() => {
     if (!activeId) return;
     void select(activeId);
   }, [activeId, select]);
 
-  // polling (configurable)
   React.useEffect(() => {
     if (!activeId) return;
 
@@ -124,7 +134,6 @@ export function InboxShell({
 
   const toggleStatus = React.useCallback(
     async (id: string, next: InboxConversationStatus) => {
-      // optimistic
       setItems((prev) =>
         prev.map((c) => (c.id === id ? { ...c, status: next } : c)),
       );
@@ -146,36 +155,34 @@ export function InboxShell({
     [active, refresh],
   );
 
-  const counts = React.useMemo(() => {
-    let open = 0;
-    let pending = 0;
-    let closed = 0;
+  const sortedItems = React.useMemo(() => {
+    const list =
+      filter === 'ALL'
+        ? items
+        : items.filter((c) => normalizeStatus(c.status) === filter);
 
-    for (const c of items) {
-      const s = asStatus(c.status);
-      if (s === 'OPEN') open += 1;
-      else if (s === 'PENDING') pending += 1;
-      else if (s === 'CLOSED') closed += 1;
-    }
-
-    return {
-      all: items.length,
-      open,
-      pending,
-      closed,
-    };
-  }, [items]);
-
-  const visibleItems = React.useMemo(() => {
-    if (filter === 'ALL') return items;
-    return items.filter((c) => asStatus(c.status) === filter);
+    const copy = [...list];
+    copy.sort((a, b) => {
+      const ta = a.lastActivityAt ? Date.parse(a.lastActivityAt) : 0;
+      const tb = b.lastActivityAt ? Date.parse(b.lastActivityAt) : 0;
+      return tb - ta;
+    });
+    return copy;
   }, [items, filter]);
+
+  const counts = React.useMemo(() => computeCounts(items), [items]);
 
   const loadMore = React.useCallback(async () => {
     if (!cursor || loadingMore) return;
     setLoadingMore(true);
     try {
-      const data = await fetchConversations({ limit: 20, lite: true, cursor });
+      const data = await fetchConversations({
+        limit: 20,
+        lite: true,
+        cursor,
+        status: filter === 'ALL' ? undefined : filter,
+      });
+
       const next = data.nextCursor ?? null;
 
       const more = (
@@ -195,20 +202,26 @@ export function InboxShell({
     } finally {
       setLoadingMore(false);
     }
-  }, [cursor, loadingMore]);
+  }, [cursor, loadingMore, filter]);
+
+  // reset pagination when changing filter
+  React.useEffect(() => {
+    setCursor(initialCursor);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter]);
 
   return (
     <div className="h-[calc(100vh-1px)] w-full">
       <div className="grid h-full grid-cols-[360px_1fr]">
         <div className="border-r">
           <InboxList
-            items={visibleItems}
+            items={sortedItems}
             activeId={activeId}
-            filter={filter}
-            counts={counts}
-            onFilterChange={setFilter}
             onSelect={select}
             onToggleStatus={toggleStatus}
+            filter={filter}
+            counts={counts}
+            onFilterChange={(f) => setFilter(f)}
           />
 
           <div className="p-3 border-t">

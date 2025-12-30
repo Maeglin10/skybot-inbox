@@ -1,27 +1,23 @@
-export async function fetchConversation(id: string) {
-  const res = await fetch(`/api/proxy/conversations/${id}`, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`fetchConversation failed: ${res.status}`);
-  return res.json();
-}
+'use client';
 
-export async function fetchConversations(params: {
+import { apiClientFetch } from './api.client';
+
+export async function fetchConversations(params?: {
   limit?: number;
   cursor?: string | null;
   lite?: boolean;
-  status?: string;
-  inboxId?: string;
+  status?: 'OPEN' | 'PENDING' | 'CLOSED';
 }) {
-  const qs = new URLSearchParams();
-  if (params.limit) qs.set('limit', String(params.limit));
-  if (params.cursor) qs.set('cursor', params.cursor);
-  if (params.lite) qs.set('lite', '1');
-  if (params.status) qs.set('status', params.status);
-  if (params.inboxId) qs.set('inboxId', params.inboxId);
+  const q = new URLSearchParams();
+  if (params?.limit) q.set('limit', String(params.limit));
+  if (params?.cursor) q.set('cursor', String(params.cursor));
+  if (params?.lite) q.set('lite', '1');
+  if (params?.status) q.set('status', params.status);
 
-  const res = await fetch(`/api/proxy/conversations?${qs.toString()}`, {
-    cache: 'no-store',
-  });
+  const qs = q.toString();
+  return apiClientFetch(`/conversations${qs ? `?${qs}` : ''}`);
+}
 
-  if (!res.ok) throw new Error(`fetchConversations failed: ${res.status}`);
-  return res.json() as Promise<{ items: unknown[]; nextCursor: string | null }>;
+export async function fetchConversation(id: string) {
+  return apiClientFetch(`/conversations/${id}`);
 }
