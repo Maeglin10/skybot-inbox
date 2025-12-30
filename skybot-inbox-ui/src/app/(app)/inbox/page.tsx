@@ -38,7 +38,7 @@ function asNullableString(v: unknown): string | null {
 }
 
 function normalizeStatus(v: unknown): InboxConversationStatus | undefined {
-  if (v === 'OPEN' || v === 'CLOSED') return v;
+  if (v === 'OPEN' || v === 'PENDING' || v === 'CLOSED') return v;
   return undefined;
 }
 

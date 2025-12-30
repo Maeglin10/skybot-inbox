@@ -6,8 +6,7 @@ import { InboxThread } from './thread';
 import { fetchConversation, fetchConversations } from '@/lib/inbox.client';
 import { patchConversationStatus } from '@/lib/status.client';
 
-export type InboxConversationStatus = 'OPEN' | 'CLOSED';
-
+export type InboxConversationStatus = 'OPEN' | 'PENDING' | 'CLOSED';
 export type InboxConversation = {
   id: string;
   status?: InboxConversationStatus;
@@ -111,27 +110,27 @@ export function InboxShell({
   }, [activeId, select]);
 
   const toggleStatus = React.useCallback(
-    async (id: string, next: 'OPEN' | 'CLOSED') => {
-      setItems((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, status: next } : c)),
-      );
-      if (active?.id === id) setActive({ ...active, status: next });
+  async (id: string, next: InboxConversationStatus) => {
+    setItems((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, status: next } : c)),
+    );
+    if (active?.id === id) setActive({ ...active, status: next });
 
+    try {
+      await patchConversationStatus({ conversationId: id, status: next });
+      const full = (await fetchConversation(id)) as InboxConversation;
+      refresh(full);
+    } catch {
       try {
-        await patchConversationStatus({ conversationId: id, status: next });
         const full = (await fetchConversation(id)) as InboxConversation;
         refresh(full);
       } catch {
-        try {
-          const full = (await fetchConversation(id)) as InboxConversation;
-          refresh(full);
-        } catch {
-          // ignore
-        }
+        // ignore
       }
-    },
-    [active, refresh],
-  );
+    }
+  },
+  [active, refresh],
+);
 
   const sortedItems = React.useMemo(() => {
     const copy = [...items];

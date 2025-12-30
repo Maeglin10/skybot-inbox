@@ -1,50 +1,59 @@
-"use client";
+'use client';
 
-import * as React from "react";
-import type { InboxConversation } from "./inbox-shell";
+import * as React from 'react';
+import type { InboxConversation } from './inbox-shell';
 
 function previewText(c: InboxConversation) {
-  const t = c.preview?.text ?? c.messages?.[c.messages.length - 1]?.text ?? "";
-  return (t || "").slice(0, 80);
+  const t = c.preview?.text ?? c.messages?.[c.messages.length - 1]?.text ?? '';
+  return (t || '').slice(0, 80);
 }
 
 function fmtLite(ts?: string) {
-  if (!ts) return "";
+  if (!ts) return '';
   const d = new Date(ts);
   if (Number.isNaN(d.getTime())) return ts;
   return d.toLocaleString(undefined, {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 }
 
 function lastTs(c: InboxConversation) {
-  return c.preview?.timestamp ?? c.lastActivityAt ?? c.messages?.[c.messages.length - 1]?.timestamp;
+  return (
+    c.preview?.timestamp ??
+    c.lastActivityAt ??
+    c.messages?.[c.messages.length - 1]?.timestamp
+  );
 }
 
 function statusMeta(status?: string) {
-  if (status === "OPEN") {
+  if (status === 'OPEN') {
     return {
-      label: "OPEN",
-      pill:
-        "border-emerald-400/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-      dot: "bg-emerald-500",
+      label: 'OPEN',
+      pill: 'border-emerald-400/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+      dot: 'bg-emerald-500',
     };
   }
-  if (status === "CLOSED") {
+  if (status === 'PENDING') {
     return {
-      label: "CLOSED",
-      pill:
-        "border-zinc-400/40 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300",
-      dot: "bg-zinc-400",
+      label: 'PENDING',
+      pill: 'border-amber-400/40 bg-amber-500/10 text-amber-800 dark:text-amber-300',
+      dot: 'bg-amber-500',
+    };
+  }
+  if (status === 'CLOSED') {
+    return {
+      label: 'CLOSED',
+      pill: 'border-zinc-400/40 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300',
+      dot: 'bg-zinc-400',
     };
   }
   return {
-    label: status ?? "—",
-    pill: "border-zinc-400/40 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300",
-    dot: "bg-zinc-400",
+    label: status ?? '—',
+    pill: 'border-zinc-400/40 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300',
+    dot: 'bg-zinc-400',
   };
 }
 
@@ -57,29 +66,39 @@ export function InboxList({
   items: InboxConversation[];
   activeId: string | null;
   onSelect: (id: string) => void;
-  onToggleStatus?: (id: string, next: "OPEN" | "CLOSED") => void;
+  onToggleStatus?: (id: string, next: 'OPEN' | 'PENDING' | 'CLOSED') => void;
 }) {
   return (
     <div className="h-full">
       <div className="p-4 border-b">
         <div className="text-sm font-semibold">Conversations</div>
-        <div className="text-xs text-muted-foreground">{items.length} total</div>
+        <div className="text-xs text-muted-foreground">
+          {items.length} total
+        </div>
       </div>
 
       <div className="h-[calc(100%-57px)] overflow-auto">
         {items.map((c) => {
-          const name = c.contact?.name || c.contact?.phone || "Unknown";
-          const phone = c.contact?.phone || "";
+          const name = c.contact?.name || c.contact?.phone || 'Unknown';
+          const phone = c.contact?.phone || '';
           const isActive = c.id === activeId;
 
           const meta = statusMeta(c.status);
-          const next = c.status === "OPEN" ? "CLOSED" : "OPEN";
+          const next =
+            c.status === 'OPEN'
+              ? 'PENDING'
+              : c.status === 'PENDING'
+                ? 'CLOSED'
+                : 'OPEN';
           const ts = lastTs(c);
 
           return (
             <div
               key={c.id}
-              className={["border-b", isActive ? "bg-muted" : "bg-background"].join(" ")}
+              className={[
+                'border-b',
+                isActive ? 'bg-muted' : 'bg-background',
+              ].join(' ')}
             >
               <button
                 type="button"
@@ -89,18 +108,22 @@ export function InboxList({
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium">{name}</div>
-                    <div className="truncate text-xs text-muted-foreground">{phone}</div>
+                    <div className="truncate text-xs text-muted-foreground">
+                      {phone}
+                    </div>
                   </div>
 
                   <div className="shrink-0 flex flex-col items-end gap-2">
                     <div
                       className={[
-                        "inline-flex items-center gap-2 text-[10px] rounded px-2 py-1 border",
+                        'inline-flex items-center gap-2 text-[10px] rounded px-2 py-1 border',
                         meta.pill,
-                      ].join(" ")}
+                      ].join(' ')}
                       title="Status"
                     >
-                      <span className={["h-2 w-2 rounded-full", meta.dot].join(" ")} />
+                      <span
+                        className={['h-2 w-2 rounded-full', meta.dot].join(' ')}
+                      />
                       <span>{meta.label}</span>
                     </div>
 
