@@ -1,14 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
-type Status = 'OPEN' | 'PENDING' | 'CLOSED';
+export type ConversationStatus = 'OPEN' | 'CLOSED';
 
 @Injectable()
 export class ConversationsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(params: {
-    status?: Status;
+    status?: ConversationStatus;
     inboxId?: string;
     limit?: number;
     cursor?: string;
@@ -16,64 +16,91 @@ export class ConversationsService {
   }) {
     const { status, inboxId, limit = 20, cursor, lite } = params;
 
-    const where = {
+    const take = Math.min(Math.max(limit, 1), 100);
+
+    // Cursor: we paginate by createdAt (stable) not by id
+    const where: Record<string, unknown> = {
       ...(status ? { status } : {}),
       ...(inboxId ? { inboxId } : {}),
-      ...(cursor ? { id: { lt: cursor } } : {}),
+      ...(cursor ? { createdAt: { lt: new Date(cursor) } } : {}),
     };
 
     if (lite) {
-      const conversations = await this.prisma.conversation.findMany({
+      const rows = await this.prisma.conversation.findMany({
         where,
-        take: limit,
-        orderBy: [{ lastActivityAt: 'desc' }, { createdAt: 'desc' }],
+        take,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         select: {
           id: true,
           status: true,
           lastActivityAt: true,
+          createdAt: true,
           contact: { select: { name: true, phone: true } },
           messages: {
             take: 1,
             orderBy: { createdAt: 'desc' },
-            select: { text: true, timestamp: true, direction: true },
+            select: {
+              text: true,
+              timestamp: true,
+              createdAt: true,
+              direction: true,
+            },
           },
         },
       });
 
-      const items = conversations.map((c) => ({
-        id: c.id,
-        status: c.status,
-        lastActivityAt: c.lastActivityAt,
-        contact: c.contact
-          ? { name: c.contact.name, phone: c.contact.phone }
-          : undefined,
-        preview: c.messages?.[0]
-          ? {
-              text: c.messages[0].text ?? null,
-              timestamp: c.messages[0].timestamp,
-              direction: c.messages[0].direction,
-            }
-          : undefined,
-      }));
+      const items = rows.map((c) => {
+        const m = c.messages?.[0];
+        const ts =
+          (m?.timestamp as unknown as Date | null)?.toISOString?.() ??
+          (m?.createdAt ? m.createdAt.toISOString() : undefined);
+
+        return {
+          id: c.id,
+          status: c.status as ConversationStatus,
+          lastActivityAt:
+            c.lastActivityAt?.toISOString?.() ??
+            (typeof c.lastActivityAt === 'string'
+              ? c.lastActivityAt
+              : undefined),
+          contact: c.contact
+            ? { name: c.contact.name ?? null, phone: c.contact.phone ?? null }
+            : undefined,
+          preview: m
+            ? {
+                text: m.text ?? null,
+                timestamp: ts,
+                direction:
+                  m.direction === 'IN' || m.direction === 'OUT'
+                    ? m.direction
+                    : undefined,
+              }
+            : undefined,
+        };
+      });
 
       const nextCursor =
-        conversations.length === limit
-          ? conversations[conversations.length - 1].id
+        rows.length === take
+          ? rows[rows.length - 1].createdAt.toISOString()
           : null;
-
       return { items, nextCursor };
     }
 
     const items = await this.prisma.conversation.findMany({
       where,
-      take: limit,
-      include: { inbox: true, contact: true, messages: true },
-      orderBy: [{ lastActivityAt: 'desc' }, { createdAt: 'desc' }],
+      take,
+      include: {
+        inbox: true,
+        contact: true,
+        messages: { orderBy: { createdAt: 'asc' } },
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
 
     const nextCursor =
-      items.length === limit ? items[items.length - 1].id : null;
-
+      items.length === take
+        ? items[items.length - 1].createdAt.toISOString()
+        : null;
     return { items, nextCursor };
   }
 
@@ -86,12 +113,11 @@ export class ConversationsService {
         messages: { orderBy: { createdAt: 'asc' } },
       },
     });
-
     if (!conv) throw new NotFoundException('Conversation not found');
     return conv;
   }
 
-  async updateStatus(conversationId: string, status: Status) {
+  async updateStatus(conversationId: string, status: ConversationStatus) {
     const existing = await this.prisma.conversation.findUnique({
       where: { id: conversationId },
       select: { id: true },
@@ -104,34 +130,27 @@ export class ConversationsService {
       include: {
         inbox: true,
         contact: true,
-        messages: { take: 1, orderBy: { createdAt: 'desc' } },
+        messages: { orderBy: { createdAt: 'asc' } },
       },
     });
   }
 
-  // REQUIRED BY conversations.controller.ts
+  // REQUIRED by controller: GET /conversations/:id/messages
   async listMessages(
     conversationId: string,
     params: { limit?: number; cursor?: string },
   ) {
-    const limit = Math.min(Math.max(params.limit ?? 20, 1), 100);
+    const take = Math.min(Math.max(params.limit ?? 20, 1), 100);
     const cursor = params.cursor;
 
-    // ensure conversation exists (clean 404)
-    const exists = await this.prisma.conversation.findUnique({
-      where: { id: conversationId },
-      select: { id: true },
-    });
-    if (!exists) throw new NotFoundException('Conversation not found');
-
-    const where = {
+    const where: Record<string, unknown> = {
       conversationId,
       ...(cursor ? { createdAt: { lt: new Date(cursor) } } : {}),
     };
 
     const rows = await this.prisma.message.findMany({
       where,
-      take: limit,
+      take,
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
@@ -144,6 +163,7 @@ export class ConversationsService {
       },
     });
 
+    // return oldest->newest for UI rendering
     const items = rows
       .slice()
       .reverse()
@@ -153,16 +173,16 @@ export class ConversationsService {
         timestamp:
           (m.timestamp as unknown as Date | null)?.toISOString?.() ??
           m.createdAt.toISOString(),
-        direction: m.direction,
+        direction:
+          m.direction === 'IN' || m.direction === 'OUT' ? m.direction : 'IN',
         from: m.from ?? undefined,
         to: m.to ?? undefined,
       }));
 
     const nextCursor =
-      rows.length === limit
+      rows.length === take
         ? rows[rows.length - 1].createdAt.toISOString()
         : null;
-
     return { items, nextCursor };
   }
 }

@@ -20,21 +20,9 @@ export async function listMessages(input: {
 }) {
   const qs = new URLSearchParams();
   if (typeof input.limit === 'number') qs.set('limit', String(input.limit));
-  if (typeof input.cursor === 'string' && input.cursor) qs.set('cursor', input.cursor);
+  if (typeof input.cursor === 'string') qs.set('cursor', input.cursor);
 
-  const path = `/conversations/${input.conversationId}/messages${
-    qs.toString() ? `?${qs.toString()}` : ''
-  }`;
-
-  return apiClientFetch(path, { method: 'GET' }) as Promise<{
-    items: Array<{
-      id: string;
-      text: string | null;
-      timestamp: string;
-      direction: 'IN' | 'OUT' | string;
-      from?: string;
-      to?: string;
-    }>;
-    nextCursor: string | null;
-  }>;
+  const q = qs.toString();
+  const path = `/conversations/${input.conversationId}/messages${q ? `?${q}` : ''}`;
+  return apiClientFetch(path);
 }
