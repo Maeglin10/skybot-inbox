@@ -30,7 +30,7 @@ export type InboxConversation = {
 function derivePreview(c: InboxConversation): InboxConversation['preview'] {
   const msgs = c.messages ?? [];
   const last = msgs.length ? msgs[msgs.length - 1] : undefined;
-  if (!last) return c.preview;
+  if (!last) return undefined;
   return {
     text: last.text ?? null,
     timestamp: last.timestamp,
@@ -58,73 +58,80 @@ export function InboxShell({
   const [loading, setLoading] = React.useState(false);
   const [loadingMore, setLoadingMore] = React.useState(false);
 
-  const upsertLite = React.useCallback((full: InboxConversation) => {
-    const preview = derivePreview(full);
-    const lastActivityAt = full.lastActivityAt ?? preview?.timestamp;
+  const select = React.useCallback(async (id: string) => {
+    setActiveId(id);
+    setLoading(true);
+    try {
+      const full = (await fetchConversation(id)) as InboxConversation;
+      const preview = derivePreview(full);
 
+      setActive(full);
+      setItems((prev) =>
+        prev.map((c) =>
+          c.id === id ? { ...c, ...full, preview: preview ?? c.preview } : c,
+        ),
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const refresh = React.useCallback((full: InboxConversation) => {
+    const preview = derivePreview(full);
+
+    setActive(full);
     setItems((prev) =>
       prev.map((c) =>
         c.id === full.id
-          ? {
-              ...c,
-              ...full,
-              preview: preview ?? c.preview,
-              lastActivityAt: lastActivityAt ?? c.lastActivityAt,
-            }
+          ? { ...c, ...full, preview: preview ?? c.preview }
           : c,
       ),
     );
   }, []);
 
-  const select = React.useCallback(
-    async (id: string) => {
-      setActiveId(id);
-      setLoading(true);
-      try {
-        const full = (await fetchConversation(id)) as InboxConversation;
-        setActive(full);
-        upsertLite(full);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [upsertLite],
-  );
-
-  const refresh = React.useCallback(
-    (full: InboxConversation) => {
-      setActive(full);
-      upsertLite(full);
-    },
-    [upsertLite],
-  );
-
+  // initial select
   React.useEffect(() => {
     if (!activeId) return;
     void select(activeId);
   }, [activeId, select]);
 
-  async function toggleStatus(id: string, next: 'OPEN' | 'CLOSED') {
-    // optimistic
-    setItems((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, status: next } : c)),
-    );
-    if (active?.id === id) setActive({ ...active, status: next });
+  // polling (configurable)
+  React.useEffect(() => {
+    if (!activeId) return;
 
-    try {
-      await patchConversationStatus({ conversationId: id, status: next });
-      const full = (await fetchConversation(id)) as InboxConversation;
-      refresh(full);
-    } catch {
-      // rollback by refetch
+    const msRaw = process.env.NEXT_PUBLIC_INBOX_POLL_MS;
+    const ms = (() => {
+      const n = msRaw ? Number(msRaw) : 3000;
+      if (!Number.isFinite(n)) return 3000;
+      return Math.min(Math.max(n, 1000), 15000);
+    })();
+
+    const t = window.setInterval(() => void select(activeId), ms);
+    return () => window.clearInterval(t);
+  }, [activeId, select]);
+
+  const toggleStatus = React.useCallback(
+    async (id: string, next: 'OPEN' | 'CLOSED') => {
+      setItems((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, status: next } : c)),
+      );
+      if (active?.id === id) setActive({ ...active, status: next });
+
       try {
+        await patchConversationStatus({ conversationId: id, status: next });
         const full = (await fetchConversation(id)) as InboxConversation;
         refresh(full);
       } catch {
-        // ignore
+        try {
+          const full = (await fetchConversation(id)) as InboxConversation;
+          refresh(full);
+        } catch {
+          // ignore
+        }
       }
-    }
-  }
+    },
+    [active, refresh],
+  );
 
   const sortedItems = React.useMemo(() => {
     const copy = [...items];
@@ -136,7 +143,7 @@ export function InboxShell({
     return copy;
   }, [items]);
 
-  async function loadMore() {
+  const loadMore = React.useCallback(async () => {
     if (!cursor || loadingMore) return;
     setLoadingMore(true);
     try {
@@ -160,7 +167,7 @@ export function InboxShell({
     } finally {
       setLoadingMore(false);
     }
-  }
+  }, [cursor, loadingMore]);
 
   return (
     <div className="h-[calc(100vh-1px)] w-full">

@@ -1,8 +1,4 @@
-import {
-  InboxShell,
-  type InboxConversation,
-  type InboxConversationStatus,
-} from '@/components/inbox/inbox-shell';
+import { InboxShell, type InboxConversation, type InboxConversationStatus } from '@/components/inbox/inbox-shell';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,6 +30,11 @@ function asString(v: unknown): string {
   if (typeof v === 'string') return v;
   if (v == null) return '';
   return String(v);
+}
+
+function asNullableString(v: unknown): string | null {
+  if (typeof v === 'string') return v;
+  return null;
 }
 
 function normalizeStatus(v: unknown): InboxConversationStatus | undefined {
@@ -93,7 +94,7 @@ export default async function InboxPage() {
               typeof c.preview.timestamp === 'string'
                 ? c.preview.timestamp
                 : undefined,
-            direction: normalizeDir(c.preview.direction),
+            direction: normalizeDir(c.preview.direction) ?? 'IN',
           }
         : undefined;
 
@@ -107,10 +108,7 @@ export default async function InboxPage() {
     };
   });
 
-  const initialCursor =
-    typeof data.nextCursor === 'string' && data.nextCursor.length
-      ? data.nextCursor
-      : null;
+  const initialCursor = asNullableString(data.nextCursor);
 
   return <InboxShell initialItems={items} initialCursor={initialCursor} />;
 }
