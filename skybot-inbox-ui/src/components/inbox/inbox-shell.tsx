@@ -55,6 +55,8 @@ export function InboxShell({
   const [items, setItems] = React.useState<InboxConversation[]>(initialItems);
   const [cursor, setCursor] = React.useState<string | null>(initialCursor);
 
+  const [filter, setFilter] = React.useState<Filter>('ALL');
+
   const [activeId, setActiveId] = React.useState<string | null>(
     initialItems[0]?.id ?? null,
   );
@@ -64,26 +66,6 @@ export function InboxShell({
 
   const [loading, setLoading] = React.useState(false);
   const [loadingMore, setLoadingMore] = React.useState(false);
-
-  const [filter, setFilter] = React.useState<Filter>('ALL');
-
-  const select = React.useCallback(async (id: string) => {
-    setActiveId(id);
-    setLoading(true);
-    try {
-      const full = (await fetchConversation(id)) as InboxConversation;
-      const preview = derivePreview(full);
-
-      setActive(full);
-      setItems((prev) =>
-        prev.map((c) =>
-          c.id === id ? { ...c, ...full, preview: preview ?? c.preview } : c,
-        ),
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, []);
 
   const refresh = React.useCallback((full: InboxConversation) => {
     const preview = derivePreview(full);
@@ -97,6 +79,27 @@ export function InboxShell({
       ),
     );
   }, []);
+
+  const select = React.useCallback(
+    async (id: string) => {
+      setActiveId(id);
+      setLoading(true);
+      try {
+        const full = (await fetchConversation(id)) as InboxConversation;
+        const preview = derivePreview(full);
+
+        setActive(full);
+        setItems((prev) =>
+          prev.map((c) =>
+            c.id === id ? { ...c, ...full, preview: preview ?? c.preview } : c,
+          ),
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
 
   // initial select
   React.useEffect(() => {
@@ -121,6 +124,7 @@ export function InboxShell({
 
   const toggleStatus = React.useCallback(
     async (id: string, next: InboxConversationStatus) => {
+      // optimistic
       setItems((prev) =>
         prev.map((c) => (c.id === id ? { ...c, status: next } : c)),
       );
@@ -142,33 +146,30 @@ export function InboxShell({
     [active, refresh],
   );
 
-  const sortedItems = React.useMemo(() => {
-    const copy = [...items];
-    copy.sort((a, b) => {
-      const ta = a.lastActivityAt ? Date.parse(a.lastActivityAt) : 0;
-      const tb = b.lastActivityAt ? Date.parse(b.lastActivityAt) : 0;
-      return tb - ta;
-    });
-    return copy;
-  }, [items]);
-
   const counts = React.useMemo(() => {
     let open = 0;
     let pending = 0;
     let closed = 0;
+
     for (const c of items) {
       const s = asStatus(c.status);
-      if (s === 'OPEN') open++;
-      else if (s === 'PENDING') pending++;
-      else if (s === 'CLOSED') closed++;
+      if (s === 'OPEN') open += 1;
+      else if (s === 'PENDING') pending += 1;
+      else if (s === 'CLOSED') closed += 1;
     }
-    return { all: items.length, open, pending, closed };
+
+    return {
+      all: items.length,
+      open,
+      pending,
+      closed,
+    };
   }, [items]);
 
-  const filteredItems = React.useMemo(() => {
-    if (filter === 'ALL') return sortedItems;
-    return sortedItems.filter((c) => asStatus(c.status) === filter);
-  }, [sortedItems, filter]);
+  const visibleItems = React.useMemo(() => {
+    if (filter === 'ALL') return items;
+    return items.filter((c) => asStatus(c.status) === filter);
+  }, [items, filter]);
 
   const loadMore = React.useCallback(async () => {
     if (!cursor || loadingMore) return;
@@ -196,15 +197,12 @@ export function InboxShell({
     }
   }, [cursor, loadingMore]);
 
-  // si le filtre masque la conv active, on laisse le thread tel quel (pas de auto-switch)
-  // objectif: pas de comportements “magiques” qui surprennent.
-
   return (
     <div className="h-[calc(100vh-1px)] w-full">
       <div className="grid h-full grid-cols-[360px_1fr]">
         <div className="border-r">
           <InboxList
-            items={filteredItems}
+            items={visibleItems}
             activeId={activeId}
             filter={filter}
             counts={counts}
