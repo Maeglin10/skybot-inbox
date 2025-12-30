@@ -1,13 +1,13 @@
 'use client';
 
-import { apiClientFetch } from './api.client';
+import type { InboxConversationStatus } from '@/components/inbox/inbox-shell';
+import { apiPatchClient } from './api.client';
 
 export async function patchConversationStatus(input: {
   conversationId: string;
-  status: 'OPEN' | 'PENDING' | 'CLOSED';
+  status: InboxConversationStatus;
 }) {
-  return apiClientFetch(`/conversations/${input.conversationId}/status`, {
-    method: 'PATCH',
-    body: JSON.stringify({ status: input.status }),
+  return apiPatchClient(`/conversations/${input.conversationId}/status`, {
+    status: input.status,
   });
 }

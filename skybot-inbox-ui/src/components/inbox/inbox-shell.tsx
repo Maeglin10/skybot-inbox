@@ -7,6 +7,7 @@ import { fetchConversation, fetchConversations } from '@/lib/inbox.client';
 import { patchConversationStatus } from '@/lib/status.client';
 
 export type InboxConversationStatus = 'OPEN' | 'PENDING' | 'CLOSED';
+
 export type InboxConversation = {
   id: string;
   status?: InboxConversationStatus;
@@ -26,6 +27,8 @@ export type InboxConversation = {
   };
 };
 
+type Filter = 'ALL' | InboxConversationStatus;
+
 function derivePreview(c: InboxConversation): InboxConversation['preview'] {
   const msgs = c.messages ?? [];
   const last = msgs.length ? msgs[msgs.length - 1] : undefined;
@@ -35,6 +38,11 @@ function derivePreview(c: InboxConversation): InboxConversation['preview'] {
     timestamp: last.timestamp,
     direction: last.direction,
   };
+}
+
+function asStatus(s?: string): InboxConversationStatus | undefined {
+  if (s === 'OPEN' || s === 'PENDING' || s === 'CLOSED') return s;
+  return undefined;
 }
 
 export function InboxShell({
@@ -56,6 +64,8 @@ export function InboxShell({
 
   const [loading, setLoading] = React.useState(false);
   const [loadingMore, setLoadingMore] = React.useState(false);
+
+  const [filter, setFilter] = React.useState<Filter>('ALL');
 
   const select = React.useCallback(async (id: string) => {
     setActiveId(id);
@@ -110,27 +120,27 @@ export function InboxShell({
   }, [activeId, select]);
 
   const toggleStatus = React.useCallback(
-  async (id: string, next: InboxConversationStatus) => {
-    setItems((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, status: next } : c)),
-    );
-    if (active?.id === id) setActive({ ...active, status: next });
+    async (id: string, next: InboxConversationStatus) => {
+      setItems((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, status: next } : c)),
+      );
+      if (active?.id === id) setActive({ ...active, status: next });
 
-    try {
-      await patchConversationStatus({ conversationId: id, status: next });
-      const full = (await fetchConversation(id)) as InboxConversation;
-      refresh(full);
-    } catch {
       try {
+        await patchConversationStatus({ conversationId: id, status: next });
         const full = (await fetchConversation(id)) as InboxConversation;
         refresh(full);
       } catch {
-        // ignore
+        try {
+          const full = (await fetchConversation(id)) as InboxConversation;
+          refresh(full);
+        } catch {
+          // ignore
+        }
       }
-    }
-  },
-  [active, refresh],
-);
+    },
+    [active, refresh],
+  );
 
   const sortedItems = React.useMemo(() => {
     const copy = [...items];
@@ -141,6 +151,24 @@ export function InboxShell({
     });
     return copy;
   }, [items]);
+
+  const counts = React.useMemo(() => {
+    let open = 0;
+    let pending = 0;
+    let closed = 0;
+    for (const c of items) {
+      const s = asStatus(c.status);
+      if (s === 'OPEN') open++;
+      else if (s === 'PENDING') pending++;
+      else if (s === 'CLOSED') closed++;
+    }
+    return { all: items.length, open, pending, closed };
+  }, [items]);
+
+  const filteredItems = React.useMemo(() => {
+    if (filter === 'ALL') return sortedItems;
+    return sortedItems.filter((c) => asStatus(c.status) === filter);
+  }, [sortedItems, filter]);
 
   const loadMore = React.useCallback(async () => {
     if (!cursor || loadingMore) return;
@@ -168,13 +196,19 @@ export function InboxShell({
     }
   }, [cursor, loadingMore]);
 
+  // si le filtre masque la conv active, on laisse le thread tel quel (pas de auto-switch)
+  // objectif: pas de comportements “magiques” qui surprennent.
+
   return (
     <div className="h-[calc(100vh-1px)] w-full">
       <div className="grid h-full grid-cols-[360px_1fr]">
         <div className="border-r">
           <InboxList
-            items={sortedItems}
+            items={filteredItems}
             activeId={activeId}
+            filter={filter}
+            counts={counts}
+            onFilterChange={setFilter}
             onSelect={select}
             onToggleStatus={toggleStatus}
           />
@@ -192,7 +226,11 @@ export function InboxShell({
         </div>
 
         <div className="min-w-0">
-          <InboxThread conversation={active} loading={loading} onRefresh={refresh} />
+          <InboxThread
+            conversation={active}
+            loading={loading}
+            onRefresh={refresh}
+          />
         </div>
       </div>
     </div>
