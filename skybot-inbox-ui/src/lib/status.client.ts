@@ -1,11 +1,13 @@
-"use client";
+'use client';
 
-import { apiPatchClient } from "@/lib/api.client";
+import { apiClientFetch } from './api.client';
 
-export async function patchConversationStatus(params: {
+export async function patchConversationStatus(input: {
   conversationId: string;
-  status: "OPEN" | "CLOSED";
+  status: 'OPEN' | 'CLOSED';
 }) {
-  const { conversationId, status } = params;
-  return apiPatchClient(`/conversations/${conversationId}/status`, { status });
+  return apiClientFetch(`/conversations/${input.conversationId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status: input.status }),
+  });
 }

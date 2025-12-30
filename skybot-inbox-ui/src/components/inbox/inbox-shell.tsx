@@ -30,25 +30,11 @@ export type InboxConversation = {
 function derivePreview(c: InboxConversation): InboxConversation['preview'] {
   const msgs = c.messages ?? [];
   const last = msgs.length ? msgs[msgs.length - 1] : undefined;
-  if (!last) return undefined;
+  if (!last) return c.preview;
   return {
     text: last.text ?? null,
     timestamp: last.timestamp,
     direction: last.direction,
-  };
-}
-
-function applyDerivedFields(c: InboxConversation): InboxConversation {
-  const p = c.preview ?? derivePreview(c);
-  const la =
-    c.lastActivityAt ??
-    p?.timestamp ??
-    (c.messages?.length ? c.messages[c.messages.length - 1]?.timestamp : undefined);
-
-  return {
-    ...c,
-    preview: p,
-    lastActivityAt: la,
   };
 }
 
@@ -59,33 +45,35 @@ export function InboxShell({
   initialItems: InboxConversation[];
   initialCursor: string | null;
 }) {
-  const [items, setItems] = React.useState<InboxConversation[]>(
-    initialItems.map(applyDerivedFields),
-  );
+  const [items, setItems] = React.useState<InboxConversation[]>(initialItems);
   const [cursor, setCursor] = React.useState<string | null>(initialCursor);
 
   const [activeId, setActiveId] = React.useState<string | null>(
     initialItems[0]?.id ?? null,
   );
   const [active, setActive] = React.useState<InboxConversation | null>(
-    initialItems[0] ? applyDerivedFields(initialItems[0]) : null,
+    initialItems[0] ?? null,
   );
 
   const [loading, setLoading] = React.useState(false);
   const [loadingMore, setLoadingMore] = React.useState(false);
 
-  const upsert = React.useCallback((full: InboxConversation) => {
-    const normalized = applyDerivedFields(full);
+  const upsertLite = React.useCallback((full: InboxConversation) => {
+    const preview = derivePreview(full);
+    const lastActivityAt = full.lastActivityAt ?? preview?.timestamp;
 
-    setItems((prev) => {
-      const next = prev.slice();
-      const idx = next.findIndex((x) => x.id === normalized.id);
-      if (idx >= 0) next[idx] = { ...next[idx], ...normalized };
-      else next.push(normalized);
-      return next;
-    });
-
-    setActive((cur) => (cur?.id === normalized.id ? normalized : cur));
+    setItems((prev) =>
+      prev.map((c) =>
+        c.id === full.id
+          ? {
+              ...c,
+              ...full,
+              preview: preview ?? c.preview,
+              lastActivityAt: lastActivityAt ?? c.lastActivityAt,
+            }
+          : c,
+      ),
+    );
   }, []);
 
   const select = React.useCallback(
@@ -94,23 +82,21 @@ export function InboxShell({
       setLoading(true);
       try {
         const full = (await fetchConversation(id)) as InboxConversation;
-        const normalized = applyDerivedFields(full);
-        setActive(normalized);
-        setItems((prev) =>
-          prev.map((c) => (c.id === id ? { ...c, ...normalized } : c)),
-        );
+        setActive(full);
+        upsertLite(full);
       } finally {
         setLoading(false);
       }
     },
-    [],
+    [upsertLite],
   );
 
   const refresh = React.useCallback(
     (full: InboxConversation) => {
-      upsert(full);
+      setActive(full);
+      upsertLite(full);
     },
-    [upsert],
+    [upsertLite],
   );
 
   React.useEffect(() => {
@@ -119,14 +105,18 @@ export function InboxShell({
   }, [activeId, select]);
 
   async function toggleStatus(id: string, next: 'OPEN' | 'CLOSED') {
+    // optimistic
     setItems((prev) =>
       prev.map((c) => (c.id === id ? { ...c, status: next } : c)),
     );
-    setActive((cur) => (cur?.id === id ? { ...cur, status: next } : cur));
+    if (active?.id === id) setActive({ ...active, status: next });
 
     try {
       await patchConversationStatus({ conversationId: id, status: next });
-    } finally {
+      const full = (await fetchConversation(id)) as InboxConversation;
+      refresh(full);
+    } catch {
+      // rollback by refetch
       try {
         const full = (await fetchConversation(id)) as InboxConversation;
         refresh(full);
@@ -153,15 +143,15 @@ export function InboxShell({
       const data = await fetchConversations({ limit: 20, lite: true, cursor });
       const next = data.nextCursor ?? null;
 
-      const more = (Array.isArray(data.items) ? data.items : []) as InboxConversation[];
+      const more = (
+        Array.isArray(data.items) ? data.items : []
+      ) as InboxConversation[];
 
       setItems((prev) => {
         const seen = new Set(prev.map((x) => x.id));
         const merged = [...prev];
         for (const c of more) {
-          if (!c?.id) continue;
-          if (seen.has(c.id)) continue;
-          merged.push(applyDerivedFields(c));
+          if (c?.id && !seen.has(c.id)) merged.push(c);
         }
         return merged;
       });
@@ -179,7 +169,7 @@ export function InboxShell({
           <InboxList
             items={sortedItems}
             activeId={activeId}
-            onSelect={(id) => void select(id)}
+            onSelect={select}
             onToggleStatus={toggleStatus}
           />
 
