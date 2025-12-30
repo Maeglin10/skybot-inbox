@@ -3,6 +3,8 @@
 import * as React from 'react';
 import type { InboxConversation, InboxConversationStatus } from './inbox-shell';
 
+type Filter = 'ALL' | InboxConversationStatus;
+
 function previewText(c: InboxConversation) {
   const t = c.preview?.text ?? c.messages?.[c.messages.length - 1]?.text ?? '';
   return (t || '').slice(0, 80);
@@ -26,11 +28,6 @@ function lastTs(c: InboxConversation) {
     c.lastActivityAt ??
     c.messages?.[c.messages.length - 1]?.timestamp
   );
-}
-
-function asStatus(s?: string): InboxConversationStatus | undefined {
-  if (s === 'OPEN' || s === 'PENDING' || s === 'CLOSED') return s;
-  return undefined;
 }
 
 function statusMeta(status?: string) {
@@ -65,173 +62,89 @@ function statusMeta(status?: string) {
   };
 }
 
-type Filter = 'ALL' | InboxConversationStatus;
-type SortMode = 'RECENT' | 'NAME';
-
 function nextStatus(s?: InboxConversationStatus): InboxConversationStatus {
+  // règle simple et prédictible:
+  // OPEN -> PENDING -> CLOSED -> OPEN
   if (s === 'OPEN') return 'PENDING';
   if (s === 'PENDING') return 'CLOSED';
   return 'OPEN';
 }
 
-function TabButton({
-  active,
-  label,
-  count,
-  onClick,
-}: {
-  active: boolean;
-  label: string;
-  count: number;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={[
-        'h-8 px-2 rounded-md border text-xs',
-        active ? 'bg-muted' : 'bg-background hover:bg-muted/50',
-      ].join(' ')}
-    >
-      <span className="font-medium">{label}</span>
-      <span className="ml-2 text-muted-foreground">{count}</span>
-    </button>
-  );
-}
-
-function normalize(s: string) {
-  return s.trim().toLowerCase();
-}
-
-function conversationHaystack(c: InboxConversation) {
-  const name = c.contact?.name ?? '';
-  const phone = c.contact?.phone ?? '';
-  const prev = c.preview?.text ?? '';
-  return normalize(`${name} ${phone} ${prev}`);
+function tabBtn(active: boolean) {
+  return [
+    'h-8 rounded-md border px-2 text-xs',
+    active ? 'bg-muted' : 'bg-background hover:bg-muted/50',
+  ].join(' ');
 }
 
 export function InboxList({
   items,
   activeId,
+  onSelect,
+  onToggleStatus,
   filter,
   counts,
   onFilterChange,
-  onSelect,
-  onToggleStatus,
 }: {
   items: InboxConversation[];
   activeId: string | null;
+  onSelect: (id: string) => void;
+  onToggleStatus?: (id: string, next: InboxConversationStatus) => void;
 
   filter: Filter;
   counts: { all: number; open: number; pending: number; closed: number };
   onFilterChange: (f: Filter) => void;
-
-  onSelect: (id: string) => void;
-  onToggleStatus?: (id: string, next: InboxConversationStatus) => void;
 }) {
-  const [query, setQuery] = React.useState('');
-  const [sort, setSort] = React.useState<SortMode>('RECENT');
-
-  const filtered = React.useMemo(() => {
-    const q = normalize(query);
-    if (!q) return items;
-
-    return items.filter((c) => conversationHaystack(c).includes(q));
-  }, [items, query]);
-
-  const sorted = React.useMemo(() => {
-    const copy = [...filtered];
-    if (sort === 'NAME') {
-      copy.sort((a, b) => {
-        const na = normalize(a.contact?.name ?? a.contact?.phone ?? '');
-        const nb = normalize(b.contact?.name ?? b.contact?.phone ?? '');
-        return na.localeCompare(nb);
-      });
-      return copy;
-    }
-
-    copy.sort((a, b) => {
-      const ta = lastTs(a) ? Date.parse(String(lastTs(a))) : 0;
-      const tb = lastTs(b) ? Date.parse(String(lastTs(b))) : 0;
-      return tb - ta;
-    });
-    return copy;
-  }, [filtered, sort]);
-
   return (
     <div className="h-full">
       <div className="p-4 border-b space-y-3">
-        <div className="flex items-end justify-between gap-3">
-          <div>
-            <div className="text-sm font-semibold">Conversations</div>
-            <div className="text-xs text-muted-foreground">
-              {counts.all} total
-            </div>
+        <div>
+          <div className="text-sm font-semibold">Conversations</div>
+          <div className="text-xs text-muted-foreground">
+            {counts.all} total
           </div>
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <TabButton
-            active={filter === 'ALL'}
-            label="All"
-            count={counts.all}
-            onClick={() => onFilterChange('ALL')}
-          />
-          <TabButton
-            active={filter === 'OPEN'}
-            label="Open"
-            count={counts.open}
-            onClick={() => onFilterChange('OPEN')}
-          />
-          <TabButton
-            active={filter === 'PENDING'}
-            label="Pending"
-            count={counts.pending}
-            onClick={() => onFilterChange('PENDING')}
-          />
-          <TabButton
-            active={filter === 'CLOSED'}
-            label="Closed"
-            count={counts.closed}
-            onClick={() => onFilterChange('CLOSED')}
-          />
-        </div>
-
-        <div className="flex gap-2">
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="h-9 flex-1 rounded-md border px-3 text-sm"
-            placeholder="Search name, phone, preview…"
-          />
-
           <button
             type="button"
-            className="h-9 rounded-md border px-3 text-xs hover:bg-muted"
-            onClick={() => setSort((s) => (s === 'RECENT' ? 'NAME' : 'RECENT'))}
-            title="Toggle sort"
+            className={tabBtn(filter === 'ALL')}
+            onClick={() => onFilterChange('ALL')}
           >
-            Sort: {sort === 'RECENT' ? 'Recent' : 'Name'}
+            All ({counts.all})
+          </button>
+          <button
+            type="button"
+            className={tabBtn(filter === 'OPEN')}
+            onClick={() => onFilterChange('OPEN')}
+          >
+            Open ({counts.open})
+          </button>
+          <button
+            type="button"
+            className={tabBtn(filter === 'PENDING')}
+            onClick={() => onFilterChange('PENDING')}
+          >
+            Pending ({counts.pending})
+          </button>
+          <button
+            type="button"
+            className={tabBtn(filter === 'CLOSED')}
+            onClick={() => onFilterChange('CLOSED')}
+          >
+            Closed ({counts.closed})
           </button>
         </div>
-
-        {query ? (
-          <div className="text-[11px] text-muted-foreground">
-            {sorted.length} match
-          </div>
-        ) : null}
       </div>
 
-      <div className="h-[calc(100%-168px)] overflow-auto">
-        {sorted.map((c) => {
+      <div className="h-[calc(100%-116px)] overflow-auto">
+        {items.map((c) => {
           const name = c.contact?.name || c.contact?.phone || 'Unknown';
           const phone = c.contact?.phone || '';
           const isActive = c.id === activeId;
 
-          const s = asStatus(c.status);
-          const meta = statusMeta(s);
-          const next = nextStatus(s);
+          const meta = statusMeta(c.status);
+          const next = nextStatus(c.status);
           const ts = lastTs(c);
 
           return (
