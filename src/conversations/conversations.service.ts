@@ -1,7 +1,15 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
-export type ConversationStatus = 'OPEN' | 'CLOSED';
+export type ConversationStatus = 'OPEN' | 'PENDING' | 'CLOSED';
+
+function parseCursor(cursor?: string): Date | null {
+  if (!cursor) return null;
+  if (cursor === 'null' || cursor === 'undefined') return null;
+  const d = new Date(cursor);
+  if (Number.isNaN(d.getTime())) return null;
+  return d;
+}
 
 @Injectable()
 export class ConversationsService {
@@ -14,15 +22,16 @@ export class ConversationsService {
     cursor?: string;
     lite?: boolean;
   }) {
-    const { status, inboxId, limit = 20, cursor, lite } = params;
+    const { status, inboxId, limit = 20, lite } = params;
 
     const take = Math.min(Math.max(limit, 1), 100);
 
-    // Cursor: we paginate by createdAt (stable) not by id
+    const cursorDate = parseCursor(params.cursor);
+
     const where: Record<string, unknown> = {
       ...(status ? { status } : {}),
       ...(inboxId ? { inboxId } : {}),
-      ...(cursor ? { createdAt: { lt: new Date(cursor) } } : {}),
+      ...(cursorDate ? { createdAt: { lt: cursorDate } } : {}),
     };
 
     if (lite) {
@@ -83,6 +92,7 @@ export class ConversationsService {
         rows.length === take
           ? rows[rows.length - 1].createdAt.toISOString()
           : null;
+
       return { items, nextCursor };
     }
 
@@ -101,6 +111,7 @@ export class ConversationsService {
       items.length === take
         ? items[items.length - 1].createdAt.toISOString()
         : null;
+
     return { items, nextCursor };
   }
 
@@ -135,17 +146,17 @@ export class ConversationsService {
     });
   }
 
-  // REQUIRED by controller: GET /conversations/:id/messages
   async listMessages(
     conversationId: string,
     params: { limit?: number; cursor?: string },
   ) {
     const take = Math.min(Math.max(params.limit ?? 20, 1), 100);
-    const cursor = params.cursor;
+
+    const cursorDate = parseCursor(params.cursor);
 
     const where: Record<string, unknown> = {
       conversationId,
-      ...(cursor ? { createdAt: { lt: new Date(cursor) } } : {}),
+      ...(cursorDate ? { createdAt: { lt: cursorDate } } : {}),
     };
 
     const rows = await this.prisma.message.findMany({
@@ -163,7 +174,6 @@ export class ConversationsService {
       },
     });
 
-    // return oldest->newest for UI rendering
     const items = rows
       .slice()
       .reverse()
@@ -183,6 +193,7 @@ export class ConversationsService {
       rows.length === take
         ? rows[rows.length - 1].createdAt.toISOString()
         : null;
+
     return { items, nextCursor };
   }
 }

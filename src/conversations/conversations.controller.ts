@@ -1,51 +1,81 @@
-import { Controller, Get, Param, Patch, Query, Body } from '@nestjs/common';
-import { ConversationsService } from './conversations.service';
+import { Controller, Get, Param, Patch, Body, Query } from '@nestjs/common';
+import {
+  ConversationsService,
+  ConversationStatus,
+} from './conversations.service';
 
-type Status = 'OPEN' | 'CLOSED';
+function asString(v: unknown): string | undefined {
+  if (typeof v !== 'string') return undefined;
+  const s = v.trim();
+  if (!s || s === 'null' || s === 'undefined') return undefined;
+  return s;
+}
+
+function asInt(v: unknown, fallback: number): number {
+  if (typeof v === 'string' && v.trim()) {
+    const n = Number(v);
+    if (Number.isFinite(n)) return Math.trunc(n);
+  }
+  if (typeof v === 'number' && Number.isFinite(v)) return Math.trunc(v);
+  return fallback;
+}
+
+function asStatus(v: unknown): ConversationStatus | undefined {
+  const s = asString(v);
+  if (s === 'OPEN' || s === 'PENDING' || s === 'CLOSED') return s;
+  return undefined;
+}
 
 @Controller('conversations')
 export class ConversationsController {
   constructor(private readonly conversationsService: ConversationsService) {}
 
   @Get()
-  async findAll(
-    @Query('status') status?: Status,
-    @Query('inboxId') inboxId?: string,
-    @Query('limit') limit?: string,
-    @Query('cursor') cursor?: string,
-    @Query('lite') lite?: string,
+  findAll(
+    @Query('status') statusQ?: string,
+    @Query('inboxId') inboxIdQ?: string,
+    @Query('limit') limitQ?: string,
+    @Query('cursor') cursorQ?: string,
+    @Query('lite') liteQ?: string,
   ) {
+    const status = asStatus(statusQ);
+    const inboxId = asString(inboxIdQ);
+    const limit = asInt(limitQ, 20);
+    const cursor = asString(cursorQ);
+    const lite = liteQ === '1' || liteQ === 'true';
+
     return this.conversationsService.findAll({
       status,
       inboxId,
-      limit: limit ? Number(limit) : undefined,
+      limit,
       cursor,
-      lite: lite === '1' || lite === 'true',
+      lite,
     });
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string) {
+  findOne(@Param('id') id: string) {
     return this.conversationsService.findOne(id);
   }
 
   @Patch(':id/status')
-  async updateStatus(
+  updateStatus(
     @Param('id') id: string,
-    @Body() body: { status: Status },
+    @Body() body: { status: ConversationStatus },
   ) {
     return this.conversationsService.updateStatus(id, body.status);
   }
 
+  // GET /conversations/:id/messages?limit=20&cursor=...
   @Get(':id/messages')
-  async listMessages(
+  listMessages(
     @Param('id') id: string,
-    @Query('limit') limit?: string,
-    @Query('cursor') cursor?: string,
+    @Query('limit') limitQ?: string,
+    @Query('cursor') cursorQ?: string,
   ) {
-    return this.conversationsService.listMessages(id, {
-      limit: limit ? Number(limit) : undefined,
-      cursor,
-    });
+    const limit = asInt(limitQ, 20);
+    const cursor = asString(cursorQ);
+
+    return this.conversationsService.listMessages(id, { limit, cursor });
   }
 }
