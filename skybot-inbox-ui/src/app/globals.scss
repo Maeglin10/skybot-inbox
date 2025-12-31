@@ -1,0 +1,15 @@
+/* Tailwind v4 */
+@import "tailwindcss/preflight";
+@import "tailwindcss/utilities";
+
+/* Ton SCSS app */
+@import "../styles/main.scss";
+
+/* Si tu avais déjà des règles globales, garde-les ici.
+   Exemple minimal (optionnel si déjà dans main.scss) : */
+html, body {
+  height: 100%;
+}
+body {
+  margin: 0;
+}
