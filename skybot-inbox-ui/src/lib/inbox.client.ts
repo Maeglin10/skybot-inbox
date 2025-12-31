@@ -4,25 +4,28 @@ import { apiGetClient } from './api.client';
 
 export async function fetchConversations(input?: {
   limit?: number;
-  cursor?: string | null;
   lite?: boolean;
+  cursor?: string | null;
   status?: 'OPEN' | 'PENDING' | 'CLOSED';
 }) {
-  const params = new URLSearchParams();
+  const limit = Math.min(Math.max(input?.limit ?? 20, 1), 100);
+  const lite = input?.lite ? '1' : '0';
+  const status = input?.status;
+  const cursor = input?.cursor ?? null;
 
-  if (input?.limit) params.set('limit', String(input.limit));
-  if (input?.lite) params.set('lite', '1');
-  if (input?.status) params.set('status', input.status);
+  const qs = new URLSearchParams();
+  qs.set('limit', String(limit));
+  qs.set('lite', lite);
 
-  // IMPORTANT: never send cursor=null/undefined/empty
-  if (typeof input?.cursor === 'string' && input.cursor.trim() && input.cursor !== 'null') {
-    params.set('cursor', input.cursor);
-  }
+  if (status) qs.set('status', status);
 
-  const qs = params.toString();
-  return apiGetClient(`/conversations${qs ? `?${qs}` : ''}`);
+  // IMPORTANT: ne jamais envoyer cursor=null / undefined
+  if (cursor && cursor !== 'null' && cursor !== 'undefined') qs.set('cursor', cursor);
+
+  const path = `/conversations?${qs.toString()}`;
+  return apiGetClient(path);
 }
 
-export async function fetchConversation(conversationId: string) {
-  return apiGetClient(`/conversations/${conversationId}`);
+export async function fetchConversation(id: string) {
+  return apiGetClient(`/conversations/${encodeURIComponent(id)}`);
 }

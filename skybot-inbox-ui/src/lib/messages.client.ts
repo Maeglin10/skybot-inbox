@@ -1,28 +1,32 @@
 'use client';
 
-import { apiClientFetch } from './api.client';
+import { apiGetClient, apiPostClient } from './api.client';
+
+export async function listMessages(input: {
+  conversationId: string;
+  limit?: number;
+  cursor?: string | null;
+}) {
+  const limit = Math.min(Math.max(input.limit ?? 20, 1), 100);
+  const cursor = input.cursor ?? null;
+
+  const qs = new URLSearchParams();
+  qs.set('limit', String(limit));
+
+  // IMPORTANT: ne jamais envoyer cursor=null / undefined
+  if (cursor && cursor !== 'null' && cursor !== 'undefined') qs.set('cursor', cursor);
+
+  const path = `/conversations/${encodeURIComponent(input.conversationId)}/messages?${qs.toString()}`;
+  return apiGetClient(path);
+}
 
 export async function sendMessage(input: {
   conversationId: string;
   to: string;
   text: string;
 }) {
-  return apiClientFetch('/messages', {
-    method: 'POST',
-    body: JSON.stringify(input),
+  return apiPostClient(`/conversations/${encodeURIComponent(input.conversationId)}/messages`, {
+    to: input.to,
+    text: input.text,
   });
-}
-
-export async function listMessages(input: {
-  conversationId: string;
-  limit?: number;
-  cursor?: string;
-}) {
-  const qs = new URLSearchParams();
-  if (typeof input.limit === 'number') qs.set('limit', String(input.limit));
-  if (typeof input.cursor === 'string') qs.set('cursor', input.cursor);
-
-  const q = qs.toString();
-  const path = `/conversations/${input.conversationId}/messages${q ? `?${q}` : ''}`;
-  return apiClientFetch(path);
 }

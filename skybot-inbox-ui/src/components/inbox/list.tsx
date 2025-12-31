@@ -3,8 +3,6 @@
 import * as React from 'react';
 import type { InboxConversation, InboxConversationStatus } from './inbox-shell';
 
-type Filter = 'ALL' | InboxConversationStatus;
-
 function previewText(c: InboxConversation) {
   const t = c.preview?.text ?? c.messages?.[c.messages.length - 1]?.text ?? '';
   return (t || '').slice(0, 80);
@@ -34,40 +32,35 @@ function statusMeta(status?: string) {
   if (status === 'OPEN') {
     return {
       label: 'OPEN',
-      pill:
-        'border-emerald-400/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+      pill: 'border-emerald-400/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
       dot: 'bg-emerald-500',
     };
   }
   if (status === 'PENDING') {
     return {
       label: 'PENDING',
-      pill:
-        'border-amber-400/40 bg-amber-500/10 text-amber-800 dark:text-amber-300',
+      pill: 'border-amber-400/40 bg-amber-500/10 text-amber-800 dark:text-amber-300',
       dot: 'bg-amber-500',
     };
   }
   if (status === 'CLOSED') {
     return {
       label: 'CLOSED',
-      pill:
-        'border-zinc-400/40 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300',
+      pill: 'border-zinc-400/40 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300',
       dot: 'bg-zinc-400',
     };
   }
   return {
     label: status ?? '—',
-    pill:
-      'border-zinc-400/40 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300',
+    pill: 'border-zinc-400/40 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300',
     dot: 'bg-zinc-400',
   };
 }
 
-function filterButtonClass(active: boolean) {
-  return [
-    'h-8 px-2 rounded-md border text-xs',
-    active ? 'bg-muted' : 'bg-background hover:bg-muted/50',
-  ].join(' ');
+function nextStatus(s?: InboxConversationStatus): InboxConversationStatus {
+  if (s === 'OPEN') return 'PENDING';
+  if (s === 'PENDING') return 'CLOSED';
+  return 'OPEN';
 }
 
 export function InboxList({
@@ -75,103 +68,33 @@ export function InboxList({
   activeId,
   onSelect,
   onToggleStatus,
-  filter,
-  onFilterChange,
 }: {
   items: InboxConversation[];
   activeId: string | null;
   onSelect: (id: string) => void;
   onToggleStatus?: (id: string, next: InboxConversationStatus) => void;
-
-  filter: Filter;
-  onFilterChange: (next: Filter) => void;
 }) {
-  const counts = React.useMemo(() => {
-    let open = 0,
-      pending = 0,
-      closed = 0;
-    for (const c of items) {
-      if (c.status === 'OPEN') open++;
-      else if (c.status === 'PENDING') pending++;
-      else if (c.status === 'CLOSED') closed++;
-    }
-    return {
-      all: items.length,
-      open,
-      pending,
-      closed,
-    };
-  }, [items]);
-
   return (
     <div className="h-full">
-      <div className="p-4 border-b space-y-3">
-        <div className="flex items-baseline justify-between gap-3">
-          <div className="text-sm font-semibold">Conversations</div>
-          <div className="text-xs text-muted-foreground">
-            {counts.all} loaded
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            className={filterButtonClass(filter === 'ALL')}
-            onClick={() => onFilterChange('ALL')}
-          >
-            All ({counts.all})
-          </button>
-          <button
-            type="button"
-            className={filterButtonClass(filter === 'OPEN')}
-            onClick={() => onFilterChange('OPEN')}
-          >
-            Open ({counts.open})
-          </button>
-          <button
-            type="button"
-            className={filterButtonClass(filter === 'PENDING')}
-            onClick={() => onFilterChange('PENDING')}
-          >
-            Pending ({counts.pending})
-          </button>
-          <button
-            type="button"
-            className={filterButtonClass(filter === 'CLOSED')}
-            onClick={() => onFilterChange('CLOSED')}
-          >
-            Closed ({counts.closed})
-          </button>
-        </div>
+      <div className="p-4 border-b">
+        <div className="text-sm font-semibold">Conversations</div>
+        <div className="text-xs text-muted-foreground">{items.length} total</div>
       </div>
 
-      <div className="h-[calc(100%-112px)] overflow-auto">
+      <div className="h-[calc(100%-57px)] overflow-auto">
         {items.map((c) => {
           const name = c.contact?.name || c.contact?.phone || 'Unknown';
           const phone = c.contact?.phone || '';
           const isActive = c.id === activeId;
 
           const meta = statusMeta(c.status);
+          const next = nextStatus(c.status);
           const ts = lastTs(c);
-
-          // Quick action rule:
-          // - OPEN -> CLOSED
-          // - CLOSED -> OPEN
-          // - PENDING -> OPEN (resolve it)
-          const next: InboxConversationStatus =
-            c.status === 'CLOSED'
-              ? 'OPEN'
-              : c.status === 'PENDING'
-                ? 'OPEN'
-                : 'CLOSED';
 
           return (
             <div
               key={c.id}
-              className={[
-                'border-b',
-                isActive ? 'bg-muted' : 'bg-background',
-              ].join(' ')}
+              className={['border-b', isActive ? 'bg-muted' : 'bg-background'].join(' ')}
             >
               <button
                 type="button"
@@ -181,9 +104,7 @@ export function InboxList({
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium">{name}</div>
-                    <div className="truncate text-xs text-muted-foreground">
-                      {phone}
-                    </div>
+                    <div className="truncate text-xs text-muted-foreground">{phone}</div>
                   </div>
 
                   <div className="shrink-0 flex flex-col items-end gap-2">
@@ -194,15 +115,11 @@ export function InboxList({
                       ].join(' ')}
                       title="Status"
                     >
-                      <span
-                        className={['h-2 w-2 rounded-full', meta.dot].join(' ')}
-                      />
+                      <span className={['h-2 w-2 rounded-full', meta.dot].join(' ')} />
                       <span>{meta.label}</span>
                     </div>
 
-                    <div className="text-[10px] text-muted-foreground">
-                      {fmtLite(ts)}
-                    </div>
+                    <div className="text-[10px] text-muted-foreground">{fmtLite(ts)}</div>
                   </div>
                 </div>
 

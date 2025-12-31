@@ -7,8 +7,7 @@ function parseCursor(cursor?: string): Date | null {
   if (!cursor) return null;
   if (cursor === 'null' || cursor === 'undefined') return null;
   const d = new Date(cursor);
-  if (Number.isNaN(d.getTime())) return null;
-  return d;
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
 @Injectable()
@@ -22,11 +21,10 @@ export class ConversationsService {
     cursor?: string;
     lite?: boolean;
   }) {
-    const { status, inboxId, limit = 20, lite } = params;
+    const { status, inboxId, limit = 20, cursor, lite } = params;
 
     const take = Math.min(Math.max(limit, 1), 100);
-
-    const cursorDate = parseCursor(params.cursor);
+    const cursorDate = parseCursor(cursor);
 
     const where: Record<string, unknown> = {
       ...(status ? { status } : {}),
@@ -146,12 +144,12 @@ export class ConversationsService {
     });
   }
 
+  // GET /conversations/:id/messages
   async listMessages(
     conversationId: string,
     params: { limit?: number; cursor?: string },
   ) {
     const take = Math.min(Math.max(params.limit ?? 20, 1), 100);
-
     const cursorDate = parseCursor(params.cursor);
 
     const where: Record<string, unknown> = {
