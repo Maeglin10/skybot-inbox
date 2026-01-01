@@ -1,8 +1,11 @@
-@use "../abstracts" as *;
+@use "../abstracts/variables" as *;
 
 .nx-input {
+  width: 100%;
   border: 1px solid $nx-border;
   background: $nx-surface;
   color: $nx-text;
-  border-radius: $nx-radius;
+  padding: 10px 12px;
+  border-radius: 12px;
+  outline: none;
 }
