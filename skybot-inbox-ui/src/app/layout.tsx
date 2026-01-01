@@ -3,7 +3,6 @@ import '../styles/main.scss';
 import { Providers } from '@/components/providers';
 import { Poppins } from 'next/font/google';
 import './globals.css';
-import '../styles/main.scss';
 
 const nxSans = Poppins({
   subsets: ['latin'],
