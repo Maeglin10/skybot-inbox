@@ -1,7 +1,7 @@
-@use "../abstracts" as *;
-
 @forward "buttons";
 @forward "inputs";
 @forward "badges";
 @forward "tabs";
-@forward "inbox";
+@forward "inbox/list";
+@forward "inbox/thread";
+@forward "inbox/message";

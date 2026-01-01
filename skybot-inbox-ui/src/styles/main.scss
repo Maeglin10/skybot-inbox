@@ -1,15 +1,7 @@
-/* === ABSTRACTS === */
-@use "./abstracts";
-
-/* === THEMES (vars CSS uniquement) === */
-@use "./themes/light";
-@use "./themes/dark";
-
-/* === BASE === */
-@use "./base";
-
-/* === LAYOUT === */
-@use "./layout";
-
-/* === COMPONENTS === */
-@use "./components";
+@use "./abstracts/index" as *;
+@use "./themes/index" as *;
+@use "./base/index" as *;
+@use "./layout/index" as *;
+@use "./components/index" as *;
+@use "./utils/index" as *;
+@use "./vendors/index" as *;
