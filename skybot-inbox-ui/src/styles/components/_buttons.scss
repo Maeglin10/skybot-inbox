@@ -1,8 +1,77 @@
-@use "../abstracts" as *;
+@use "../abstracts/variables" as *;
 
+/* Base button */
 .nx-btn {
-  border: 1px solid $nx-border;
-  background: $nx-surface;
-  color: $nx-text;
-  border-radius: $nx-radius;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  height: 40px;
+  padding: 0 14px;
+  border-radius: var(--nx-radius-md);
+
+  font: 500 14px/1 var(--nx-font-sans);
+  letter-spacing: 0.2px;
+
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--nx-text);
+
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease, transform 120ms ease, opacity 120ms ease;
+
+  &:disabled,
+  &[aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  &:active {
+    transform: translateY(1px);
+  }
+
+  &:focus-visible {
+    outline: 2px solid color-mix(in oklab, var(--nx-primary) 70%, white);
+    outline-offset: 2px;
+  }
 }
+
+/* Variants */
+.nx-btn--primary {
+  background: var(--nx-primary);
+  color: #fff;
+
+  &:hover {
+    background: var(--nx-primary-600);
+  }
+}
+
+.nx-btn--secondary {
+  background: color-mix(in oklab, var(--nx-surface) 92%, var(--nx-primary));
+  border-color: color-mix(in oklab, var(--nx-border) 70%, var(--nx-primary));
+  color: var(--nx-text);
+
+  &:hover {
+    background: color-mix(in oklab, var(--nx-surface) 86%, var(--nx-primary));
+    border-color: color-mix(in oklab, var(--nx-border) 55%, var(--nx-primary));
+  }
+}
+
+.nx-btn--ghost {
+  border-color: var(--nx-border);
+  background: transparent;
+
+  &:hover {
+    background: color-mix(in oklab, var(--nx-surface) 85%, transparent);
+    border-color: color-mix(in oklab, var(--nx-border) 80%, white);
+  }
+}
+
+/* Sizes */
+.nx-btn--sm { height: 34px; padding: 0 12px; border-radius: var(--nx-radius-sm); font-size: 13px; }
+.nx-btn--lg { height: 46px; padding: 0 16px; border-radius: var(--nx-radius-lg); font-size: 15px; }

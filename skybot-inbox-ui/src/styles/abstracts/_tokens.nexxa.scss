@@ -21,9 +21,8 @@
   --nx-radius-lg: 18px;
 
   /* Typography (fallbacks) */
-  --nx-font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-  --nx-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-    --nx-font-heading: var(--nx-font-sans);
+  --nx-font-sans: var(--nx-font-sans);
+  --nx-font-heading: var(--nx-font-sans);
 
   /* Spacing scale (optional) */
   --nx-space-1: 4px;

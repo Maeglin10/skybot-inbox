@@ -1,3 +1,4 @@
 @import "tailwindcss/preflight";
 @import "tailwindcss/utilities";
 @import "../styles/vendors/tw-animate.css";
+@import "tw-animate-css";
