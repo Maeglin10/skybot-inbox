@@ -1,17 +1,15 @@
-@use "./abstracts/functions";
-@use "./abstracts/mixins";
-@use "./abstracts/tokens.nexxa";
-@use "./abstracts/variables";
+/* === ABSTRACTS === */
+@use "./abstracts";
 
+/* === THEMES (vars CSS uniquement) === */
 @use "./themes/light";
 @use "./themes/dark";
 
-@use "./base/reset";
-@use "./base/typography";
-@use "./base/globals";
+/* === BASE === */
+@use "./base";
 
-@use "./layout/inbox";
+/* === LAYOUT === */
+@use "./layout";
 
-@use "./components/buttons";
-@use "./components/inputs";
-@use "./components/badges";
+/* === COMPONENTS === */
+@use "./components";

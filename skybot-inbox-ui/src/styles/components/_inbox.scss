@@ -1,5 +1,4 @@
-/* Inbox specific hooks — keep minimal, we’ll theme progressively */
-@use "../abstracts/variables" as *;
+@use "../abstracts" as *;
 
 .nx-inbox {
   background: $nx-bg;

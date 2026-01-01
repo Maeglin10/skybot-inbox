@@ -1,4 +1,6 @@
-@forward "./tokens.nexxa";
-@forward "./variables";
-@forward "./functions";
-@forward "./mixins";
+@use "../abstracts" as *;
+
+@forward "tokens.nexxa";
+@forward "variables";
+@forward "functions";
+@forward "mixins";
