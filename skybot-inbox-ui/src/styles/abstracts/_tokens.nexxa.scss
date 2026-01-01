@@ -1,27 +1,35 @@
+/* Nexxa tokens: single source of truth (values filled now, adjust if manual differs) */
 :root {
-  /* Nexxa brand tokens (placeholder until filled from manual) */
-  --nx-font-sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji",
-    "Segoe UI Emoji";
-  --nx-font-heading: var(--nx-font-sans);
+  /* Brand */
+  --nx-primary: #5B2EFF;
+  --nx-primary-600: #4A23E6;
+  --nx-primary-700: #3D1CC7;
 
-  --nx-radius: 0.75rem;
+  --nx-bg: #0B0B12;
+  --nx-surface: #121225;
+  --nx-surface-2: #181836;
 
-  /* Brand palette */
-  --nx-primary: #111827;
-  --nx-secondary: #6b7280;
-  --nx-accent: #3b82f6;
+  --nx-text: #F4F4FF;
+  --nx-text-muted: rgba(244, 244, 255, 0.72);
 
-  --nx-bg: #ffffff;
-  --nx-surface: #ffffff;
-  --nx-border: rgba(17, 24, 39, 0.10);
-  --nx-text: #0b1220;
-  --nx-text-muted: rgba(11, 18, 32, 0.65);
-}
+  --nx-border: rgba(244, 244, 255, 0.12);
+  --nx-border-strong: rgba(244, 244, 255, 0.18);
 
-.dark {
-  --nx-bg: #0b1220;
-  --nx-surface: #0f172a;
-  --nx-border: rgba(255, 255, 255, 0.10);
-  --nx-text: #f8fafc;
-  --nx-text-muted: rgba(248, 250, 252, 0.65);
+  /* Radius (align with your --radius) */
+  --nx-radius-sm: 10px;
+  --nx-radius-md: 14px;
+  --nx-radius-lg: 18px;
+
+  /* Typography (fallbacks) */
+  --nx-font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  --nx-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    --nx-font-heading: var(--nx-font-sans);
+
+  /* Spacing scale (optional) */
+  --nx-space-1: 4px;
+  --nx-space-2: 8px;
+  --nx-space-3: 12px;
+  --nx-space-4: 16px;
+  --nx-space-5: 20px;
+  --nx-space-6: 24px;
 }
