@@ -1,3 +1,5 @@
+@use "../abstracts/variables" as *;
+
 body {
   background: $nx-bg;
   color: $nx-text;

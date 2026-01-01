@@ -1,5 +1,6 @@
-/* Optional: light styling baseline for the app container */
-.nx-shell {
-  height: 100vh;
+@use "../abstracts/variables" as *;
+
+.inbox-shell {
   background: $nx-bg;
+  color: $nx-text;
 }

@@ -1,3 +1,5 @@
+@use "../abstracts/variables" as *;
+
 .nx-btn {
   border: 1px solid $nx-border;
   background: $nx-surface;
