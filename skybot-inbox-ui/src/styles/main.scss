@@ -1,23 +1,17 @@
-/* Abstracts */
-@import "./abstracts/functions";
-@import "./abstracts/mixins";
-@import "./abstracts/tokens.nexxa";
-@import "./abstracts/variables";
+@use "./abstracts/functions";
+@use "./abstracts/mixins";
+@use "./abstracts/tokens.nexxa";
+@use "./abstracts/variables";
 
-/* Themes */
-@import "./themes/light";
-@import "./themes/dark";
+@use "./themes/light";
+@use "./themes/dark";
 
-/* Base */
-@import "./base/reset";
-@import "./base/globals";
-@import "./base/typography";
+@use "./base/reset";
+@use "./base/typography";
+@use "./base/globals";
 
-/* Layout */
-@import "./layout/shell";
+@use "./layout/inbox";
 
-/* Components */
-@import "./components/buttons";
-@import "./components/inputs";
-@import "./components/tabs";
-@import "./components/inbox";
+@use "./components/buttons";
+@use "./components/inputs";
+@use "./components/badges";
