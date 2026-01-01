@@ -14,9 +14,9 @@ type Msg = {
 export default async function ConversationPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const { id } = params;
+  const { id } = await params;
 
   const conv = await apiGetServer(`/conversations/${id}`);
   const title = conv.contact?.name ?? conv.contact?.phone ?? conv.id;
@@ -25,7 +25,7 @@ export default async function ConversationPage({
   return (
     <main className="p-6 space-y-4">
       <header className="flex items-center justify-between">
-        <Link href="/conversations" className="text-sm underline">
+        <Link href="/inbox" className="text-sm underline">
           Back
         </Link>
         <StatusSelect id={conv.id} status={conv.status} />
@@ -37,7 +37,8 @@ export default async function ConversationPage({
         {messages.map((m) => (
           <div key={m.id} className="rounded border p-3">
             <div className="text-xs text-gray-500">
-              {m.direction} • {m.externalId ?? ""} • {m.createdAt}
+              {m.direction} • {m.externalId ?? ""} •{" "}
+              {new Date(m.createdAt).toLocaleString()}
             </div>
             <div className="text-sm">{m.text ?? ""}</div>
           </div>
