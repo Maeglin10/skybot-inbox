@@ -1,20 +1,22 @@
-import Link from 'next/link';
-import { apiGetServer } from '@/lib/api.server';
-import Composer from './Composer';
-import StatusSelect from './StatusSelect';
+import Link from "next/link";
+import { apiGetServer } from "@/lib/api.server";
+import Composer from "./Composer";
+import StatusSelect from "./StatusSelect";
 
 type Msg = {
   id: string;
-  direction: 'IN' | 'OUT';
+  direction: "IN" | "OUT";
   text: string | null;
   externalId: string | null;
   createdAt: string;
 };
 
-export default async function ConversationPage(props: {
-  params: Promise<{ id: string }>;
+export default async function ConversationPage({
+  params,
+}: {
+  params: { id: string };
 }) {
-  const { id } = await props.params;
+  const { id } = params;
 
   const conv = await apiGetServer(`/conversations/${id}`);
   const title = conv.contact?.name ?? conv.contact?.phone ?? conv.id;
@@ -23,7 +25,7 @@ export default async function ConversationPage(props: {
   return (
     <main className="p-6 space-y-4">
       <header className="flex items-center justify-between">
-        <Link href="/" className="text-sm underline">
+        <Link href="/conversations" className="text-sm underline">
           Back
         </Link>
         <StatusSelect id={conv.id} status={conv.status} />
@@ -35,10 +37,9 @@ export default async function ConversationPage(props: {
         {messages.map((m) => (
           <div key={m.id} className="rounded border p-3">
             <div className="text-xs text-gray-500">
-              {m.direction} • {m.externalId ?? ''} •{' '}
-              {new Date(m.createdAt).toLocaleString()}
+              {m.direction} • {m.externalId ?? ""} • {m.createdAt}
             </div>
-            <div className="text-sm">{m.text ?? ''}</div>
+            <div className="text-sm">{m.text ?? ""}</div>
           </div>
         ))}
 
