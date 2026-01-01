@@ -1,16 +1,15 @@
-/* Nexxa tokens will go here (Roadmap 2) */
-:root {
-  --nx-font-sans: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+$nx-radius: var(--nx-radius);
 
-  --nx-bg: #ffffff;
-  --nx-fg: #0b1220;
-  --nx-muted: #6b7280;
+$nx-font-sans: var(--nx-font-sans);
+$nx-font-heading: var(--nx-font-heading);
 
-  --nx-border: rgba(15, 23, 42, 0.12);
+$nx-bg: var(--nx-bg);
+$nx-surface: var(--nx-surface);
+$nx-border: var(--nx-border);
 
-  --nx-radius-sm: 8px;
-  --nx-radius-md: 12px;
+$nx-text: var(--nx-text);
+$nx-text-muted: var(--nx-text-muted);
 
-  --nx-shadow-sm: 0 1px 2px rgba(0,0,0,.06);
-  --nx-shadow-md: 0 8px 24px rgba(0,0,0,.10);
-}
+$nx-primary: var(--nx-primary);
+$nx-secondary: var(--nx-secondary);
+$nx-accent: var(--nx-accent);

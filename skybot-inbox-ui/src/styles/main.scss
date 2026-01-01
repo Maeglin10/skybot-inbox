@@ -1,25 +1,23 @@
-/* Entry point SCSS */
+/* Abstracts */
+@import "./abstracts/functions";
+@import "./abstracts/mixins";
+@import "./abstracts/tokens.nexxa";
+@import "./abstracts/variables";
 
-@use "./abstracts/variables";
-@use "./abstracts/functions";
-@use "./abstracts/mixins";
+/* Themes */
+@import "./themes/light";
+@import "./themes/dark";
 
-@use "./base/reset";
-@use "./base/typography";
-@use "./base/globals";
+/* Base */
+@import "./base/reset";
+@import "./base/globals";
+@import "./base/typography";
 
-@use "./layout/shell";
-@use "./layout/grid";
+/* Layout */
+@import "./layout/shell";
 
-@use "./components/buttons";
-@use "./components/badges";
-@use "./components/inputs";
-
-@use "./components/inbox/list";
-@use "./components/inbox/thread";
-@use "./components/inbox/message";
-
-@use "./theme/light";
-/* @use "./theme/dark";  // option later */
-
-@use "./utils/helpers";
+/* Components */
+@import "./components/buttons";
+@import "./components/inputs";
+@import "./components/tabs";
+@import "./components/inbox";

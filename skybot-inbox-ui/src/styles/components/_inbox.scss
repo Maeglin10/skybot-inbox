@@ -1,0 +1,9 @@
+/* Inbox specific hooks — keep minimal, we’ll theme progressively */
+.nx-inbox {
+  background: $nx-bg;
+}
+
+.nx-inbox__panel {
+  background: $nx-surface;
+  border-color: $nx-border;
+}

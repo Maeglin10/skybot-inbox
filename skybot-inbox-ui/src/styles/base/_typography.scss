@@ -1,5 +1,8 @@
-body {
-  font-family: var(--nx-font-sans);
-  color: var(--nx-fg);
-  background: var(--nx-bg);
+h1, h2, h3, h4, h5, h6 {
+  font-family: $nx-font-heading;
+  margin: 0;
+}
+
+p {
+  margin: 0;
 }

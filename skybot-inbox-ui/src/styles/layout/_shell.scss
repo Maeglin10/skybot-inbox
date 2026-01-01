@@ -1,1 +1,5 @@
-/* App shell layout overrides later */
+/* Optional: light styling baseline for the app container */
+.nx-shell {
+  height: 100vh;
+  background: $nx-bg;
+}

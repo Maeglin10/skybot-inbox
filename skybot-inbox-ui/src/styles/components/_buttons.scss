@@ -1,1 +1,6 @@
-/* Buttons later */
+.nx-btn {
+  border: 1px solid $nx-border;
+  background: $nx-surface;
+  color: $nx-text;
+  border-radius: $nx-radius;
+}

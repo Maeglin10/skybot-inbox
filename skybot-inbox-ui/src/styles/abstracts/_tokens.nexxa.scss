@@ -1,0 +1,27 @@
+:root {
+  /* Nexxa brand tokens (placeholder until filled from manual) */
+  --nx-font-sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji",
+    "Segoe UI Emoji";
+  --nx-font-heading: var(--nx-font-sans);
+
+  --nx-radius: 0.75rem;
+
+  /* Brand palette */
+  --nx-primary: #111827;
+  --nx-secondary: #6b7280;
+  --nx-accent: #3b82f6;
+
+  --nx-bg: #ffffff;
+  --nx-surface: #ffffff;
+  --nx-border: rgba(17, 24, 39, 0.10);
+  --nx-text: #0b1220;
+  --nx-text-muted: rgba(11, 18, 32, 0.65);
+}
+
+.dark {
+  --nx-bg: #0b1220;
+  --nx-surface: #0f172a;
+  --nx-border: rgba(255, 255, 255, 0.10);
+  --nx-text: #f8fafc;
+  --nx-text-muted: rgba(248, 250, 252, 0.65);
+}
