@@ -37,6 +37,14 @@ function isNearBottom(el: HTMLElement, thresholdPx = 120) {
   return distance <= thresholdPx;
 }
 
+function formatTs(iso: string) {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(
+    d.getMinutes(),
+  )}`;
+}
+
 export default function ConversationClient(props: { initial: Conversation }) {
   const [conv, setConv] = useState<Conversation>(props.initial);
   const [pollError, setPollError] = useState<string | null>(null);
@@ -45,12 +53,7 @@ export default function ConversationClient(props: { initial: Conversation }) {
 
   const listRef = useRef<HTMLDivElement | null>(null);
   const shouldStickToBottomRef = useRef(true);
-  const prevLastMessageIdRef = useRef<string | null>(
-    props.initial.messages?.at(-1)?.id ?? null,
-  );
-
-  // Snapshot used to preserve scroll when polling adds messages while user reads older content
-  const restoreScrollRef = useRef<{ h: number; top: number } | null>(null);
+  const prevLastMessageIdRef = useRef<string | null>(props.initial.messages?.at(-1)?.id ?? null);
 
   const sortedMessages = useMemo(() => {
     return [...(conv.messages ?? [])].sort(
@@ -58,7 +61,6 @@ export default function ConversationClient(props: { initial: Conversation }) {
     );
   }, [conv.messages]);
 
-  // Track user scroll intent (stick to bottom only if user is near bottom)
   useEffect(() => {
     const el = listRef.current;
     if (!el) return;
@@ -69,11 +71,9 @@ export default function ConversationClient(props: { initial: Conversation }) {
 
     el.addEventListener('scroll', onScroll, { passive: true });
     shouldStickToBottomRef.current = isNearBottom(el, 160);
-
     return () => el.removeEventListener('scroll', onScroll);
   }, []);
 
-  // Polling léger: 5s, sans jump
   useEffect(() => {
     let alive = true;
 
@@ -86,20 +86,22 @@ export default function ConversationClient(props: { initial: Conversation }) {
       try {
         const next = await fetchConversation(conv.id);
 
-        // Avoid state replacement if nothing changed
         if (next.updatedAt !== latestUpdatedAtRef.current) {
           latestUpdatedAtRef.current = next.updatedAt;
+          if (alive) {
+            setConv(next);
 
-          // If user is NOT near bottom, prepare to restore scroll after render
-          if (el && !wasNearBottom) {
-            restoreScrollRef.current = { h: prevScrollHeight, top: prevScrollTop };
-          } else {
-            restoreScrollRef.current = null;
+            if (el && !wasNearBottom) {
+              requestAnimationFrame(() => {
+                const el2 = listRef.current;
+                if (!el2) return;
+                const newScrollHeight = el2.scrollHeight;
+                const delta = newScrollHeight - prevScrollHeight;
+                el2.scrollTop = prevScrollTop + delta;
+              });
+            }
           }
-
-          if (alive) setConv(next);
         }
-
         if (alive) setPollError(null);
       } catch (e) {
         if (alive) setPollError(e instanceof Error ? e.message : 'poll failed');
@@ -113,39 +115,26 @@ export default function ConversationClient(props: { initial: Conversation }) {
     };
   }, [conv.id]);
 
-  // Restore scroll (no jump) + auto-scroll only when user is sticking to bottom and a new message appears
   useLayoutEffect(() => {
     const el = listRef.current;
     if (!el) return;
 
-    // 1) Restore scroll position if user was reading older messages (no jump)
-    const snap = restoreScrollRef.current;
-    if (snap && !shouldStickToBottomRef.current) {
-      const delta = el.scrollHeight - snap.h;
-      el.scrollTop = snap.top + delta;
-      restoreScrollRef.current = null;
-    }
-
-    // 2) Auto-scroll only when a new message appears AND user sticks to bottom
     const lastId = sortedMessages.at(-1)?.id ?? null;
     const prevLastId = prevLastMessageIdRef.current;
 
     if (lastId && lastId !== prevLastId) {
       prevLastMessageIdRef.current = lastId;
-
       if (shouldStickToBottomRef.current) {
         el.scrollTop = el.scrollHeight;
       }
     }
-  }, [sortedMessages.length]);
+  }, [sortedMessages]);
 
   function optimisticAdd(text: string) {
     const now = new Date().toISOString();
     const tempId = `temp_${Math.random().toString(36).slice(2)}`;
 
-    // optimistic implies user intent to continue at bottom
     shouldStickToBottomRef.current = true;
-    restoreScrollRef.current = null;
 
     setConv((c) => ({
       ...c,
@@ -192,37 +181,87 @@ export default function ConversationClient(props: { initial: Conversation }) {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="text-sm text-gray-500">Conversation</div>
+    <div className="min-h-[calc(100vh-24px)] px-4 py-3">
+      <div className="mx-auto w-full max-w-5xl">
+        <div className="sticky top-0 z-10 mb-3 border-b bg-black/60 backdrop-blur supports-[backdrop-filter]:bg-black/40">
+          <div className="flex items-center justify-between py-3">
+            <div className="min-w-0">
+              <div className="text-xs text-white/60">Conversation</div>
+              <div className="truncate text-sm text-white/90">{conv.id}</div>
+            </div>
 
-        <StatusSelect
-          id={conv.id}
-          status={conv.status}
-          onOptimisticChange={optimisticStatus}
-        />
-      </div>
-
-      {pollError && <div className="text-sm text-amber-700">Poll: {pollError}</div>}
-
-      <div
-        ref={listRef}
-        className="rounded border p-3 space-y-2 max-h-[60vh] overflow-auto"
-      >
-        {sortedMessages.map((m) => (
-          <div key={m.id} className="text-sm">
-            <span className="text-gray-500 mr-2">{m.direction}</span>
-            <span>{m.text}</span>
+            <div className="flex items-center gap-3">
+              <div className="hidden text-xs text-white/50 md:block">
+                Updated {formatTs(conv.updatedAt)}
+              </div>
+              <StatusSelect id={conv.id} status={conv.status} onOptimisticChange={optimisticStatus} />
+            </div>
           </div>
-        ))}
-      </div>
 
-      <Composer
-        conversationId={conv.id}
-        onOptimisticSend={(text) => optimisticAdd(text)}
-        onSendSuccess={(tempId, real) => optimisticReplace(tempId, real)}
-        onSendFail={(tempId) => optimisticRemove(tempId)}
-      />
+          {pollError && (
+            <div className="pb-3 text-xs text-amber-300">
+              Poll error: {pollError}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-white/10 bg-black/40">
+          <div
+            ref={listRef}
+            className="max-h-[62vh] overflow-auto px-3 py-4"
+          >
+            {sortedMessages.length === 0 ? (
+              <div className="py-10 text-center text-sm text-white/50">
+                No messages
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {sortedMessages.map((m) => {
+                  const isOut = m.direction === 'OUT';
+                  return (
+                    <div key={m.id} className={`flex ${isOut ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[85%] md:max-w-[70%]`}>
+                        <div
+                          className={[
+                            'rounded-2xl px-3 py-2 text-sm leading-relaxed',
+                            'border',
+                            isOut
+                              ? 'bg-white/10 border-white/10 text-white'
+                              : 'bg-white/5 border-white/10 text-white/90',
+                          ].join(' ')}
+                        >
+                          <div className="whitespace-pre-wrap break-words">{m.text}</div>
+                        </div>
+
+                        <div className={`mt-1 flex gap-2 text-[11px] text-white/45 ${isOut ? 'justify-end' : 'justify-start'}`}>
+                          <span>{m.direction}</span>
+                          <span>•</span>
+                          <span>{formatTs(m.timestamp)}</span>
+                          {m.externalId ? (
+                            <>
+                              <span>•</span>
+                              <span className="truncate max-w-[260px]">{m.externalId}</span>
+                            </>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="border-t border-white/10 p-3">
+            <Composer
+              conversationId={conv.id}
+              onOptimisticSend={(text) => optimisticAdd(text)}
+              onSendSuccess={(tempId, real) => optimisticReplace(tempId, real)}
+              onSendFail={(tempId) => optimisticRemove(tempId)}
+            />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

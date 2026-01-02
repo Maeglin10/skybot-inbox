@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { useState } from "react";
+import { useState } from 'react';
 
 type Message = {
   id: string;
   conversationId: string;
-  direction: "IN" | "OUT";
+  direction: 'IN' | 'OUT';
   from: string;
   to: string;
   text: string;
@@ -27,7 +27,7 @@ export default function Composer({
   onSendSuccess,
   onSendFail,
 }: Props) {
-  const [text, setText] = useState("");
+  const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,7 +37,7 @@ export default function Composer({
     if (!canSend) return;
 
     const clean = text.trim();
-    setText("");
+    setText('');
     setLoading(true);
     setError(null);
 
@@ -45,8 +45,8 @@ export default function Composer({
 
     try {
       const res = await fetch(`/api/conversations/${conversationId}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: clean }),
       });
 
@@ -60,7 +60,7 @@ export default function Composer({
     } catch (e) {
       onSendFail?.(tempId);
       setText(clean);
-      setError(e instanceof Error ? e.message : "Send failed");
+      setError(e instanceof Error ? e.message : 'Send failed');
     } finally {
       setLoading(false);
     }
@@ -71,14 +71,15 @@ export default function Composer({
       <div className="text-sm font-medium">Reply</div>
 
       <div className="flex gap-2">
-        <input
+        <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Type a message…"
-          className="flex-1 rounded border px-3 py-2 text-sm"
+          className="flex-1 resize-none rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/20"
           disabled={loading}
+          rows={2}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
+            if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
               onSend();
             }
@@ -87,11 +88,11 @@ export default function Composer({
 
         <button
           type="button"
-          className="rounded border px-3 py-2 text-sm"
+          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white hover:bg-white/10 disabled:opacity-50"
           onClick={onSend}
           disabled={!canSend}
         >
-          {loading ? "Sending…" : "Send"}
+          {loading ? 'Sending…' : 'Send'}
         </button>
       </div>
 
