@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
-import Composer from "./Composer";
-import StatusSelect from "./StatusSelect";
+import Composer from './Composer';
+import StatusSelect from './StatusSelect';
 
 type Status = 'OPEN' | 'PENDING' | 'CLOSED';
 
@@ -27,9 +27,7 @@ type Conversation = {
 };
 
 async function fetchConversation(id: string): Promise<Conversation> {
-  const res = await fetch(`/api/proxy/conversations/${id}`, {
-    cache: 'no-store',
-  });
+  const res = await fetch(`/api/proxy/conversations/${id}`, { cache: 'no-store' });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
@@ -48,8 +46,11 @@ export default function ConversationClient(props: { initial: Conversation }) {
   const listRef = useRef<HTMLDivElement | null>(null);
   const shouldStickToBottomRef = useRef(true);
   const prevLastMessageIdRef = useRef<string | null>(
-    props.initial.messages?.at(-1)?.id ?? null
+    props.initial.messages?.at(-1)?.id ?? null,
   );
+
+  // Snapshot used to preserve scroll when polling adds messages while user reads older content
+  const restoreScrollRef = useRef<{ h: number; top: number } | null>(null);
 
   const sortedMessages = useMemo(() => {
     return [...(conv.messages ?? [])].sort(
@@ -67,7 +68,6 @@ export default function ConversationClient(props: { initial: Conversation }) {
     };
 
     el.addEventListener('scroll', onScroll, { passive: true });
-    // init
     shouldStickToBottomRef.current = isNearBottom(el, 160);
 
     return () => el.removeEventListener('scroll', onScroll);
@@ -86,25 +86,20 @@ export default function ConversationClient(props: { initial: Conversation }) {
       try {
         const next = await fetchConversation(conv.id);
 
+        // Avoid state replacement if nothing changed
         if (next.updatedAt !== latestUpdatedAtRef.current) {
           latestUpdatedAtRef.current = next.updatedAt;
-          if (alive) {
-            setConv(next);
 
-            // Preserve scroll if user is NOT near bottom
-            // (useLayoutEffect below finalizes adjustments after render)
-            if (el && !wasNearBottom) {
-              // Store snapshot in refs via closure variables (layout effect uses current DOM)
-              requestAnimationFrame(() => {
-                const el2 = listRef.current;
-                if (!el2) return;
-                const newScrollHeight = el2.scrollHeight;
-                const delta = newScrollHeight - prevScrollHeight;
-                el2.scrollTop = prevScrollTop + delta;
-              });
-            }
+          // If user is NOT near bottom, prepare to restore scroll after render
+          if (el && !wasNearBottom) {
+            restoreScrollRef.current = { h: prevScrollHeight, top: prevScrollTop };
+          } else {
+            restoreScrollRef.current = null;
           }
+
+          if (alive) setConv(next);
         }
+
         if (alive) setPollError(null);
       } catch (e) {
         if (alive) setPollError(e instanceof Error ? e.message : 'poll failed');
@@ -118,11 +113,20 @@ export default function ConversationClient(props: { initial: Conversation }) {
     };
   }, [conv.id]);
 
-  // Auto-scroll only when user is sticking to bottom AND a new message appears
+  // Restore scroll (no jump) + auto-scroll only when user is sticking to bottom and a new message appears
   useLayoutEffect(() => {
     const el = listRef.current;
     if (!el) return;
 
+    // 1) Restore scroll position if user was reading older messages (no jump)
+    const snap = restoreScrollRef.current;
+    if (snap && !shouldStickToBottomRef.current) {
+      const delta = el.scrollHeight - snap.h;
+      el.scrollTop = snap.top + delta;
+      restoreScrollRef.current = null;
+    }
+
+    // 2) Auto-scroll only when a new message appears AND user sticks to bottom
     const lastId = sortedMessages.at(-1)?.id ?? null;
     const prevLastId = prevLastMessageIdRef.current;
 
@@ -133,7 +137,7 @@ export default function ConversationClient(props: { initial: Conversation }) {
         el.scrollTop = el.scrollHeight;
       }
     }
-  }, [sortedMessages]);
+  }, [sortedMessages.length]);
 
   function optimisticAdd(text: string) {
     const now = new Date().toISOString();
@@ -141,6 +145,7 @@ export default function ConversationClient(props: { initial: Conversation }) {
 
     // optimistic implies user intent to continue at bottom
     shouldStickToBottomRef.current = true;
+    restoreScrollRef.current = null;
 
     setConv((c) => ({
       ...c,
@@ -198,11 +203,8 @@ export default function ConversationClient(props: { initial: Conversation }) {
         />
       </div>
 
-      {pollError && (
-        <div className="text-sm text-amber-700">Poll: {pollError}</div>
-      )}
+      {pollError && <div className="text-sm text-amber-700">Poll: {pollError}</div>}
 
-      {/* LIST: fixed height + scroll */}
       <div
         ref={listRef}
         className="rounded border p-3 space-y-2 max-h-[60vh] overflow-auto"
