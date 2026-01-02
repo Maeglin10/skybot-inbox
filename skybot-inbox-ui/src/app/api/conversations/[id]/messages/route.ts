@@ -1,24 +1,30 @@
 import { NextResponse } from "next/server";
 
-const BACKEND = process.env.BACKEND_URL ?? "http://127.0.0.1:3000";
+const API_BASE = process.env.API_URL || "http://127.0.0.1:3001";
+const API_KEY = process.env.API_KEY || "";
 
-export async function POST(
-  req: Request,
-  ctx: { params: Promise<{ id: string }> }
-) {
+export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
   const body = await req.json().catch(() => ({}));
+  const text = body?.text;
 
-  const res = await fetch(`${BACKEND}/conversations/${id}/messages`, {
+  if (!text || typeof text !== "string") {
+    return NextResponse.json({ error: "Missing text" }, { status: 400 });
+  }
+
+  const upstream = await fetch(`${API_BASE}/messages`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": API_KEY,
+    },
+    body: JSON.stringify({ conversationId: id, text }),
     cache: "no-store",
   });
 
-  const txt = await res.text();
-  return new NextResponse(txt, {
-    status: res.status,
-    headers: { "Content-Type": res.headers.get("content-type") ?? "application/json" },
+  const respText = await upstream.text();
+  return new NextResponse(respText, {
+    status: upstream.status,
+    headers: { "Content-Type": upstream.headers.get("content-type") ?? "application/json" },
   });
 }

@@ -1,24 +1,26 @@
 import { NextResponse } from "next/server";
 
-const BACKEND = process.env.BACKEND_URL ?? "http://127.0.0.1:3000";
+const API_BASE = process.env.API_URL || "http://127.0.0.1:3001";
 
-export async function PATCH(
-  req: Request,
-  ctx: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
   const body = await req.json().catch(() => ({}));
+  const status = body?.status;
 
-  const res = await fetch(`${BACKEND}/conversations/${id}`, {
+  if (!status) {
+    return NextResponse.json({ error: "Missing status" }, { status: 400 });
+  }
+
+  const upstream = await fetch(`${API_BASE}/conversations/${id}/status`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ status }),
     cache: "no-store",
   });
 
-  const txt = await res.text();
-  return new NextResponse(txt, {
-    status: res.status,
-    headers: { "Content-Type": res.headers.get("content-type") ?? "application/json" },
+  const text = await upstream.text();
+  return new NextResponse(text, {
+    status: upstream.status,
+    headers: { "Content-Type": upstream.headers.get("content-type") ?? "application/json" },
   });
 }
