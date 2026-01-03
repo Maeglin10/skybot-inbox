@@ -27,7 +27,9 @@ type Conversation = {
 };
 
 async function fetchConversation(id: string): Promise<Conversation> {
-  const res = await fetch(`/api/proxy/conversations/${id}`, { cache: 'no-store' });
+  const res = await fetch(`/api/proxy/conversations/${id}`, {
+    cache: 'no-store',
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
@@ -50,7 +52,12 @@ function formatTs(iso: string) {
 
 function formatDayLabel(iso: string) {
   const d = new Date(iso);
-  return d.toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+  return d.toLocaleDateString(undefined, {
+    weekday: 'short',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
 function dayKey(iso: string) {
@@ -80,11 +87,14 @@ export default function ConversationClient(props: { initial: Conversation }) {
 
   const listRef = useRef<HTMLDivElement | null>(null);
   const shouldStickToBottomRef = useRef(true);
-  const prevLastMessageIdRef = useRef<string | null>(props.initial.messages?.at(-1)?.id ?? null);
+  const prevLastMessageIdRef = useRef<string | null>(
+    props.initial.messages?.at(-1)?.id ?? null,
+  );
 
   const sortedMessages = useMemo(() => {
     return [...(conv.messages ?? [])].sort(
-      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+      (a, b) =>
+        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
     );
   }, [conv.messages]);
 
@@ -222,18 +232,30 @@ export default function ConversationClient(props: { initial: Conversation }) {
             </div>
 
             <div className="flex items-center gap-3">
-              <div className="hidden text-xs text-white/50 md:block">Updated {formatTs(conv.updatedAt)}</div>
-              <StatusSelect id={conv.id} status={conv.status} onOptimisticChange={optimisticStatus} />
+              <div className="hidden text-xs text-white/50 md:block">
+                Updated {formatTs(conv.updatedAt)}
+              </div>
+              <StatusSelect
+                id={conv.id}
+                status={conv.status}
+                onOptimisticChange={optimisticStatus}
+              />
             </div>
           </div>
 
-          {pollError && <div className="pb-3 text-xs text-amber-300">Poll error: {pollError}</div>}
+          {pollError && (
+            <div className="pb-3 text-xs text-amber-300">
+              Poll error: {pollError}
+            </div>
+          )}
         </div>
 
         <div className="rounded-xl border border-white/10 bg-black/40">
           <div ref={listRef} className="max-h-[62vh] overflow-auto px-3 py-4">
             {sortedMessages.length === 0 ? (
-              <div className="py-10 text-center text-sm text-white/50">No messages</div>
+              <div className="py-10 text-center text-sm text-white/50">
+                No messages
+              </div>
             ) : (
               <div className="space-y-6">
                 {grouped.map((g) => (
@@ -250,7 +272,10 @@ export default function ConversationClient(props: { initial: Conversation }) {
                         const isTemp = m.id.startsWith('temp_');
 
                         return (
-                          <div key={m.id} className={`flex ${isOut ? 'justify-end' : 'justify-start'}`}>
+                          <div
+                            key={m.id}
+                            className={`flex ${isOut ? 'justify-end' : 'justify-start'}`}
+                          >
                             <div className="max-w-[85%] md:max-w-[70%]">
                               <div
                                 className={[
@@ -260,7 +285,9 @@ export default function ConversationClient(props: { initial: Conversation }) {
                                     : 'bg-white/5 border-white/10 text-white/90',
                                 ].join(' ')}
                               >
-                                <div className="whitespace-pre-wrap break-words">{m.text}</div>
+                                <div className="whitespace-pre-wrap break-words">
+                                  {m.text}
+                                </div>
                               </div>
 
                               <div
@@ -281,7 +308,9 @@ export default function ConversationClient(props: { initial: Conversation }) {
                                 {m.externalId ? (
                                   <>
                                     <span>•</span>
-                                    <span className="truncate max-w-[260px]">{m.externalId}</span>
+                                    <span className="truncate max-w-[260px]">
+                                      {m.externalId}
+                                    </span>
                                   </>
                                 ) : null}
                               </div>
