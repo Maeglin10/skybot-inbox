@@ -37,12 +37,39 @@ function isNearBottom(el: HTMLElement, thresholdPx = 120) {
   return distance <= thresholdPx;
 }
 
+function pad2(n: number) {
+  return String(n).padStart(2, '0');
+}
+
 function formatTs(iso: string) {
   const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(
+  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()} ${pad2(d.getHours())}:${pad2(
     d.getMinutes(),
   )}`;
+}
+
+function formatDayLabel(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function dayKey(iso: string) {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+function groupByDay(messages: Message[]) {
+  const groups: { key: string; label: string; items: Message[] }[] = [];
+  for (const msg of messages) {
+    const key = dayKey(msg.timestamp);
+    const last = groups.at(-1);
+    if (!last || last.key !== key) {
+      groups.push({ key, label: formatDayLabel(msg.timestamp), items: [msg] });
+    } else {
+      last.items.push(msg);
+    }
+  }
+  return groups;
 }
 
 export default function ConversationClient(props: { initial: Conversation }) {
@@ -61,6 +88,8 @@ export default function ConversationClient(props: { initial: Conversation }) {
     );
   }, [conv.messages]);
 
+  const grouped = useMemo(() => groupByDay(sortedMessages), [sortedMessages]);
+
   useEffect(() => {
     const el = listRef.current;
     if (!el) return;
@@ -74,6 +103,7 @@ export default function ConversationClient(props: { initial: Conversation }) {
     return () => el.removeEventListener('scroll', onScroll);
   }, []);
 
+  // Polling léger: 5s, sans jump si l'utilisateur lit plus haut
   useEffect(() => {
     let alive = true;
 
@@ -88,6 +118,7 @@ export default function ConversationClient(props: { initial: Conversation }) {
 
         if (next.updatedAt !== latestUpdatedAtRef.current) {
           latestUpdatedAtRef.current = next.updatedAt;
+
           if (alive) {
             setConv(next);
 
@@ -102,6 +133,7 @@ export default function ConversationClient(props: { initial: Conversation }) {
             }
           }
         }
+
         if (alive) setPollError(null);
       } catch (e) {
         if (alive) setPollError(e instanceof Error ? e.message : 'poll failed');
@@ -115,6 +147,7 @@ export default function ConversationClient(props: { initial: Conversation }) {
     };
   }, [conv.id]);
 
+  // Auto-scroll seulement si l'utilisateur "stick" en bas et qu'un nouveau message arrive
   useLayoutEffect(() => {
     const el = listRef.current;
     if (!el) return;
@@ -124,9 +157,7 @@ export default function ConversationClient(props: { initial: Conversation }) {
 
     if (lastId && lastId !== prevLastId) {
       prevLastMessageIdRef.current = lastId;
-      if (shouldStickToBottomRef.current) {
-        el.scrollTop = el.scrollHeight;
-      }
+      if (shouldStickToBottomRef.current) el.scrollTop = el.scrollHeight;
     }
   }, [sortedMessages]);
 
@@ -191,63 +222,76 @@ export default function ConversationClient(props: { initial: Conversation }) {
             </div>
 
             <div className="flex items-center gap-3">
-              <div className="hidden text-xs text-white/50 md:block">
-                Updated {formatTs(conv.updatedAt)}
-              </div>
+              <div className="hidden text-xs text-white/50 md:block">Updated {formatTs(conv.updatedAt)}</div>
               <StatusSelect id={conv.id} status={conv.status} onOptimisticChange={optimisticStatus} />
             </div>
           </div>
 
-          {pollError && (
-            <div className="pb-3 text-xs text-amber-300">
-              Poll error: {pollError}
-            </div>
-          )}
+          {pollError && <div className="pb-3 text-xs text-amber-300">Poll error: {pollError}</div>}
         </div>
 
         <div className="rounded-xl border border-white/10 bg-black/40">
-          <div
-            ref={listRef}
-            className="max-h-[62vh] overflow-auto px-3 py-4"
-          >
+          <div ref={listRef} className="max-h-[62vh] overflow-auto px-3 py-4">
             {sortedMessages.length === 0 ? (
-              <div className="py-10 text-center text-sm text-white/50">
-                No messages
-              </div>
+              <div className="py-10 text-center text-sm text-white/50">No messages</div>
             ) : (
-              <div className="space-y-3">
-                {sortedMessages.map((m) => {
-                  const isOut = m.direction === 'OUT';
-                  return (
-                    <div key={m.id} className={`flex ${isOut ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[85%] md:max-w-[70%]`}>
-                        <div
-                          className={[
-                            'rounded-2xl px-3 py-2 text-sm leading-relaxed',
-                            'border',
-                            isOut
-                              ? 'bg-white/10 border-white/10 text-white'
-                              : 'bg-white/5 border-white/10 text-white/90',
-                          ].join(' ')}
-                        >
-                          <div className="whitespace-pre-wrap break-words">{m.text}</div>
-                        </div>
-
-                        <div className={`mt-1 flex gap-2 text-[11px] text-white/45 ${isOut ? 'justify-end' : 'justify-start'}`}>
-                          <span>{m.direction}</span>
-                          <span>•</span>
-                          <span>{formatTs(m.timestamp)}</span>
-                          {m.externalId ? (
-                            <>
-                              <span>•</span>
-                              <span className="truncate max-w-[260px]">{m.externalId}</span>
-                            </>
-                          ) : null}
-                        </div>
+              <div className="space-y-6">
+                {grouped.map((g) => (
+                  <div key={g.key} className="space-y-3">
+                    <div className="flex items-center justify-center">
+                      <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-white/60">
+                        {g.label}
                       </div>
                     </div>
-                  );
-                })}
+
+                    <div className="space-y-3">
+                      {g.items.map((m) => {
+                        const isOut = m.direction === 'OUT';
+                        const isTemp = m.id.startsWith('temp_');
+
+                        return (
+                          <div key={m.id} className={`flex ${isOut ? 'justify-end' : 'justify-start'}`}>
+                            <div className="max-w-[85%] md:max-w-[70%]">
+                              <div
+                                className={[
+                                  'rounded-2xl px-3 py-2 text-sm leading-relaxed border',
+                                  isOut
+                                    ? 'bg-white/10 border-white/10 text-white'
+                                    : 'bg-white/5 border-white/10 text-white/90',
+                                ].join(' ')}
+                              >
+                                <div className="whitespace-pre-wrap break-words">{m.text}</div>
+                              </div>
+
+                              <div
+                                className={[
+                                  'mt-1 flex gap-2 text-[11px] text-white/45',
+                                  isOut ? 'justify-end' : 'justify-start',
+                                ].join(' ')}
+                              >
+                                <span>{m.direction}</span>
+                                <span>•</span>
+                                <span>{formatTs(m.timestamp)}</span>
+                                {isTemp ? (
+                                  <>
+                                    <span>•</span>
+                                    <span>sending</span>
+                                  </>
+                                ) : null}
+                                {m.externalId ? (
+                                  <>
+                                    <span>•</span>
+                                    <span className="truncate max-w-[260px]">{m.externalId}</span>
+                                  </>
+                                ) : null}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
