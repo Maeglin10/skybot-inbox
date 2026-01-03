@@ -50,9 +50,10 @@ export default function InboxClient(props: {
     setError(null);
 
     try {
-      const res = await fetch(`/api/proxy/conversations?limit=50&cursor=${encodeURIComponent(cursor)}`, {
-        cache: "no-store",
-      });
+      const res = await fetch(
+        `/api/proxy/conversations?limit=50&cursor=${encodeURIComponent(cursor)}`,
+        { cache: "no-store" }
+      );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
 
@@ -87,17 +88,14 @@ export default function InboxClient(props: {
                   c.contact?.phone?.trim() ||
                   c.id;
 
-                const preview =
-                  c.messages?.at(-1)?.text?.trim() ||
-                  "";
-
+                const preview = c.messages?.at(-1)?.text?.trim() || "";
                 const ts = formatTs(c.lastActivityAt ?? c.updatedAt);
                 const active = selectedId === c.id;
 
                 return (
                   <li key={c.id}>
                     <Link
-                      href={`/conversations/${c.id}`}
+                      href={`/inbox/${c.id}`}
                       className={[
                         "block px-3 py-3",
                         active ? "bg-white/10" : "hover:bg-white/5",
