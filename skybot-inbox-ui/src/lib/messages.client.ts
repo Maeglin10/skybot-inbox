@@ -1,6 +1,7 @@
 'use client';
 
 import { apiGetClient, apiPostClient } from './api.client';
+import type { Message } from "@/lib/types";
 
 export async function listMessages(input: {
   conversationId: string;

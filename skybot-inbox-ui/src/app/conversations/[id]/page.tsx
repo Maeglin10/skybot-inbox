@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { apiGetServer } from "@/lib/api.server";
-import ConversationClient from "./ConversationClient";
+import ConversationClient from "@/components/conversations/ConversationClient";
+import type { Conversation } from '@/lib/types';
 
 export default async function ConversationPage({
   params,
@@ -9,17 +10,19 @@ export default async function ConversationPage({
 }) {
   const { id } = await params;
 
-  const initial = await apiGetServer(`/conversations/${id}`);
+const conv = (await apiGetServer(`/conversations/${id}`)) as Conversation;
+return <ConversationClient initial={conv} />;
 
   return (
-    <main className="p-0">
-      <div className="p-3">
+    <main className="p-4">
+      <div className="mb-3 flex items-center justify-between">
         <Link href="/conversations" className="text-sm underline">
           Back
         </Link>
+        <div className="text-xs text-white/60">{conv.id}</div>
       </div>
 
-      <ConversationClient initial={initial} />
+      <ConversationClient initial={conv} />
     </main>
   );
 }

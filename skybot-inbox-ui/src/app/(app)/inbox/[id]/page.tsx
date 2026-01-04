@@ -1,6 +1,6 @@
 import { apiGetServer } from "@/lib/api.server";
 import InboxClient from "@/app/conversations/InboxClient";
-import ConversationClient from "@/app/conversations/[id]/ConversationClient";
+import ConversationClient from "@/components/conversations/ConversationClient";
 
 export default async function InboxConversationPage({
   params,

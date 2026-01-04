@@ -1,5 +1,6 @@
 'use client';
 
+import { apiPostClient } from '@/lib/api.client';
 import { useState } from 'react';
 
 type Message = {
@@ -44,18 +45,11 @@ export default function Composer({
     const tempId = onOptimisticSend?.(clean) ?? `temp_${Date.now()}`;
 
     try {
-      const res = await fetch(`/api/conversations/${conversationId}/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: clean }),
-      });
+      const real = (await apiPostClient(
+        `/conversations/${conversationId}/messages`,
+        { text: clean },
+      )) as Message;
 
-      if (!res.ok) {
-        const payload = await safeJson(res);
-        throw new Error(payload?.error ?? `HTTP ${res.status}`);
-      }
-
-      const real = (await res.json()) as Message;
       onSendSuccess?.(tempId, real);
     } catch (e) {
       onSendFail?.(tempId);

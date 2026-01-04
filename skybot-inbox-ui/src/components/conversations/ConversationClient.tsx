@@ -1,30 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
-import Composer from './Composer';
-import StatusSelect from './StatusSelect';
-
-type Status = 'OPEN' | 'PENDING' | 'CLOSED';
-
-type Message = {
-  id: string;
-  conversationId: string;
-  direction: 'IN' | 'OUT';
-  from: string;
-  to: string;
-  text: string;
-  timestamp: string;
-  createdAt: string;
-  externalId?: string | null;
-};
-
-type Conversation = {
-  id: string;
-  status: Status;
-  updatedAt: string;
-  lastActivityAt?: string;
-  messages: Message[];
-};
+import Composer from '@/app/conversations/[id]/Composer';
+import StatusSelect from '@/app/conversations/[id]/StatusSelect';
+import type { Conversation, Message, Status } from '@/lib/types';
 
 async function fetchConversation(id: string): Promise<Conversation> {
   const res = await fetch(`/api/proxy/conversations/${id}`, {
@@ -328,9 +307,11 @@ export default function ConversationClient(props: { initial: Conversation }) {
           <div className="border-t border-white/10 p-3">
             <Composer
               conversationId={conv.id}
-              onOptimisticSend={(text) => optimisticAdd(text)}
-              onSendSuccess={(tempId, real) => optimisticReplace(tempId, real)}
-              onSendFail={(tempId) => optimisticRemove(tempId)}
+              onOptimisticSend={(text: string) => optimisticAdd(text)}
+              onSendSuccess={(tempId: string, real: Message) =>
+                optimisticReplace(tempId, real)
+              }
+              onSendFail={(tempId: string) => optimisticRemove(tempId)}
             />
           </div>
         </div>

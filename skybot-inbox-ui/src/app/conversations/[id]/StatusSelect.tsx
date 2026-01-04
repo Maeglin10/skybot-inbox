@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { apiPatchClient } from '@/lib/api.client';
 
 type Status = 'OPEN' | 'PENDING' | 'CLOSED';
 
@@ -19,16 +20,12 @@ export default function StatusSelect(props: {
     setLoading(true);
 
     try {
-      const res = await fetch(`/api/conversations/${props.id}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: next }),
+      await apiPatchClient(`/conversations/${props.id}/status`, {
+        status: next,
       });
-
-      if (!res.ok) {
-        setValue(prev);
-        props.onOptimisticChange?.(prev);
-      }
+    } catch {
+      setValue(prev);
+      props.onOptimisticChange?.(prev);
     } finally {
       setLoading(false);
     }
