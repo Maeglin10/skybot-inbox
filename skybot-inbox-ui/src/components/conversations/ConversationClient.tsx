@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
-import Composer from '@/app/conversations/[id]/Composer';
-import StatusSelect from '@/app/conversations/[id]/StatusSelect';
+import Composer from '@/components/conversations/Composer';
+import StatusSelect from '@/components/conversations/StatusSelect';
 import type { Conversation, Message, Status } from '@/lib/types';
 
 async function fetchConversation(id: string): Promise<Conversation> {

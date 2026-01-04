@@ -1,6 +1,10 @@
-import { apiGetServer } from "@/lib/api.server";
-import InboxClient from "@/app/conversations/InboxClient";
-import ConversationClient from "@/components/conversations/ConversationClient";
+import { apiGetServer } from '@/lib/api.server';
+import {
+  InboxShell,
+  type InboxConversation,
+  type InboxConversationStatus,
+} from '@/components/inbox/inbox-shell';
+import ConversationClient from '@/components/conversations/ConversationClient';
 
 export default async function InboxConversationPage({
   params,
@@ -9,7 +13,7 @@ export default async function InboxConversationPage({
 }) {
   const { id } = await params;
 
-  const list = await apiGetServer("/conversations?limit=50&lite=1");
+  const list = await apiGetServer('/conversations?limit=50&lite=1');
   const items = list?.items ?? [];
   const nextCursor = list?.nextCursor ?? null;
 
@@ -18,7 +22,10 @@ export default async function InboxConversationPage({
   return (
     <main className="mx-auto w-full max-w-6xl">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-[360px_1fr]">
-        <InboxClient initialItems={items} initialCursor={nextCursor} />
+        <InboxShell
+          initialItems={items as unknown as InboxConversation[]}
+          initialCursor={nextCursor}
+        />{' '}
         <ConversationClient initial={conv} />
       </div>
     </main>

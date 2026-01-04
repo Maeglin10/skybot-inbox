@@ -1,26 +1,32 @@
 import { NextResponse } from "next/server";
 
-const API_BASE = process.env.API_URL || "http://127.0.0.1:3001";
+function mustEnv(name: string, v: string | undefined) {
+  if (!v) throw new Error(`Missing env: ${name}`);
+  return v;
+}
 
-export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
+const API_BASE = mustEnv("API_BASE", process.env.API_BASE);
+const API_KEY = process.env.API_KEY;
+
+export async function PATCH(
+  req: Request,
+  ctx: { params: Promise<{ id: string }> }
+) {
   const { id } = await ctx.params;
-  const body = await req.json().catch(() => ({}));
-  const status = body?.status;
-
-  if (!status) {
-    return NextResponse.json({ error: "Missing status" }, { status: 400 });
-  }
+  const body = await req.text();
 
   const upstream = await fetch(`${API_BASE}/conversations/${id}/status`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ status }),
-    cache: "no-store",
+    headers: {
+      "content-type": "application/json",
+      ...(API_KEY ? { "x-api-key": API_KEY } : {}),
+    },
+    body,
   });
 
   const text = await upstream.text();
   return new NextResponse(text, {
     status: upstream.status,
-    headers: { "Content-Type": upstream.headers.get("content-type") ?? "application/json" },
+    headers: { "content-type": upstream.headers.get("content-type") ?? "application/json" },
   });
 }
