@@ -1,9 +1,5 @@
 import { apiGetServer } from '@/lib/api.server';
-import {
-  InboxShell,
-  type InboxConversation,
-  type InboxConversationStatus,
-} from '@/components/inbox/inbox-shell';
+import { InboxShell, type InboxConversation } from "@/components/inbox/inbox-shell";
 import ConversationClient from '@/components/conversations/ConversationClient';
 
 export default async function InboxConversationPage({
