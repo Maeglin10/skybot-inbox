@@ -280,7 +280,7 @@ export function InboxShell({
 
   return (
     <div className="h-[calc(100vh-1px)] w-full bg-black">
-      <div className="grid h-full grid-cols-1 md:grid-cols-[380px_1fr]">
+      <div className="grid h-full grid-cols-[380px_minmax(0,1fr)]">
         <div className="border-r border-white/10 flex flex-col">
           <div className="sticky top-0 z-10 border-b border-white/10 bg-black/70 backdrop-blur">
             <div className="p-3">
