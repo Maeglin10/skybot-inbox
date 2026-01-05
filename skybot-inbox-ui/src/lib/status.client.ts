@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import type { InboxConversationStatus } from '@/components/inbox/inbox-shell';
-import { apiPatchClient } from './api.client';
-import type { Status } from "@/lib/types";
+import { apiPatchClient } from "./api.client";
+
+export type InboxConversationStatus = "OPEN" | "PENDING" | "CLOSED";
 
 export async function patchConversationStatus(input: {
   conversationId: string;
