@@ -54,9 +54,11 @@ function matchSearch(c: InboxConversation, q: string) {
 export function InboxShell({
   initialItems,
   initialCursor,
+  initialActiveId,
 }: {
   initialItems: InboxConversation[];
   initialCursor: string | null;
+  initialActiveId?: string | null;
 }) {
   const [tab, setTab] = React.useState<Tab>('OPEN');
 
@@ -66,35 +68,62 @@ export function InboxShell({
     CLOSED: [],
   });
 
-  const [cursorByTab, setCursorByTab] = React.useState<
-    Record<Tab, string | null>
-  >({
+  const [cursorByTab, setCursorByTab] = React.useState<Record<Tab, string | null>>({
     OPEN: null,
     PENDING: null,
     CLOSED: null,
   });
 
   const [activeId, setActiveId] = React.useState<string | null>(
-    initialItems[0]?.id ?? null,
+    initialActiveId ?? initialItems[0]?.id ?? null,
   );
-  const [active, setActive] = React.useState<InboxConversation | null>(
-    initialItems[0] ?? null,
-  );
+
+  const [active, setActive] = React.useState<InboxConversation | null>(() => {
+    if (!initialActiveId) return initialItems[0] ?? null;
+    return initialItems.find((x) => x.id === initialActiveId) ?? null;
+  });
 
   const [search, setSearch] = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const [loadingMore, setLoadingMore] = React.useState(false);
 
+  const select = React.useCallback(
+    async (id: string) => {
+      setActiveId(id);
+      setLoading(true);
+      try {
+        const full = (await fetchConversation(id)) as InboxConversation;
+        const preview = derivePreview(full);
+
+        setActive(full);
+
+        setByTab((prev) => {
+          const cur = prev[tab] ?? [];
+          const next = cur.map((c) => (c.id === id ? { ...c, ...full, preview } : c));
+          return { ...prev, [tab]: next };
+        });
+      } finally {
+        setLoading(false);
+      }
+    },
+    [tab],
+  );
+
   React.useEffect(() => {
     setByTab((prev) => ({ ...prev, OPEN: initialItems }));
     setCursorByTab((prev) => ({ ...prev, OPEN: initialCursor }));
-  }, [initialItems, initialCursor]);
+
+    if (initialActiveId) {
+      setActiveId(initialActiveId);
+      void select(initialActiveId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialItems, initialCursor, initialActiveId]);
 
   const cursor = cursorByTab[tab] ?? null;
 
   const tabItems = React.useMemo(() => {
     const raw = byTab[tab] ?? [];
-    // IMPORTANT: strict filter to keep each tab correct after status changes
     return raw.filter((c) => c.status === tab);
   }, [byTab, tab]);
 
@@ -132,9 +161,7 @@ export function InboxShell({
             ? data.nextCursor
             : null;
 
-        const more = (
-          Array.isArray(data?.items) ? data.items : []
-        ) as InboxConversation[];
+        const more = (Array.isArray(data?.items) ? data.items : []) as InboxConversation[];
 
         setByTab((prev) => ({ ...prev, [tab]: more }));
         setCursorByTab((prev) => ({ ...prev, [tab]: next }));
@@ -148,30 +175,6 @@ export function InboxShell({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
-  const select = React.useCallback(
-    async (id: string) => {
-      setActiveId(id);
-      setLoading(true);
-      try {
-        const full = (await fetchConversation(id)) as InboxConversation;
-        const preview = derivePreview(full);
-
-        setActive(full);
-
-        setByTab((prev) => {
-          const cur = prev[tab] ?? [];
-          const next = cur.map((c) =>
-            c.id === id ? { ...c, ...full, preview } : c,
-          );
-          return { ...prev, [tab]: next };
-        });
-      } finally {
-        setLoading(false);
-      }
-    },
-    [tab],
-  );
-
   const refresh = React.useCallback((full: InboxConversation) => {
     const preview = derivePreview(full);
     setActive(full);
@@ -180,9 +183,7 @@ export function InboxShell({
       const next = { ...prev };
       (Object.keys(next) as Tab[]).forEach((t) => {
         next[t] = (next[t] ?? []).map((c) =>
-          c.id === full.id
-            ? { ...c, ...full, preview: preview ?? c.preview }
-            : c,
+          c.id === full.id ? { ...c, ...full, preview: preview ?? c.preview } : c,
         );
       });
       return next;
@@ -208,19 +209,14 @@ export function InboxShell({
       setByTab((prev) => {
         const next = { ...prev };
         (Object.keys(next) as Tab[]).forEach((t) => {
-          next[t] = (next[t] ?? []).map((c) =>
-            c.id === id ? { ...c, status: nextStatus } : c,
-          );
+          next[t] = (next[t] ?? []).map((c) => (c.id === id ? { ...c, status: nextStatus } : c));
         });
         return next;
       });
       if (active?.id === id) setActive({ ...active, status: nextStatus });
 
       try {
-        await patchConversationStatus({
-          conversationId: id,
-          status: nextStatus,
-        });
+        await patchConversationStatus({ conversationId: id, status: nextStatus });
         const full = (await fetchConversation(id)) as InboxConversation;
         refresh(full);
       } catch {
@@ -251,9 +247,7 @@ export function InboxShell({
           ? data.nextCursor
           : null;
 
-      const more = (
-        Array.isArray(data?.items) ? data.items : []
-      ) as InboxConversation[];
+      const more = (Array.isArray(data?.items) ? data.items : []) as InboxConversation[];
 
       setByTab((prev) => {
         const cur = prev[tab] ?? [];
@@ -276,8 +270,8 @@ export function InboxShell({
       type="button"
       onClick={() => setTab(v)}
       className={[
-        'h-9 rounded-md border px-3 text-xs',
-        tab === v ? 'bg-muted' : 'bg-background hover:bg-muted/50',
+        'h-9 rounded-md border border-white/10 px-3 text-xs text-white/80',
+        tab === v ? 'bg-white/10' : 'bg-black/30 hover:bg-white/10',
       ].join(' ')}
     >
       {label}
@@ -287,17 +281,13 @@ export function InboxShell({
   return (
     <div className="h-[calc(100vh-1px)] w-full bg-black">
       <div className="grid h-full grid-cols-1 md:grid-cols-[380px_1fr]">
-        <div className="border-r flex flex-col">
-          <div className="sticky top-0 z-10 border-b bg-black/70 backdrop-blur">
+        <div className="border-r border-white/10 flex flex-col">
+          <div className="sticky top-0 z-10 border-b border-white/10 bg-black/70 backdrop-blur">
             <div className="p-3">
               <div className="mb-2 flex items-center justify-between">
                 <div className="text-sm font-semibold text-white/90">Inbox</div>
                 <div className="text-xs text-white/50">
-                  {tab === 'OPEN'
-                    ? 'Open'
-                    : tab === 'PENDING'
-                      ? 'Pending'
-                      : 'Closed'}
+                  {tab === 'OPEN' ? 'Open' : tab === 'PENDING' ? 'Pending' : 'Closed'}
                 </div>
               </div>
 
@@ -318,15 +308,6 @@ export function InboxShell({
             </div>
           </div>
 
-          <div className="p-3 border-b">
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="h-9 w-full rounded-md border px-3 text-sm"
-              placeholder="Search name / phone / preview…"
-            />
-          </div>
-
           <div className="flex-1 min-h-0">
             {visibleItems.length === 0 ? (
               <div className="p-6 text-sm text-white/50">No conversations.</div>
@@ -338,15 +319,9 @@ export function InboxShell({
                 onToggleStatus={toggleStatus}
               />
             )}
-            <InboxList
-              items={visibleItems}
-              activeId={activeId}
-              onSelect={select}
-              onToggleStatus={toggleStatus}
-            />
           </div>
 
-          <div className="p-3 border-t">
+          <div className="p-3 border-t border-white/10">
             <button
               type="button"
               className="h-9 w-full rounded-md border border-white/10 bg-white/5 text-sm text-white hover:bg-white/10 disabled:opacity-50"
@@ -359,11 +334,7 @@ export function InboxShell({
         </div>
 
         <div className="min-w-0">
-          <InboxThread
-            conversation={active}
-            loading={loading}
-            onRefresh={refresh}
-          />
+          <InboxThread conversation={active} loading={loading} onRefresh={refresh} />
         </div>
       </div>
     </div>

@@ -1,28 +1,29 @@
 import { apiGetServer } from "@/lib/api.server";
-import InboxClient from "@/components/conversations/InboxClient";
-
+import { InboxShell, type InboxConversation } from "@/components/inbox/inbox-shell";
 
 export const dynamic = "force-dynamic";
 
-type Status = "OPEN" | "PENDING" | "CLOSED";
-
-type ConvItem = {
-  id: string;
-  status: Status;
-  lastActivityAt?: string | null;
-  updatedAt: string;
-  contact?: { name?: string | null; phone?: string | null } | null;
-  messages?: { text?: string | null }[] | null;
+type RawListResponse = {
+  items?: unknown;
+  nextCursor?: unknown;
 };
 
+function asNullableString(v: unknown): string | null {
+  if (typeof v === "string") return v;
+  return null;
+}
+
 export default async function InboxPage() {
-  const data = await apiGetServer("/conversations?limit=50&lite=1&status=OPEN");
-  const items = (data?.items ?? []) as ConvItem[];
-  const nextCursor = (data?.nextCursor ?? null) as string | null;
+  const data = (await apiGetServer(
+    "/conversations?limit=50&lite=1&status=OPEN"
+  )) as RawListResponse;
+
+  const items = (Array.isArray(data?.items) ? data.items : []) as InboxConversation[];
+  const nextCursor = asNullableString(data?.nextCursor);
 
   return (
-    <main className="mx-auto w-full max-w-6xl">
-      <InboxClient initialItems={items} initialCursor={nextCursor} />
+    <main className="h-[calc(100vh-1px)] w-full min-w-0">
+      <InboxShell initialItems={items} initialCursor={nextCursor} />
     </main>
   );
 }

@@ -1,8 +1,17 @@
-import { apiGetServer } from "@/lib/api.server";
-import InboxClient from "@/components/conversations/InboxClient";
-import ConversationClient from "@/components/conversations/ConversationClient";
+import { apiGetServer } from '@/lib/api.server';
+import { InboxShell, type InboxConversation } from '@/components/inbox/inbox-shell';
 
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
+
+type RawListResponse = {
+  items?: unknown;
+  nextCursor?: unknown;
+};
+
+function asNullableString(v: unknown): string | null {
+  if (typeof v === 'string') return v;
+  return null;
+}
 
 export default async function InboxConversationPage({
   params,
@@ -11,23 +20,14 @@ export default async function InboxConversationPage({
 }) {
   const { id } = await params;
 
-  const list = await apiGetServer("/conversations?limit=50&lite=1&status=OPEN");
-  const items = list?.items ?? [];
-  const nextCursor = list?.nextCursor ?? null;
+  const list = (await apiGetServer('/conversations?limit=50&lite=1')) as RawListResponse;
 
-  const conv = await apiGetServer(`/conversations/${id}`);
+  const items = (Array.isArray(list?.items) ? list.items : []) as InboxConversation[];
+  const nextCursor = asNullableString(list?.nextCursor);
 
   return (
-    <main className="mx-auto h-[calc(100vh-1px)] w-full max-w-6xl p-4">
-      <div className="grid h-full grid-cols-1 gap-4 md:grid-cols-[360px_1fr]">
-        <div className="min-h-0">
-          <InboxClient initialItems={items} initialCursor={nextCursor} />
-        </div>
-
-        <div className="min-h-0 min-w-0">
-          <ConversationClient initial={conv} />
-        </div>
-      </div>
+    <main className="h-[calc(100vh-1px)] w-full min-w-0">
+      <InboxShell initialItems={items} initialCursor={nextCursor} initialActiveId={id} />
     </main>
   );
 }
