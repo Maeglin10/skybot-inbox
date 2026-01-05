@@ -1,7 +1,7 @@
-import { apiGetServer } from '@/lib/api.server';
-import { InboxShell, type InboxConversation } from '@/components/inbox/inbox-shell';
+import { apiGetServer } from "@/lib/api.server";
+import { InboxShell, type InboxConversation } from "@/components/inbox/inbox-shell";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 type RawListResponse = {
   items?: unknown;
@@ -9,7 +9,7 @@ type RawListResponse = {
 };
 
 function asNullableString(v: unknown): string | null {
-  if (typeof v === 'string') return v;
+  if (typeof v === "string") return v;
   return null;
 }
 
@@ -20,14 +20,18 @@ export default async function InboxConversationPage({
 }) {
   const { id } = await params;
 
-  const list = (await apiGetServer('/conversations?limit=50&lite=1')) as RawListResponse;
+  const list = (await apiGetServer(
+    "/conversations?limit=50&lite=1&status=OPEN"
+  )) as RawListResponse;
 
   const items = (Array.isArray(list?.items) ? list.items : []) as InboxConversation[];
   const nextCursor = asNullableString(list?.nextCursor);
 
   return (
-    <main className="h-[calc(100vh-1px)] w-full min-w-0">
-      <InboxShell initialItems={items} initialCursor={nextCursor} initialActiveId={id} />
-    </main>
+    <InboxShell
+      initialItems={items}
+      initialCursor={nextCursor}
+      initialActiveId={id}
+    />
   );
 }

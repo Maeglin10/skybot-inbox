@@ -21,9 +21,5 @@ export default async function InboxPage() {
   const items = (Array.isArray(data?.items) ? data.items : []) as InboxConversation[];
   const nextCursor = asNullableString(data?.nextCursor);
 
-  return (
-    <main className="h-[calc(100vh-1px)] w-full min-w-0">
-      <InboxShell initialItems={items} initialCursor={nextCursor} />
-    </main>
-  );
+  return <InboxShell initialItems={items} initialCursor={nextCursor} />;
 }
