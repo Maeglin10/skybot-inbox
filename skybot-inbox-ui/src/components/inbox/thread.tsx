@@ -52,7 +52,8 @@ function toThreadMsg(m: {
   return {
     text: m.text ?? null,
     timestamp: m.timestamp,
-    direction: m.direction === 'IN' || m.direction === 'OUT' ? m.direction : 'IN',
+    direction:
+      m.direction === 'IN' || m.direction === 'OUT' ? m.direction : 'IN',
   };
 }
 
@@ -141,7 +142,9 @@ export function InboxThread({
         cursor: olderCursor,
       });
 
-      const older = (Array.isArray(data.items) ? data.items : []).map(toThreadMsg);
+      const older = (Array.isArray(data.items) ? data.items : []).map(
+        toThreadMsg,
+      );
       if (older.length === 0) {
         setOlderCursor(null);
         return;
@@ -237,7 +240,9 @@ export function InboxThread({
 
     try {
       await sendMessage({ conversationId: conversation.id, to, text: trimmed });
-      const full = (await fetchConversation(conversation.id)) as InboxConversation;
+      const full = (await fetchConversation(
+        conversation.id,
+      )) as InboxConversation;
       onRefresh?.(full);
     } finally {
       setSending(false);
@@ -263,7 +268,7 @@ export function InboxThread({
         </div>
       </div>
 
-      <div ref={listRef} className="flex-1 overflow-auto p-4 space-y-3">
+      <div ref={listRef} className="flex-1 overflow-auto p-4 space-y-3 bg-black">
         {conversation == null ? (
           <div className="text-sm text-muted-foreground">
             No conversation selected.
@@ -295,8 +300,10 @@ export function InboxThread({
                 <div
                   key={msgKey(m, idx)}
                   className={[
-                    'max-w-[80%] rounded-md border px-3 py-2 text-sm',
-                    isOut ? 'ml-auto bg-muted' : 'mr-auto bg-background',
+                    'max-w-[85%] rounded-2xl border px-3 py-2 text-sm leading-relaxed',
+                    isOut
+                      ? 'ml-auto bg-white/10 border-white/10 text-white'
+                      : 'mr-auto bg-white/5 border-white/10 text-white/90',
                   ].join(' ')}
                 >
                   <div className="text-[11px] text-muted-foreground flex items-center justify-between gap-2">
