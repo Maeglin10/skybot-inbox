@@ -1,12 +1,14 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import { InboxList } from './list';
 import { InboxThread } from './thread';
 import { fetchConversation, fetchConversations } from '@/lib/inbox.client';
 import { patchConversationStatus } from '@/lib/status.client';
 
 export type InboxConversationStatus = 'OPEN' | 'PENDING' | 'CLOSED';
+
 export type InboxConversation = {
   id: string;
   status?: InboxConversationStatus;
@@ -51,6 +53,12 @@ function matchSearch(c: InboxConversation, q: string) {
   return name.includes(q) || phone.includes(q) || prev.includes(q);
 }
 
+function clampPollMs(raw: string | undefined) {
+  const n = raw ? Number(raw) : 3000;
+  if (!Number.isFinite(n)) return 3000;
+  return Math.min(Math.max(n, 1500), 15000);
+}
+
 export function InboxShell({
   initialItems,
   initialCursor,
@@ -60,6 +68,8 @@ export function InboxShell({
   initialCursor: string | null;
   initialActiveId?: string | null;
 }) {
+  const router = useRouter();
+
   const [tab, setTab] = React.useState<Tab>('OPEN');
 
   const [byTab, setByTab] = React.useState<Record<Tab, InboxConversation[]>>({
@@ -68,7 +78,9 @@ export function InboxShell({
     CLOSED: [],
   });
 
-  const [cursorByTab, setCursorByTab] = React.useState<Record<Tab, string | null>>({
+  const [cursorByTab, setCursorByTab] = React.useState<
+    Record<Tab, string | null>
+  >({
     OPEN: null,
     PENDING: null,
     CLOSED: null,
@@ -87,7 +99,8 @@ export function InboxShell({
   const [loading, setLoading] = React.useState(false);
   const [loadingMore, setLoadingMore] = React.useState(false);
 
-  const select = React.useCallback(
+  // ---- core select (NO router) for polling/refresh
+  const selectCore = React.useCallback(
     async (id: string) => {
       setActiveId(id);
       setLoading(true);
@@ -99,7 +112,9 @@ export function InboxShell({
 
         setByTab((prev) => {
           const cur = prev[tab] ?? [];
-          const next = cur.map((c) => (c.id === id ? { ...c, ...full, preview } : c));
+          const next = cur.map((c) =>
+            c.id === id ? { ...c, ...full, preview } : c,
+          );
           return { ...prev, [tab]: next };
         });
       } finally {
@@ -109,16 +124,27 @@ export function InboxShell({
     [tab],
   );
 
+  // ---- user select (router + core)
+  const selectUser = React.useCallback(
+    (id: string) => {
+      router.push(`/inbox/${id}`, { scroll: false });
+      void selectCore(id);
+    },
+    [router, selectCore],
+  );
+
+  // Bootstrap OPEN tab list + cursor
   React.useEffect(() => {
     setByTab((prev) => ({ ...prev, OPEN: initialItems }));
     setCursorByTab((prev) => ({ ...prev, OPEN: initialCursor }));
+  }, [initialItems, initialCursor]);
 
-    if (initialActiveId) {
-      setActiveId(initialActiveId);
-      void select(initialActiveId);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialItems, initialCursor, initialActiveId]);
+  // If route gives an initialActiveId, load it once without pushing route again
+  React.useEffect(() => {
+    if (!initialActiveId) return;
+    setActiveId(initialActiveId);
+    void selectCore(initialActiveId);
+  }, [initialActiveId, selectCore]);
 
   const cursor = cursorByTab[tab] ?? null;
 
@@ -144,9 +170,12 @@ export function InboxShell({
     return sortedItems.filter((c) => matchSearch(c, searchQ));
   }, [sortedItems, searchQ]);
 
+  // Lazy-load per tab (only once when empty)
   React.useEffect(() => {
     const hasAny = (byTab[tab]?.length ?? 0) > 0;
     if (hasAny) return;
+
+    let cancelled = false;
 
     (async () => {
       try {
@@ -156,22 +185,31 @@ export function InboxShell({
           status: tab,
         });
 
+        if (cancelled) return;
+
         const next =
           typeof data?.nextCursor === 'string' && data.nextCursor !== 'null'
             ? data.nextCursor
             : null;
 
-        const more = (Array.isArray(data?.items) ? data.items : []) as InboxConversation[];
+        const more = (
+          Array.isArray(data?.items) ? data.items : []
+        ) as InboxConversation[];
 
         setByTab((prev) => ({ ...prev, [tab]: more }));
         setCursorByTab((prev) => ({ ...prev, [tab]: next }));
 
         if (!activeId && more[0]?.id) setActiveId(more[0].id);
       } catch {
+        if (cancelled) return;
         setByTab((prev) => ({ ...prev, [tab]: [] }));
         setCursorByTab((prev) => ({ ...prev, [tab]: null }));
       }
     })();
+
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
@@ -183,40 +221,58 @@ export function InboxShell({
       const next = { ...prev };
       (Object.keys(next) as Tab[]).forEach((t) => {
         next[t] = (next[t] ?? []).map((c) =>
-          c.id === full.id ? { ...c, ...full, preview: preview ?? c.preview } : c,
+          c.id === full.id
+            ? { ...c, ...full, preview: preview ?? c.preview }
+            : c,
         );
       });
       return next;
     });
   }, []);
 
+  // Single polling effect: refresh active conversation without route changes.
   React.useEffect(() => {
     if (!activeId) return;
 
-    const msRaw = process.env.NEXT_PUBLIC_INBOX_POLL_MS;
-    const ms = (() => {
-      const n = msRaw ? Number(msRaw) : 3000;
-      if (!Number.isFinite(n)) return 3000;
-      return Math.min(Math.max(n, 1000), 15000);
-    })();
+    const ms = clampPollMs(process.env.NEXT_PUBLIC_INBOX_POLL_MS);
 
-    const t = window.setInterval(() => void select(activeId), ms);
-    return () => window.clearInterval(t);
-  }, [activeId, select]);
+    let cancelled = false;
+    const tick = async () => {
+      if (cancelled) return;
+      if (
+        typeof document !== 'undefined' &&
+        document.visibilityState !== 'visible'
+      )
+        return;
+      await selectCore(activeId);
+    };
+
+    const t = window.setInterval(() => void tick(), ms);
+    return () => {
+      cancelled = true;
+      window.clearInterval(t);
+    };
+  }, [activeId, selectCore]);
 
   const toggleStatus = React.useCallback(
     async (id: string, nextStatus: InboxConversationStatus) => {
       setByTab((prev) => {
         const next = { ...prev };
         (Object.keys(next) as Tab[]).forEach((t) => {
-          next[t] = (next[t] ?? []).map((c) => (c.id === id ? { ...c, status: nextStatus } : c));
+          next[t] = (next[t] ?? []).map((c) =>
+            c.id === id ? { ...c, status: nextStatus } : c,
+          );
         });
         return next;
       });
+
       if (active?.id === id) setActive({ ...active, status: nextStatus });
 
       try {
-        await patchConversationStatus({ conversationId: id, status: nextStatus });
+        await patchConversationStatus({
+          conversationId: id,
+          status: nextStatus,
+        });
         const full = (await fetchConversation(id)) as InboxConversation;
         refresh(full);
       } catch {
@@ -247,7 +303,9 @@ export function InboxShell({
           ? data.nextCursor
           : null;
 
-      const more = (Array.isArray(data?.items) ? data.items : []) as InboxConversation[];
+      const more = (
+        Array.isArray(data?.items) ? data.items : []
+      ) as InboxConversation[];
 
       setByTab((prev) => {
         const cur = prev[tab] ?? [];
@@ -270,8 +328,10 @@ export function InboxShell({
       type="button"
       onClick={() => setTab(v)}
       className={[
-        'h-9 rounded-md border border-white/10 px-3 text-xs text-white/80',
-        tab === v ? 'bg-white/10' : 'bg-black/30 hover:bg-white/10',
+        'h-9 rounded-md border border-border px-3 text-xs',
+        tab === v
+          ? 'bg-muted text-foreground'
+          : 'bg-background hover:bg-muted/50 text-muted-foreground',
       ].join(' ')}
     >
       {label}
@@ -279,64 +339,64 @@ export function InboxShell({
   );
 
   return (
-    <div className="h-[calc(100vh-1px)] w-full bg-black">
-      <div className="grid h-full grid-cols-[380px_minmax(0,1fr)]">
-        <div className="border-r border-white/10 flex flex-col">
-          <div className="sticky top-0 z-10 border-b border-white/10 bg-black/70 backdrop-blur">
-            <div className="p-3">
-              <div className="mb-2 flex items-center justify-between">
-                <div className="text-sm font-semibold text-white/90">Inbox</div>
-                <div className="text-xs text-white/50">
-                  {tab === 'OPEN' ? 'Open' : tab === 'PENDING' ? 'Pending' : 'Closed'}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <TabBtn v="OPEN" label="Open" />
-                <TabBtn v="PENDING" label="Pending" />
-                <TabBtn v="CLOSED" label="Closed" />
+  <div className="h-[calc(100vh-1px)] w-full bg-red-500 text-white">
+    <div className="grid h-full grid-cols-[380px_minmax(0,1fr)]">
+      <div className="border-r border-border/20 flex flex-col">
+        <div className="sticky top-0 z-10 border-b border-border/20 bg-background/80 backdrop-blur">
+          <div className="px-4 py-4">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="text-base font-semibold">Inbox</div>
+              <div className="text-xs text-muted-foreground">
+                {tab === 'OPEN' ? 'Open' : tab === 'PENDING' ? 'Pending' : 'Closed'}
               </div>
             </div>
 
-            <div className="p-3 border-t border-white/10">
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="h-9 w-full rounded-md border border-white/10 bg-black/30 px-3 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/15"
-                placeholder="Search name / phone / preview…"
-              />
+            <div className="flex items-center gap-2">
+              <TabBtn v="OPEN" label="Open" />
+              <TabBtn v="PENDING" label="Pending" />
+              <TabBtn v="CLOSED" label="Closed" />
             </div>
           </div>
 
-          <div className="flex-1 min-h-0">
-            {visibleItems.length === 0 ? (
-              <div className="p-6 text-sm text-white/50">No conversations.</div>
-            ) : (
-              <InboxList
-                items={visibleItems}
-                activeId={activeId}
-                onSelect={select}
-                onToggleStatus={toggleStatus}
-              />
-            )}
-          </div>
-
-          <div className="p-3 border-t border-white/10">
-            <button
-              type="button"
-              className="h-9 w-full rounded-md border border-white/10 bg-white/5 text-sm text-white hover:bg-white/10 disabled:opacity-50"
-              onClick={() => void loadMore()}
-              disabled={!cursor || loadingMore}
-            >
-              {cursor ? (loadingMore ? 'Loading...' : 'Load more') : 'No more'}
-            </button>
+          <div className="px-4 pb-4 border-t border-border/20">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="mt-4 h-9 w-full rounded-md border border-border/20 bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/.35)]"
+              placeholder="Search name / phone / preview…"
+            />
           </div>
         </div>
 
-        <div className="min-w-0">
-          <InboxThread conversation={active} loading={loading} onRefresh={refresh} />
+        <div className="flex-1 min-h-0">
+          {visibleItems.length === 0 ? (
+            <div className="p-6 text-sm text-muted-foreground">No conversations.</div>
+          ) : (
+            <InboxList
+              items={visibleItems}
+              activeId={activeId}
+              onSelect={selectUser}
+              onToggleStatus={toggleStatus}
+            />
+          )}
+        </div>
+
+        <div className="p-4 border-t border-border/20">
+          <button
+            type="button"
+            className="h-9 w-full rounded-md border border-border/20 bg-muted/40 text-sm text-foreground hover:bg-muted disabled:opacity-50"
+            onClick={() => void loadMore()}
+            disabled={!cursor || loadingMore}
+          >
+            {cursor ? (loadingMore ? 'Loading...' : 'Load more') : 'No more'}
+          </button>
         </div>
       </div>
+
+      <div className="min-w-0">
+        <InboxThread conversation={active} loading={loading} onRefresh={refresh} />
+      </div>
     </div>
-  );
+  </div>
+);
 }

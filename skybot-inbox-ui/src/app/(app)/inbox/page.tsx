@@ -9,17 +9,28 @@ type RawListResponse = {
 };
 
 function asNullableString(v: unknown): string | null {
-  if (typeof v === "string") return v;
-  return null;
+  return typeof v === "string" ? v : null;
 }
 
 export default async function InboxPage() {
-  const data = (await apiGetServer(
-    "/conversations?limit=50&lite=1&status=OPEN"
-  )) as RawListResponse;
+  let items: InboxConversation[] = [];
+  let nextCursor: string | null = null;
 
-  const items = (Array.isArray(data?.items) ? data.items : []) as InboxConversation[];
-  const nextCursor = asNullableString(data?.nextCursor);
+  try {
+    const data = (await apiGetServer(
+      "/conversations?limit=20&lite=1&status=OPEN"
+    )) as RawListResponse;
 
-  return <InboxShell initialItems={items} initialCursor={nextCursor} />;
+    items = (Array.isArray(data?.items) ? data.items : []) as InboxConversation[];
+    nextCursor = asNullableString(data?.nextCursor);
+  } catch {
+    items = [];
+    nextCursor = null;
+  }
+
+  return (
+    <main className="h-[calc(100vh-1px)] w-full min-w-0">
+      <InboxShell initialItems={items} initialCursor={nextCursor} />
+    </main>
+  );
 }

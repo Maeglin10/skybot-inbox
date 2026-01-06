@@ -103,14 +103,24 @@ export function InboxThread({
     const el = listRef.current;
     if (!el) return;
     const threshold = 120;
-    stickToBottomRef.current =
-      el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+
+    const sticky = el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+
+    stickToBottomRef.current = sticky;
+
+    (
+      window as unknown as { __INBOX_STICKY_BOTTOM__?: boolean }
+    ).__INBOX_STICKY_BOTTOM__ = sticky;
   }, []);
 
   // keep at bottom only when user is already near bottom
   React.useEffect(() => {
     if (!convId) return;
     if (!stickToBottomRef.current) return;
+
+    (
+      window as unknown as { __INBOX_STICKY_BOTTOM__?: boolean }
+    ).__INBOX_STICKY_BOTTOM__ = true;
 
     requestAnimationFrame(() => {
       const el = listRef.current;
@@ -250,8 +260,8 @@ export function InboxThread({
   }, [conversation, to, text, msgs, onRefresh]);
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="p-4 border-b flex items-center justify-between gap-3">
+    <div className="h-full flex flex-col bg-green-600 text-white">
+      <div className="p-4 border-b border-border/20 flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="truncate text-sm font-semibold">
             {conversation?.contact?.name ||
@@ -268,7 +278,10 @@ export function InboxThread({
         </div>
       </div>
 
-      <div ref={listRef} className="flex-1 overflow-auto p-4 space-y-3 bg-black">
+      <div
+        ref={listRef}
+        className="flex-1 overflow-auto p-6 space-y-6 bg-background"
+      >
         {conversation == null ? (
           <div className="text-sm text-muted-foreground">
             No conversation selected.
@@ -281,7 +294,7 @@ export function InboxThread({
               <div className="pb-2">
                 <button
                   type="button"
-                  className="h-8 rounded-md border px-3 text-xs hover:bg-muted disabled:opacity-50"
+                  className="h-8 rounded-md border border-border/20 px-3 text-xs text-foreground hover:bg-muted disabled:opacity-50"
                   disabled={loadingOlder}
                   onClick={() => void loadOlder()}
                 >
@@ -296,22 +309,33 @@ export function InboxThread({
 
             {msgs.map((m, idx) => {
               const isOut = m.direction === 'OUT';
+
               return (
                 <div
                   key={msgKey(m, idx)}
                   className={[
-                    'max-w-[85%] rounded-2xl border px-3 py-2 text-sm leading-relaxed',
-                    isOut
-                      ? 'ml-auto bg-white/10 border-white/10 text-white'
-                      : 'mr-auto bg-white/5 border-white/10 text-white/90',
+                    'flex my-1',
+                    isOut ? 'justify-end' : 'justify-start',
                   ].join(' ')}
                 >
-                  <div className="text-[11px] text-muted-foreground flex items-center justify-between gap-2">
-                    <span>{dirLabel(m.direction)}</span>
-                    <span>{fmt(m.timestamp)}</span>
-                  </div>
-                  <div className="mt-1 whitespace-pre-wrap break-words">
-                    {m.text ?? ''}
+                  <div
+                    key={msgKey(m, idx)}
+                    className={[
+                      'max-w-[60%] rounded-2xl border border-border/20 bg-muted/60',
+                      'px-5 pt-4 pb-3',
+                      'mb-3',
+                      isOut
+                        ? 'ml-auto bg-[hsl(var(--primary)/.14)]'
+                        : 'mr-auto',
+                    ].join(' ')}
+                  >
+                    <div className="whitespace-pre-wrap break-words text-foreground">
+                      {m.text ?? ''}
+                    </div>
+
+                    <div className="mt-2 flex items-end justify-end gap-2 text-[11px] text-muted-foreground">
+                      <span>{fmt(m.timestamp)}</span>
+                    </div>
                   </div>
                 </div>
               );
@@ -320,11 +344,11 @@ export function InboxThread({
         )}
       </div>
 
-      <div className="p-4 border-t flex gap-2">
+      <div className="p-4 border-t border-border/20 flex gap-2">
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
-          className="h-10 flex-1 rounded-md border px-3 text-sm"
+          className="h-10 flex-1 rounded-md border border-border/20 bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/.35)]"
           placeholder="Type a message…"
           disabled={!conversation?.id || sending}
           onKeyDown={(e) => {
@@ -336,7 +360,7 @@ export function InboxThread({
         />
         <button
           type="button"
-          className="h-10 rounded-md border px-4 text-sm hover:bg-muted disabled:opacity-50"
+          className="h-10 rounded-md border border-border/20 px-4 text-sm text-foreground hover:bg-muted disabled:opacity-50"
           disabled={!conversation?.id || sending || !text.trim() || !to}
           onClick={() => void send()}
         >

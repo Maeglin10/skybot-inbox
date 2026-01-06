@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import '../styles/main.scss';
+//import '../styles/main.scss';
 import { Providers } from '@/components/providers';
 import { Poppins } from 'next/font/google';
 import './globals.css';
