@@ -330,8 +330,8 @@ export function InboxShell({
       className={[
         'h-9 rounded-md border border-border px-3 text-xs',
         tab === v
-          ? 'bg-muted text-foreground'
-          : 'bg-background hover:bg-muted/50 text-muted-foreground',
+          ? 'bg-transparent  text-foreground'
+          : 'bg-transparent  text-muted-foreground',
       ].join(' ')}
     >
       {label}
@@ -342,7 +342,7 @@ export function InboxShell({
   <div className="h-[calc(100vh-1px)] w-full bg-transparent text-foreground">
     <div className="grid h-full grid-cols-[380px_minmax(0,1fr)]">
       <div className="border-r border-border/20 flex flex-col">
-        <div className="sticky top-0 z-10 border-b border-border/20 bg-background/80 backdrop-blur">
+        <div className="sticky top-0 z-10 border-b border-border/20 bg-transparent backdrop-blur">
           <div className="px-4 py-4">
             <div className="mb-3 flex items-center justify-between">
               <div className="text-base font-semibold">Inbox</div>
@@ -362,7 +362,7 @@ export function InboxShell({
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="mt-4 h-9 w-full rounded-md border border-border/20 bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/.35)]"
+              className="mt-4 h-9 w-full rounded-md border border-border/20 bg-transparent px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/.35)]"
               placeholder="Search name / phone / preview…"
             />
           </div>
@@ -384,7 +384,7 @@ export function InboxShell({
         <div className="p-4 border-t border-border/20">
           <button
             type="button"
-            className="h-9 w-full rounded-md border border-border/20 bg-muted/40 text-sm text-foreground hover:bg-muted disabled:opacity-50"
+            className="h-9 w-full rounded-md border border-border/20 bg-transparent text-sm text-foreground bg-transparent disabled:opacity-50"
             onClick={() => void loadMore()}
             disabled={!cursor || loadingMore}
           >

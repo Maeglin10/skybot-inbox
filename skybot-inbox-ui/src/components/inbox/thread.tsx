@@ -260,14 +260,13 @@ export function InboxThread({
   }, [conversation, to, text, msgs, onRefresh]);
 
   return (
-    <div className="h-full flex flex-col bg-green-600 text-white">
+    <div className="h-full flex flex-col bg-transparent text-foreground">
       <div className="p-4 border-b border-border/20 flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="truncate text-sm font-semibold">
             {conversation?.contact?.name ||
               conversation?.contact?.phone ||
               'Conversation'}
-              <div className="text-[12px] font-bold text-red-500">THREAD_FILE_MARKER</div>
           </div>
           <div className="truncate text-xs text-muted-foreground">
             {conversation?.contact?.phone || ''}
@@ -278,18 +277,20 @@ export function InboxThread({
           {loading ? 'Loading…' : (conversation?.status ?? '')}
         </div>
       </div>
-      <div ref={listRef} className="flex-1 overflow-auto p-20 space-y-20 bg-red-500">
+      <div
+        ref={listRef}
+        className="flex-1 min-h-0 overflow-auto px-6 py-6 space-y-3"
+      >
         {conversation == null ? (
           <div className="text-sm text-muted-foreground">
             No conversation selected.
           </div>
-          
         ) : msgs.length === 0 ? (
           <div className="text-sm text-muted-foreground">No messages.</div>
         ) : (
           <>
             {olderCursor ? (
-              <div className="pb-2">
+              <div className="flex justify-center pb-2">
                 <button
                   type="button"
                   className="h-8 rounded-md border border-border/20 px-3 text-xs text-foreground hover:bg-muted disabled:opacity-50"
@@ -312,26 +313,23 @@ export function InboxThread({
                 <div
                   key={msgKey(m, idx)}
                   className={[
-                    'flex my-1',
+                    'flex',
                     isOut ? 'justify-end' : 'justify-start',
                   ].join(' ')}
                 >
                   <div
-                    key={msgKey(m, idx)}
                     className={[
-                      'max-w-[60%] rounded-2xl border border-border/20 bg-muted/60',
-                      'px-5 pt-4 pb-3',
-                      'mb-3',
-                      isOut
-                        ? 'ml-auto bg-[hsl(var(--primary)/.14)]'
-                        : 'mr-auto',
+                      'max-w-[72%] rounded-2xl border border-border/20',
+                      'px-4 py-3',
+                      'bg-muted/60',
+                      isOut ? 'bg-[hsl(var(--primary)/.14)]' : '',
                     ].join(' ')}
                   >
-                    <div className="whitespace-pre-wrap break-words text-foreground">
+                    <div className="whitespace-pre-wrap break-words text-sm leading-relaxed">
                       {m.text ?? ''}
                     </div>
 
-                    <div className="mt-2 flex items-end justify-end gap-2 text-[11px] text-muted-foreground">
+                    <div className="mt-2 flex items-center justify-end text-[11px] text-muted-foreground">
                       <span>{fmt(m.timestamp)}</span>
                     </div>
                   </div>
@@ -342,7 +340,8 @@ export function InboxThread({
         )}
       </div>
 
-      <div className="p-4 border-t border-border/20 flex gap-2">
+      <div className="sticky bottom-0 border-t border-border/20 bg-background/80 backdrop-blur px-6 py-4">
+        <div className="flex gap-2"></div>
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
