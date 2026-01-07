@@ -267,6 +267,7 @@ export function InboxThread({
             {conversation?.contact?.name ||
               conversation?.contact?.phone ||
               'Conversation'}
+              <div className="text-[12px] font-bold text-red-500">THREAD_FILE_MARKER</div>
           </div>
           <div className="truncate text-xs text-muted-foreground">
             {conversation?.contact?.phone || ''}
@@ -277,15 +278,12 @@ export function InboxThread({
           {loading ? 'Loading…' : (conversation?.status ?? '')}
         </div>
       </div>
-
-      <div
-        ref={listRef}
-        className="flex-1 overflow-auto p-6 space-y-6 bg-background"
-      >
+      <div ref={listRef} className="flex-1 overflow-auto p-20 space-y-20 bg-red-500">
         {conversation == null ? (
           <div className="text-sm text-muted-foreground">
             No conversation selected.
           </div>
+          
         ) : msgs.length === 0 ? (
           <div className="text-sm text-muted-foreground">No messages.</div>
         ) : (

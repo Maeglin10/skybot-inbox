@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-//import '../styles/main.scss';
 import { Providers } from '@/components/providers';
 import { Poppins } from 'next/font/google';
 import './globals.css';
@@ -17,7 +16,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={nxSans.variable} suppressHydrationWarning>
+    <html lang="en" className={`${nxSans.variable} dark`} suppressHydrationWarning>
       <body>
         <Providers>{children}</Providers>
       </body>
