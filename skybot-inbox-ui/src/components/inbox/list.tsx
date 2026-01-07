@@ -75,83 +75,71 @@ export function InboxList({
   onToggleStatus?: (id: string, next: InboxConversationStatus) => void;
 }) {
   return (
-    <div className="h-full">
-      <div className="p-4 border-b">
-        <div className="text-sm font-semibold">Conversations</div>
-        <div className="text-xs text-muted-foreground">{items.length} total</div>
-      </div>
-
-      <div className="h-[calc(100%-57px)] overflow-auto">
-        {items.map((c) => {
-          const name = c.contact?.name || c.contact?.phone || 'Unknown';
-          const phone = c.contact?.phone || '';
-          const isActive = c.id === activeId;
-
-          const meta = statusMeta(c.status);
-          const next = nextStatus(c.status);
-          const ts = lastTs(c);
-
-          return (
-            <div
-              key={c.id}
-              className={['border-b', isActive ? 'bg-muted' : 'bg-background'].join(' ')}
-            >
-              <button
-                type="button"
-                onClick={() => onSelect(c.id)}
-                className="w-full text-left px-4 py-3 hover:bg-muted/50"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-medium">{name}</div>
-                    <div className="truncate text-xs text-muted-foreground">{phone}</div>
-                  </div>
-
-                  <div className="shrink-0 flex flex-col items-end gap-2">
-                    <div
-                      className={[
-                        'inline-flex items-center gap-2 text-[10px] rounded px-2 py-1 border',
-                        meta.pill,
-                      ].join(' ')}
-                      title="Status"
-                    >
-                      <span className={['h-2 w-2 rounded-full', meta.dot].join(' ')} />
-                      <span>{meta.label}</span>
-                    </div>
-
-                    <div className="text-[10px] text-muted-foreground">{fmtLite(ts)}</div>
-                  </div>
-                </div>
-
-                <div className="mt-2 truncate text-xs text-muted-foreground">
-                  {previewText(c)}
-                </div>
-              </button>
-
-              {onToggleStatus ? (
-                <div className="px-4 pb-3">
-                  <button
-                    type="button"
-                    className="h-8 rounded-md border px-3 text-xs hover:bg-muted disabled:opacity-50"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      onToggleStatus(c.id, next);
-                    }}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                    }}
-                    disabled={!c.id}
-                  >
-                    Set {next}
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          );
-        })}
-      </div>
+  <div className="ui-conv">
+    <div className="ui-conv__header">
+      <div className="ui-conv__title">Conversations</div>
+      <div className="ui-conv__meta">{items.length} total</div>
     </div>
-  );
+
+    <div className="ui-conv__list">
+      {items.map((c) => {
+        const name = c.contact?.name || c.contact?.phone || 'Unknown';
+        const phone = c.contact?.phone || '';
+        const active = c.id === activeId;
+
+        const meta = statusMeta(c.status);
+        const next = nextStatus(c.status);
+        const ts = lastTs(c);
+
+        return (
+          <div key={c.id} className={`ui-convCard ${active ? 'is-active' : ''}`}>
+            <button
+              type="button"
+              onClick={() => onSelect(c.id)}
+              className="ui-convBtn"
+            >
+              <div className="ui-convTop">
+                <div className="min-w-0">
+                  <div className="truncate ui-convName">{name}</div>
+                  <div className="truncate ui-convPhone">{phone}</div>
+                </div>
+
+                <div className="ui-convRight">
+                  <div className="ui-pill" title="Status">
+                    <span className="ui-dot" />
+                    <span>{meta.label}</span>
+                  </div>
+                  <div className="ui-ts">{fmtLite(ts)}</div>
+                </div>
+              </div>
+
+              <div className="truncate ui-preview">{previewText(c)}</div>
+            </button>
+
+            {onToggleStatus ? (
+              <div className="ui-convActions">
+                <button
+                  type="button"
+                  className="ui-btn"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onToggleStatus(c.id, next);
+                  }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  disabled={!c.id}
+                >
+                  Set {next}
+                </button>
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  </div>
+);
 }

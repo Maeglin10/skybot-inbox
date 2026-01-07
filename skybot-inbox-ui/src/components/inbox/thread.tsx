@@ -260,8 +260,8 @@ export function InboxThread({
   }, [conversation, to, text, msgs, onRefresh]);
 
   return (
-    <div className="h-full flex flex-col bg-transparent text-foreground">
-      <div className="p-4 border-b border-border/20 flex items-center justify-between gap-3">
+    <div className="ui-thread">
+      <div className="ui-thread__header">
         <div className="min-w-0">
           <div className="truncate text-sm font-semibold">
             {conversation?.contact?.name ||
@@ -277,10 +277,8 @@ export function InboxThread({
           {loading ? 'Loading…' : (conversation?.status ?? '')}
         </div>
       </div>
-      <div
-        ref={listRef}
-        className="flex-1 min-h-0 overflow-auto px-6 py-6 space-y-3"
-      >
+
+      <div ref={listRef} className="ui-thread__list">
         {conversation == null ? (
           <div className="text-sm text-muted-foreground">
             No conversation selected.
@@ -290,10 +288,10 @@ export function InboxThread({
         ) : (
           <>
             {olderCursor ? (
-              <div className="flex justify-center pb-2">
+              <div className="ui-thread__older">
                 <button
                   type="button"
-                  className="h-8 rounded-md border border-border/20 px-3 text-xs text-foreground hover:bg-muted disabled:opacity-50"
+                  className="ui-btn"
                   disabled={loadingOlder}
                   onClick={() => void loadOlder()}
                 >
@@ -312,24 +310,11 @@ export function InboxThread({
               return (
                 <div
                   key={msgKey(m, idx)}
-                  className={[
-                    'flex',
-                    isOut ? 'justify-end' : 'justify-start',
-                  ].join(' ')}
+                  className={`ui-msgrow ${isOut ? 'is-out' : ''}`}
                 >
-                  <div
-                    className={[
-                      'max-w-[72%] rounded-2xl border border-border/20',
-                      'px-4 py-3',
-                      'bg-muted/60',
-                      isOut ? 'bg-[hsl(var(--primary)/.14)]' : '',
-                    ].join(' ')}
-                  >
-                    <div className="whitespace-pre-wrap break-words text-sm leading-relaxed">
-                      {m.text ?? ''}
-                    </div>
-
-                    <div className="mt-2 flex items-center justify-end text-[11px] text-muted-foreground">
+                  <div className={`ui-bubble ${isOut ? 'is-out' : ''}`}>
+                    <div className="ui-bubble__text">{m.text ?? ''}</div>
+                    <div className="ui-bubble__meta">
                       <span>{fmt(m.timestamp)}</span>
                     </div>
                   </div>
@@ -340,12 +325,11 @@ export function InboxThread({
         )}
       </div>
 
-      <div className="sticky bottom-0 border-t border-border/20 bg-background/80 backdrop-blur px-6 py-4">
-        <div className="flex gap-2"></div>
+      <div className="ui-composer">
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
-          className="h-10 flex-1 rounded-md border border-border/20 bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/.35)]"
+          className="ui-input"
           placeholder="Type a message…"
           disabled={!conversation?.id || sending}
           onKeyDown={(e) => {
@@ -357,7 +341,7 @@ export function InboxThread({
         />
         <button
           type="button"
-          className="h-10 rounded-md border border-border/20 px-4 text-sm text-foreground hover:bg-muted disabled:opacity-50"
+          className="ui-btn ui-btn--primary"
           disabled={!conversation?.id || sending || !text.trim() || !to}
           onClick={() => void send()}
         >

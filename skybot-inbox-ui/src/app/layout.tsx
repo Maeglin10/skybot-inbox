@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Providers } from '@/components/providers';
 import { Poppins } from 'next/font/google';
 import './globals.css';
+import "../styles/ui.css";
 
 const nxSans = Poppins({
   subsets: ['latin'],

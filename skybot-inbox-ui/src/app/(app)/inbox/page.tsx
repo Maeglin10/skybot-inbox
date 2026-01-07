@@ -29,8 +29,8 @@ export default async function InboxPage() {
   }
 
   return (
-    <main className="h-[calc(100vh-1px)] w-full min-w-0">
+    <div className="ui-page">
       <InboxShell initialItems={items} initialCursor={nextCursor} />
-    </main>
+    </div>
   );
 }

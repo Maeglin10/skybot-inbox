@@ -328,10 +328,10 @@ export function InboxShell({
       type="button"
       onClick={() => setTab(v)}
       className={[
-        'h-9 rounded-md border border-border px-3 text-xs',
+        'h-9 w-full rounded-md border border-border/20 px-3 text-xs',
         tab === v
-          ? 'bg-transparent  text-foreground'
-          : 'bg-transparent  text-muted-foreground',
+          ? 'bg-muted text-foreground'
+          : 'bg-background text-muted-foreground',
       ].join(' ')}
     >
       {label}
@@ -339,64 +339,72 @@ export function InboxShell({
   );
 
   return (
-  <div className="h-[calc(100vh-1px)] w-full bg-transparent text-foreground">
-    <div className="grid h-full grid-cols-[380px_minmax(0,1fr)]">
-      <div className="border-r border-border/20 flex flex-col">
-        <div className="sticky top-0 z-10 border-b border-border/20 bg-transparent backdrop-blur">
-          <div className="px-4 py-4">
-            <div className="mb-3 flex items-center justify-between">
-              <div className="text-base font-semibold">Inbox</div>
-              <div className="text-xs text-muted-foreground">
-                {tab === 'OPEN' ? 'Open' : tab === 'PENDING' ? 'Pending' : 'Closed'}
+    <div className="h-[calc(100vh-1px)] w-full bg-transparent text-foreground">
+      <div className="grid h-full grid-cols-[380px_minmax(0,1fr)]">
+        <div className="border-r border-border/20 flex flex-col">
+          <div className="ui-inboxHeader">
+            <div className="ui-inboxHeader__top">
+              <div className="ui-inboxHeader__title">Inbox</div>
+              <div className="ui-inboxHeader__state">
+                {tab === 'OPEN'
+                  ? 'Open'
+                  : tab === 'PENDING'
+                    ? 'Pending'
+                    : 'Closed'}
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="ui-inboxHeader__tabs">
               <TabBtn v="OPEN" label="Open" />
               <TabBtn v="PENDING" label="Pending" />
               <TabBtn v="CLOSED" label="Closed" />
             </div>
+
+            <div className="ui-inboxHeader__search">
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="ui-input"
+                placeholder="Search"
+              />
+            </div>
           </div>
 
-          <div className="px-4 pb-4 border-t border-border/20">
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="mt-4 h-9 w-full rounded-md border border-border/20 bg-transparent px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/.35)]"
-              placeholder="Search name / phone / preview…"
-            />
+          <div className="flex-1 min-h-0">
+            {visibleItems.length === 0 ? (
+              <div className="p-6 text-sm text-muted-foreground">
+                No conversations.
+              </div>
+            ) : (
+              <InboxList
+                items={visibleItems}
+                activeId={activeId}
+                onSelect={selectUser}
+                onToggleStatus={toggleStatus}
+              />
+            )}
+          </div>
+
+          <div className="p-4 border-t border-border/20">
+            <button
+              type="button"
+              className="h-9 w-full rounded-md border border-border/20 bg-transparent text-sm text-foreground bg-transparent disabled:opacity-50"
+              onClick={() => void loadMore()}
+              disabled={!cursor || loadingMore}
+            >
+              {cursor ? (loadingMore ? 'Loading...' : 'Load more') : 'No more'}
+            </button>
           </div>
         </div>
 
-        <div className="flex-1 min-h-0">
-          {visibleItems.length === 0 ? (
-            <div className="p-6 text-sm text-muted-foreground">No conversations.</div>
-          ) : (
-            <InboxList
-              items={visibleItems}
-              activeId={activeId}
-              onSelect={selectUser}
-              onToggleStatus={toggleStatus}
-            />
-          )}
+        <div className="min-w-0">
+          <InboxThread
+            conversation={active}
+            loading={loading}
+            onRefresh={refresh}
+          />
         </div>
-
-        <div className="p-4 border-t border-border/20">
-          <button
-            type="button"
-            className="h-9 w-full rounded-md border border-border/20 bg-transparent text-sm text-foreground bg-transparent disabled:opacity-50"
-            onClick={() => void loadMore()}
-            disabled={!cursor || loadingMore}
-          >
-            {cursor ? (loadingMore ? 'Loading...' : 'Load more') : 'No more'}
-          </button>
-        </div>
-      </div>
-
-      <div className="min-w-0">
-        <InboxThread conversation={active} loading={loading} onRefresh={refresh} />
       </div>
     </div>
-  </div>
-);
+  );
 }
