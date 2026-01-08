@@ -1,8 +1,6 @@
 import { Controller, Get, Param, Patch, Body, Query } from '@nestjs/common';
-import {
-  ConversationsService,
-  ConversationStatus,
-} from './conversations.service';
+import { ConversationsService } from './conversations.service';
+import type { ConversationStatus } from '@prisma/client';
 
 function asString(v: unknown): string | undefined {
   if (typeof v !== 'string') return undefined;
@@ -34,12 +32,14 @@ export class ConversationsController {
   findAll(
     @Query('status') statusQ?: string,
     @Query('inboxId') inboxIdQ?: string,
+    @Query('channel') channelQ?: string,
     @Query('limit') limitQ?: string,
     @Query('cursor') cursorQ?: string,
     @Query('lite') liteQ?: string,
   ) {
     const status = asStatus(statusQ);
     const inboxId = asString(inboxIdQ);
+    const channel = asString(channelQ); // 'WHATSAPP' | 'EMAIL' | ...
     const limit = asInt(limitQ, 20);
     const cursor = asString(cursorQ);
     const lite = liteQ === '1' || liteQ === 'true';
@@ -47,6 +47,7 @@ export class ConversationsController {
     return this.conversationsService.findAll({
       status,
       inboxId,
+      channel,
       limit,
       cursor,
       lite,

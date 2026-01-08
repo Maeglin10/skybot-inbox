@@ -1,14 +1,42 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { Channel, ConversationStatus, Prisma } from '@prisma/client';
 
-export type ConversationStatus = 'OPEN' | 'PENDING' | 'CLOSED';
+export type ConversationStatusT = ConversationStatus;
 
 function parseCursor(cursor?: string): Date | null {
   if (!cursor) return null;
-  if (cursor === 'null' || cursor === 'undefined') return null;
   const d = new Date(cursor);
-  return Number.isNaN(d.getTime()) ? null : d;
+  if (Number.isNaN(d.getTime())) return null;
+  return d;
 }
+
+function parseChannel(channel?: string): Channel | undefined {
+  if (!channel) return undefined;
+  const v = channel.trim().toUpperCase();
+  if (
+    v === 'WHATSAPP' ||
+    v === 'INSTAGRAM' ||
+    v === 'FACEBOOK' ||
+    v === 'EMAIL' ||
+    v === 'WEB'
+  ) {
+    return v as Channel;
+  }
+  return undefined;
+}
+
+type ConversationWithRelations = Prisma.ConversationGetPayload<{
+  include: {
+    inbox: true;
+    contact: true;
+    messages: {
+      orderBy: { createdAt: 'desc' };
+      take: 1;
+      select: { text: true; timestamp: true };
+    };
+  };
+}>;
 
 @Injectable()
 export class ConversationsService {
@@ -17,181 +45,150 @@ export class ConversationsService {
   async findAll(params: {
     status?: ConversationStatus;
     inboxId?: string;
+    channel?: string;
     limit?: number;
     cursor?: string;
     lite?: boolean;
   }) {
-    const { status, inboxId, limit = 20, cursor, lite } = params;
+    const { status, inboxId, limit = 20, cursor, lite, channel } = params;
 
     const take = Math.min(Math.max(limit, 1), 100);
     const cursorDate = parseCursor(cursor);
+    const ch = parseChannel(channel);
 
-    const where: Record<string, unknown> = {
+    const where: Prisma.ConversationWhereInput = {
       ...(status ? { status } : {}),
       ...(inboxId ? { inboxId } : {}),
+      ...(ch ? { channel: ch } : {}),
       ...(cursorDate ? { createdAt: { lt: cursorDate } } : {}),
     };
 
-    if (lite) {
-      const rows = await this.prisma.conversation.findMany({
+    const rows: ConversationWithRelations[] =
+      await this.prisma.conversation.findMany({
         where,
-        take,
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-        select: {
-          id: true,
-          status: true,
-          lastActivityAt: true,
-          createdAt: true,
-          contact: { select: { name: true, phone: true } },
+        orderBy: { createdAt: 'desc' },
+        take: take + 1,
+        include: {
+          inbox: true,
+          contact: true,
           messages: {
-            take: 1,
             orderBy: { createdAt: 'desc' },
-            select: {
-              text: true,
-              timestamp: true,
-              createdAt: true,
-              direction: true,
-            },
+            take: 1,
+            select: { text: true, timestamp: true },
           },
         },
       });
 
-      const items = rows.map((c) => {
-        const m = c.messages?.[0];
-        const ts =
-          (m?.timestamp as unknown as Date | null)?.toISOString?.() ??
-          (m?.createdAt ? m.createdAt.toISOString() : undefined);
+    const hasMore = rows.length > take;
+    const slice = hasMore ? rows.slice(0, take) : rows;
 
+    const nextCursor =
+      hasMore && slice.length
+        ? slice[slice.length - 1]?.createdAt.toISOString()
+        : null;
+
+    if (lite) {
+      const items = slice.map((c) => {
+        const last = c.messages[0] ?? null;
         return {
           id: c.id,
-          status: c.status as ConversationStatus,
-          lastActivityAt:
-            c.lastActivityAt?.toISOString?.() ??
-            (typeof c.lastActivityAt === 'string'
-              ? c.lastActivityAt
-              : undefined),
-          contact: c.contact
-            ? { name: c.contact.name ?? null, phone: c.contact.phone ?? null }
-            : undefined,
-          preview: m
-            ? {
-                text: m.text ?? null,
-                timestamp: ts,
-                direction:
-                  m.direction === 'IN' || m.direction === 'OUT'
-                    ? m.direction
-                    : undefined,
-              }
-            : undefined,
+          inboxId: c.inboxId,
+          contactId: c.contactId,
+          channel: c.channel,
+          status: c.status,
+          lastActivityAt: c.lastActivityAt,
+          createdAt: c.createdAt,
+          contact: {
+            id: c.contact.id,
+            name: c.contact.name,
+            phone: c.contact.phone,
+          },
+          preview: last
+            ? { text: last.text ?? '', timestamp: last.timestamp.toISOString() }
+            : null,
         };
       });
 
-      const nextCursor =
-        rows.length === take
-          ? rows[rows.length - 1].createdAt.toISOString()
-          : null;
-
-      return { items, nextCursor };
+      return { items, cursor: nextCursor };
     }
 
-    const items = await this.prisma.conversation.findMany({
-      where,
-      take,
+    const items = await Promise.all(
+      slice.map(async (c) => {
+        const messages = await this.prisma.message.findMany({
+          where: { conversationId: c.id },
+          orderBy: { createdAt: 'asc' },
+          take: 50,
+        });
+
+        return {
+          id: c.id,
+          inboxId: c.inboxId,
+          contactId: c.contactId,
+          channel: c.channel,
+          externalId: c.externalId,
+          status: c.status,
+          lastActivityAt: c.lastActivityAt,
+          createdAt: c.createdAt,
+          updatedAt: c.updatedAt,
+          inbox: c.inbox,
+          contact: c.contact,
+          messages,
+        };
+      }),
+    );
+
+    return { items, cursor: nextCursor };
+  }
+
+  async findOne(id: string) {
+    const convo = await this.prisma.conversation.findUnique({
+      where: { id },
       include: {
         inbox: true,
         contact: true,
         messages: { orderBy: { createdAt: 'asc' } },
       },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
 
-    const nextCursor =
-      items.length === take
-        ? items[items.length - 1].createdAt.toISOString()
-        : null;
-
-    return { items, nextCursor };
+    if (!convo) throw new NotFoundException('Conversation not found');
+    return convo;
   }
 
-  async findOne(conversationId: string) {
-    const conv = await this.prisma.conversation.findUnique({
-      where: { id: conversationId },
-      include: {
-        inbox: true,
-        contact: true,
-        messages: { orderBy: { createdAt: 'asc' } },
-      },
-    });
-    if (!conv) throw new NotFoundException('Conversation not found');
-    return conv;
-  }
-
-  async updateStatus(conversationId: string, status: ConversationStatus) {
-    const existing = await this.prisma.conversation.findUnique({
-      where: { id: conversationId },
-      select: { id: true },
-    });
-    if (!existing) throw new NotFoundException('Conversation not found');
-
-    return this.prisma.conversation.update({
-      where: { id: conversationId },
+  async updateStatus(id: string, status: ConversationStatus) {
+    const convo = await this.prisma.conversation.update({
+      where: { id },
       data: { status },
-      include: {
-        inbox: true,
-        contact: true,
-        messages: { orderBy: { createdAt: 'asc' } },
-      },
+      include: { inbox: true, contact: true },
     });
+
+    return convo;
   }
 
-  // GET /conversations/:id/messages
-  async listMessages(
-    conversationId: string,
-    params: { limit?: number; cursor?: string },
-  ) {
-    const take = Math.min(Math.max(params.limit ?? 20, 1), 100);
-    const cursorDate = parseCursor(params.cursor);
+  async listMessages(id: string, params: { limit?: number; cursor?: string }) {
+    const { limit = 20, cursor } = params;
 
-    const where: Record<string, unknown> = {
-      conversationId,
+    const take = Math.min(Math.max(limit, 1), 100);
+    const cursorDate = parseCursor(cursor);
+
+    const where: Prisma.MessageWhereInput = {
+      conversationId: id,
       ...(cursorDate ? { createdAt: { lt: cursorDate } } : {}),
     };
 
     const rows = await this.prisma.message.findMany({
       where,
-      take,
       orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        text: true,
-        timestamp: true,
-        createdAt: true,
-        direction: true,
-        from: true,
-        to: true,
-      },
+      take: take + 1,
     });
 
-    const items = rows
-      .slice()
-      .reverse()
-      .map((m) => ({
-        id: m.id,
-        text: m.text ?? null,
-        timestamp:
-          (m.timestamp as unknown as Date | null)?.toISOString?.() ??
-          m.createdAt.toISOString(),
-        direction:
-          m.direction === 'IN' || m.direction === 'OUT' ? m.direction : 'IN',
-        from: m.from ?? undefined,
-        to: m.to ?? undefined,
-      }));
+    const hasMore = rows.length > take;
+    const slice = hasMore ? rows.slice(0, take) : rows;
 
     const nextCursor =
-      rows.length === take
-        ? rows[rows.length - 1].createdAt.toISOString()
+      hasMore && slice.length
+        ? slice[slice.length - 1]?.createdAt.toISOString()
         : null;
 
-    return { items, nextCursor };
+    return { items: slice, cursor: nextCursor };
   }
 }

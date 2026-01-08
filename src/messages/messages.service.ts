@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { Channel, MessageDirection } from '@prisma/client';
 
 @Injectable()
 export class MessagesService {
@@ -14,23 +15,22 @@ export class MessagesService {
 
     const conversation = await this.prisma.conversation.findUnique({
       where: { id: conversationId },
-      include: {
-        inbox: true,
-        contact: true,
-      },
+      include: { inbox: true, contact: true },
     });
 
-    if (!conversation) {
-      throw new NotFoundException('Conversation not found');
-    }
+    if (!conversation) throw new NotFoundException('Conversation not found');
+
+    const channel =
+      conversation.channel ?? conversation.inbox.channel ?? Channel.WHATSAPP;
 
     const message = await this.prisma.message.create({
       data: {
         conversationId,
+        channel,
         externalId: externalId ?? null,
-        direction: 'OUT',
+        direction: MessageDirection.OUT,
         from: conversation.inbox.externalId ?? null,
-        to: conversation.contact.phone,
+        to: conversation.contact.phone ?? null,
         text,
         timestamp: new Date(),
       },

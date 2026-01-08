@@ -203,7 +203,7 @@ export default function ConversationClient(props: { initial: Conversation }) {
   return (
     <div className="min-h-[calc(100vh-24px)] px-4 py-3">
       <div className="mx-auto w-full max-w-5xl">
-        <div className="sticky top-0 z-10 mb-3 border-b bg-black/60 backdrop-blur supports-[backdrop-filter]:bg-black/40">
+        <div className="sticky top-0 z-10 mb-3 border-b bg-black/60 backdrop-blur supports-backdrop-filter:bg-black/40">
           <div className="flex items-center justify-between py-3">
             <div className="min-w-0">
               <div className="text-xs text-white/60">Conversation</div>
