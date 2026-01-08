@@ -10,18 +10,17 @@
   - Conv list:     .ui-conv + __header/__title/__meta/__list + .ui-convCard etc.
 ========================================================================== */
 
-
 /* ==========================================================================
    1) APP FRAME (anti double-scroll / parents stables)
 ========================================================================== */
-.ui-app{
+.ui-app {
   height: 100vh;
   width: 100%;
   display: flex;
   overflow: hidden; /* évite le double scroll */
 }
 
-.ui-main{
+.ui-main {
   flex: 1;
   min-width: 0;
   height: 100%;
@@ -29,7 +28,7 @@
   display: flex;
 }
 
-.ui-page{
+.ui-page {
   flex: 1;
   min-width: 0;
   height: 100%;
@@ -38,42 +37,43 @@
   flex-direction: column;
 }
 
-
 /* ==========================================================================
    2) SIDEBAR (sticky + logo top + footer Nexxa Agent System + V1)
 ========================================================================== */
-.ui-sidebar{
+.ui-sidebar {
   width: 15rem;
   height: 100vh;
   position: sticky;
   top: 0;
   flex-shrink: 0;
-  border-right: 1px solid color-mix(in oklab, hsl(var(--border)) 35%, transparent);
+  border-right: 1px solid
+    color-mix(in oklab, hsl(var(--border)) 35%, transparent);
   background: hsl(var(--background));
   display: flex;
   flex-direction: column;
 }
 
-.ui-sidebar__header{
+.ui-sidebar__header {
   padding: 1rem;
-  border-bottom: 1px solid color-mix(in oklab, hsl(var(--border)) 35%, transparent);
+  border-bottom: 1px solid
+    color-mix(in oklab, hsl(var(--border)) 35%, transparent);
 }
 
-.ui-sidebar__logoWrap{
+.ui-sidebar__logoWrap {
   position: relative;
   width: 100%;
-  height: 95px;            /* ajuste */
+  height: 95px; /* ajuste */
   border-radius: 0.75rem;
 }
 
-.ui-sidebar__nav{
-  padding: 1.75rem 0.75rem 0.75rem;  /* aération */
+.ui-sidebar__nav {
+  padding: 1.75rem 0.75rem 0.75rem; /* aération */
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
 }
 
-.ui-sidebar__link{
+.ui-sidebar__link {
   display: block;
   padding: 0.9rem 1rem;
   border-radius: 0.9rem;
@@ -81,16 +81,16 @@
   text-decoration: none;
 }
 
-.ui-sidebar__link:hover{
+.ui-sidebar__link:hover {
   background: color-mix(in oklab, hsl(var(--muted)) 70%, transparent);
 }
 
-.ui-sidebar__link.is-active{
+.ui-sidebar__link.is-active {
   background: color-mix(in oklab, hsl(var(--muted)) 80%, transparent);
   font-weight: 700;
 }
 
-.ui-sidebar__footer{
+.ui-sidebar__footer {
   margin-top: auto;
   padding: 0.9rem;
   border-top: 1px solid color-mix(in oklab, hsl(var(--border)) 35%, transparent);
@@ -100,13 +100,13 @@
   gap: 0.75rem;
 }
 
-.ui-sidebar__footerTitle{
+.ui-sidebar__footerTitle {
   font-size: 0.8rem;
   color: hsl(var(--muted-foreground));
   font-weight: 600;
 }
 
-.ui-sidebar__footerVersion{
+.ui-sidebar__footerVersion {
   font-size: 0.7rem;
   padding: 0.18rem 0.55rem;
   border-radius: 999px;
@@ -119,71 +119,71 @@
    3) INBOX SHELL
 ========================================================================== */
 
-
-.ui-inboxHeader{
+.ui-inboxHeader {
   position: sticky;
   top: 0;
   z-index: 10;
-  border-bottom: 1px solid color-mix(in oklab, hsl(var(--border)) 35%, transparent);
+  border-bottom: 1px solid
+    color-mix(in oklab, hsl(var(--border)) 35%, transparent);
   background: color-mix(in oklab, hsl(var(--background)) 88%, transparent);
   backdrop-filter: blur(10px);
   padding: 0 1rem 1rem; /* left/right + bottom */
 }
 
-.ui-inboxHeader__top{
+.ui-inboxHeader__top {
   padding-top: 1.15rem; /* + padding uniquement ici */
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:.75rem;
-}
-
-.ui-inboxHeader__tabs{
-  margin-top: .75rem;
-  display:grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap:.5rem;
-}
-
-.ui-inboxHeader__search{
-  width:100%;
-  margin-top:.85rem;
-  padding-top:.85rem;
-  border-top:1px solid color-mix(in oklab, hsl(var(--border)) 35%, transparent);
-}
-
-.ui-inboxHeader__searchInput{
-  width:100%;
-}
-
-.ui-inboxHeader__search .ui-input{
-  width:100% !important;
-  max-width:none !important;
-  display:block !important;
-}
-
-/* ==========================================================================
-   4) THREAD (header/list/composer)
-========================================================================== */
-
-
-.ui-thread{
-  height: 100%;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.ui-thread__header{
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid color-mix(in oklab, hsl(var(--border)) 35%, transparent);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
 }
 
-.ui-thread__list{
+.ui-inboxHeader__tabs {
+  margin-top: 0.75rem;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.ui-inboxHeader__search {
+  width: 100%;
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid color-mix(in oklab, hsl(var(--border)) 35%, transparent);
+}
+
+.ui-inboxHeader__searchInput {
+  width: 100%;
+}
+
+.ui-inboxHeader__search .ui-input {
+  width: 100% !important;
+  max-width: none !important;
+  display: block !important;
+}
+
+/* ==========================================================================
+   4) THREAD (header/list/composer)
+========================================================================== */
+
+.ui-thread {
+  height: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ui-thread__header {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid
+    color-mix(in oklab, hsl(var(--border)) 35%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.ui-thread__list {
   flex: 1;
   min-height: 0;
   overflow: auto;
@@ -194,61 +194,91 @@
   overscroll-behavior: contain;
 }
 
-.ui-thread__older{
+.ui-thread__older {
   display: flex;
   justify-content: center;
   padding-bottom: 0.5rem;
 }
 
-
 /* ==========================================================================
    5) MESSAGES (bulles)
 ========================================================================== */
-.ui-msgrow{
+.ui-msgrow {
   display: flex;
   justify-content: flex-start;
 }
 
-.ui-msgrow.is-out{
+.ui-msgrow.is-out {
   justify-content: flex-end;
 }
 
-.ui-bubble{
+.ui-bubble {
   max-width: 72%;
   border: 1px solid color-mix(in oklab, hsl(var(--border)) 35%, transparent);
   border-radius: 1.25rem;
   padding: 0.95rem 1.05rem;
-  background: #939AA1; /* IN */
-  color: #ffffff;      /* texte IN blanc */
+  background: #939aa1; /* IN */
+  color: #ffffff; /* texte IN blanc */
 }
 
-.ui-bubble.is-out{
-  background: #521E49; /* OUT */
-  border-color: #521E49;
+.ui-bubble.is-out {
+  background: #521e49; /* OUT */
+  border-color: #521e49;
   color: #ffffff;
 }
 
-.ui-bubble__text{
+.ui-bubble__text {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-size: 0.875rem;
   line-height: 1.45;
 }
 
-.ui-bubble__meta{
+.ui-bubble__meta {
   margin-top: 0.55rem;
   display: flex;
   justify-content: flex-end;
   font-size: 0.7rem;
-  color: #ffffff;      /* heure IN/OUT blanc */
+  color: #ffffff; /* heure IN/OUT blanc */
   opacity: 0.9;
 }
 
+.ui-pill.is-open {
+  border-color: color-mix(in oklab, #22c55e 55%, transparent);
+  background: color-mix(in oklab, #22c55e 18%, transparent);
+  color: #fff;
+}
+.ui-pill.is-pending {
+  border-color: color-mix(in oklab, #f59e0b 55%, transparent);
+  background: color-mix(in oklab, #f59e0b 18%, transparent);
+  color: #fff;
+}
+.ui-pill.is-closed {
+  border-color: color-mix(in oklab, #a1a1aa 55%, transparent);
+  background: color-mix(in oklab, #a1a1aa 18%, transparent);
+  color: #fff;
+}
+.ui-pill.is-unknown {
+  opacity: 0.85;
+}
+
+.ui-dot.is-open {
+  background: #22c55e;
+}
+.ui-dot.is-pending {
+  background: #f59e0b;
+}
+.ui-dot.is-closed {
+  background: #a1a1aa;
+}
+.ui-dot.is-unknown {
+  background: hsl(var(--muted-foreground));
+}
 
 /* ==========================================================================
    6) COMPOSER (input + send)
 ========================================================================== */
-.ui-composer{
+.ui-composer {
   position: sticky;
   bottom: 0;
   z-index: 10;
@@ -260,23 +290,23 @@
   gap: 0.5rem;
 }
 
-.ui-input{
+.ui-input {
   flex: 1;
   height: 2.75rem;
   border-radius: 0.85rem;
   border: 1px solid color-mix(in oklab, hsl(var(--border)) 35%, transparent);
-  background: #939AA1;      /* comme bulles IN */
+  background: #939aa1; /* comme bulles IN */
   padding: 0 0.9rem;
-  color: #ffffff;           /* texte tapé blanc */
+  color: #ffffff; /* texte tapé blanc */
 }
 
 /* placeholder blanc */
-.ui-input::placeholder{
+.ui-input::placeholder {
   color: #ffffff;
   opacity: 0.9;
 }
 
-.ui-btn{
+.ui-btn {
   height: 2.75rem;
   padding: 0 1rem;
   border-radius: 0.85rem;
@@ -285,57 +315,57 @@
   color: #fff;
 }
 
-.ui-btn:hover{
+.ui-btn:hover {
   background: color-mix(in oklab, hsl(var(--muted)) 70%, transparent);
 }
 
-.ui-btn--primary{
-  background-color: #521E49 !important;
-  border-color: #521E49 !important;
+.ui-btn--primary {
+  background-color: #521e49 !important;
+  border-color: #521e49 !important;
   color: #fff !important;
   opacity: 1 !important;
   background-image: none !important;
   filter: none !important;
 }
 
-.ui-btn--primary:hover{
-  background-color:#3f1638 !important;
-  border-color:#3f1638 !important;
+.ui-btn--primary:hover {
+  background-color: #3f1638 !important;
+  border-color: #3f1638 !important;
 }
 
 .ui-btn:disabled,
-.ui-input:disabled{
+.ui-input:disabled {
   opacity: 0.55;
 }
-
 
 /* ==========================================================================
    7) CONVERSATIONS LIST (OK à partir de “Conversations”)
 ========================================================================== */
-.ui-conv{
+.ui-conv {
   height: 100%;
   display: flex;
   flex-direction: column;
 }
 
-.ui-conv__header{
+.ui-conv__header {
   padding: 1rem 1rem 0.75rem;
-  border-bottom: 1px solid color-mix(in oklab, hsl(var(--border)) 35%, transparent);
+  border-bottom: 1px solid
+    color-mix(in oklab, hsl(var(--border)) 35%, transparent);
 }
 
-.ui-conv__title{
+.ui-conv__title {
   font-size: 0.9rem;
   font-weight: 700;
   color: hsl(var(--foreground));
 }
 
-.ui-conv__meta{
+.ui-conv__meta {
   margin-top: 0.25rem;
   font-size: 0.75rem;
   color: hsl(var(--muted-foreground));
 }
 
-.ui-conv__list{
+.ui-conv__list {
   flex: 1;
   min-height: 0;
   overflow: auto;
@@ -345,19 +375,19 @@
   gap: 0.5rem;
 }
 
-.ui-convCard{
+.ui-convCard {
   border: 1px solid color-mix(in oklab, hsl(var(--border)) 35%, transparent);
   border-radius: 1rem;
   background: color-mix(in oklab, hsl(var(--background)) 92%, transparent);
   overflow: hidden;
 }
 
-.ui-convCard.is-active{
+.ui-convCard.is-active {
   background: color-mix(in oklab, hsl(var(--muted)) 70%, transparent);
   border-color: color-mix(in oklab, hsl(var(--border)) 55%, transparent);
 }
 
-.ui-convBtn{
+.ui-convBtn {
   width: 100%;
   text-align: left;
   padding: 0.9rem 0.9rem 0.75rem;
@@ -367,31 +397,31 @@
   cursor: pointer;
 }
 
-.ui-convBtn:hover{
+.ui-convBtn:hover {
   background: color-mix(in oklab, hsl(var(--muted)) 55%, transparent);
 }
 
-.ui-convTop{
+.ui-convTop {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
 }
 
-.ui-convName{
+.ui-convName {
   font-size: 0.9rem;
   font-weight: 700;
   line-height: 1.15;
   color: hsl(var(--foreground));
 }
 
-.ui-convPhone{
+.ui-convPhone {
   margin-top: 0.25rem;
   font-size: 0.75rem;
   color: hsl(var(--muted-foreground));
 }
 
-.ui-convRight{
+.ui-convRight {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -399,7 +429,7 @@
   flex-shrink: 0;
 }
 
-.ui-pill{
+.ui-pill {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
@@ -411,25 +441,25 @@
   background: color-mix(in oklab, hsl(var(--muted)) 55%, transparent);
 }
 
-.ui-dot{
+.ui-dot {
   width: 0.45rem;
   height: 0.45rem;
   border-radius: 999px;
   background: hsl(var(--muted-foreground));
 }
 
-.ui-ts{
+.ui-ts {
   font-size: 0.68rem;
   color: hsl(var(--muted-foreground));
 }
 
-.ui-preview{
+.ui-preview {
   margin-top: 0.55rem;
   font-size: 0.78rem;
   color: hsl(var(--muted-foreground));
   line-height: 1.2;
 }
 
-.ui-convActions{
+.ui-convActions {
   padding: 0 0.9rem 0.9rem;
 }
