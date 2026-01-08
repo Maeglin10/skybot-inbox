@@ -1,28 +1,48 @@
-// src/auth/api-key.guard.ts
 import {
   CanActivate,
   ExecutionContext,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import type { Request } from 'express';
+import { timingSafeEqual } from 'crypto';
+
+function normalize(v: string): string {
+  const s = (v ?? '').trim();
+  if (
+    (s.startsWith('"') && s.endsWith('"')) ||
+    (s.startsWith("'") && s.endsWith("'"))
+  ) {
+    return s.slice(1, -1).trim();
+  }
+  return s;
+}
 
 @Injectable()
 export class ApiKeyGuard implements CanActivate {
-  constructor(private readonly config: ConfigService) {}
-
   canActivate(context: ExecutionContext): boolean {
-    const req = context.switchToHttp().getRequest<Request>();
+    const req = context.switchToHttp().getRequest();
 
-    console.log('ENV API_KEY =', process.env.API_KEY);
-    console.log('HEADER x-api-key =', req.headers['x-api-key']);
+    const headerApiKey =
+      (req.headers['x-api-key'] as string | undefined) ??
+      (req.headers['x_api_key'] as string | undefined);
 
-    const apiKey = req.header('x-api-key');
-    const expected = this.config.get<string>('API_KEY');
+    const auth =
+      (req.headers['authorization'] as string | undefined) ?? undefined;
+    const bearer = auth?.toLowerCase().startsWith('bearer ')
+      ? auth.slice(7)
+      : undefined;
 
-    if (!expected) throw new UnauthorizedException('API_KEY missing in env');
-    if (!apiKey || apiKey !== expected)
+    const provided = normalize(headerApiKey ?? bearer ?? '');
+    const expected = normalize(process.env.API_KEY ?? '');
+
+    if (!expected) throw new UnauthorizedException('API key not configured');
+    if (!provided) throw new UnauthorizedException('Invalid API key');
+
+    const a = Buffer.from(provided);
+    const b = Buffer.from(expected);
+    if (a.length !== b.length)
+      throw new UnauthorizedException('Invalid API key');
+    if (!timingSafeEqual(a, b))
       throw new UnauthorizedException('Invalid API key');
 
     return true;
