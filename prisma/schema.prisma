@@ -6,6 +6,11 @@ datasource db {
   provider = "postgresql"
 }
 
+/**
+ * =========================
+ * ACCOUNT
+ * =========================
+ */
 model Account {
   id        String   @id @default(cuid())
   name      String
@@ -18,13 +23,17 @@ model Account {
   @@index([createdAt])
 }
 
+/**
+ * =========================
+ * INBOX
+ * =========================
+ */
 model Inbox {
-  id         String @id @default(cuid())
+  id         String  @id @default(cuid())
   accountId  String
   externalId String
   name       String
-
-  channel Channel @default(WHATSAPP)
+  channel    Channel @default(WHATSAPP)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -38,12 +47,18 @@ model Inbox {
   @@index([channel])
 }
 
+/**
+ * =========================
+ * CONTACT
+ * =========================
+ */
 model Contact {
-  id        String   @id @default(cuid())
+  id        String  @id @default(cuid())
   accountId String
   inboxId   String
   phone     String
   name      String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -56,12 +71,11 @@ model Contact {
   @@index([accountId])
 }
 
-enum ConversationStatus {
-  OPEN
-  PENDING
-  CLOSED
-}
-
+/**
+ * =========================
+ * CONVERSATION
+ * =========================
+ */
 model Conversation {
   id String @id @default(cuid())
 
@@ -69,7 +83,7 @@ model Conversation {
   contactId String
 
   channel    Channel @default(WHATSAPP)
-  externalId String? // id conversation/thread côté provider
+  externalId String? // id conversation côté provider
 
   status         ConversationStatus @default(OPEN)
   lastActivityAt DateTime           @default(now())
@@ -80,7 +94,6 @@ model Conversation {
   contact  Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
   messages Message[]
 
-  // empêche collisions entre canaux (IG/Email/etc.)
   @@unique([channel, externalId], name: "conversation_channel_externalId_unique")
   @@index([inboxId])
   @@index([contactId])
@@ -88,6 +101,11 @@ model Conversation {
   @@index([externalId])
 }
 
+/**
+ * =========================
+ * MESSAGE
+ * =========================
+ */
 model Message {
   id String @id @default(cuid())
 
@@ -109,6 +127,17 @@ model Message {
   @@index([conversationId])
   @@index([externalId])
   @@index([channel])
+}
+
+/**
+ * =========================
+ * ENUMS
+ * =========================
+ */
+enum ConversationStatus {
+  OPEN
+  PENDING
+  CLOSED
 }
 
 enum Channel {
