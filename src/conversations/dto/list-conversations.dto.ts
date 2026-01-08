@@ -7,12 +7,16 @@ import {
   IsString,
   Min,
 } from 'class-validator';
-import { ConversationStatus } from '@prisma/client';
+import { Channel, ConversationStatus } from '@prisma/client';
 
 export class ListConversationsDto {
   @IsOptional()
   @IsEnum(ConversationStatus as unknown as object)
   status?: ConversationStatus;
+
+  @IsOptional()
+  @IsEnum(Channel as unknown as object)
+  channel?: Channel;
 
   @IsOptional()
   @IsString()

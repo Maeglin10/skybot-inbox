@@ -19,12 +19,15 @@ model Account {
 }
 
 model Inbox {
-  id         String   @id @default(cuid())
+  id         String @id @default(cuid())
   accountId  String
   externalId String
   name       String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+
+  channel Channel @default(WHATSAPP)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   account       Account        @relation(fields: [accountId], references: [id], onDelete: Cascade)
   contacts      Contact[]
@@ -32,6 +35,7 @@ model Inbox {
 
   @@unique([accountId, externalId], name: "accountId_externalId")
   @@index([accountId])
+  @@index([channel])
 }
 
 model Contact {
@@ -59,36 +63,63 @@ enum ConversationStatus {
 }
 
 model Conversation {
-  id             String   @id @default(cuid())
-  inboxId        String
-  contactId      String
-  status ConversationStatus @default(OPEN)
-  lastActivityAt DateTime @default(now())
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id String @id @default(cuid())
+
+  inboxId   String
+  contactId String
+
+  channel    Channel @default(WHATSAPP)
+  externalId String? // id conversation/thread côté provider
+
+  status         ConversationStatus @default(OPEN)
+  lastActivityAt DateTime           @default(now())
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
 
   inbox    Inbox     @relation(fields: [inboxId], references: [id], onDelete: Cascade)
   contact  Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
   messages Message[]
 
+  // empêche collisions entre canaux (IG/Email/etc.)
+  @@unique([channel, externalId], name: "conversation_channel_externalId_unique")
   @@index([inboxId])
   @@index([contactId])
+  @@index([channel])
+  @@index([externalId])
 }
 
 model Message {
-  id             String   @id @default(cuid())
+  id String @id @default(cuid())
+
   conversationId String
-  externalId     String?
-  direction      String
-  from           String?
-  to             String?
-  text           String?
-  timestamp      DateTime @default(now())
-  createdAt      DateTime @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  channel    Channel
+  externalId String? // id message provider
 
-  @@unique([conversationId, externalId], name: "conv_external_unique")
+  direction MessageDirection
+  from      String?
+  to        String?
+  text      String?
+
+  timestamp DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@unique([channel, externalId], name: "message_channel_externalId_unique")
   @@index([conversationId])
   @@index([externalId])
+  @@index([channel])
+}
+
+enum Channel {
+  WHATSAPP
+  INSTAGRAM
+  FACEBOOK
+  EMAIL
+  WEB
+}
+
+enum MessageDirection {
+  IN
+  OUT
 }
