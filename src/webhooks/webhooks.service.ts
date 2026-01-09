@@ -1,10 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Prisma, Channel } from '@prisma/client';
-import type { PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ClientsService } from '../clients/clients.service';
 import { AgentsService } from '../agents/agents.service';
-
 import type { WhatsAppCloudWebhook } from './dto/whatsapp-cloud.dto';
 import { parseWhatsAppCloudWebhook } from './whatsapp.parser';
 
@@ -24,65 +22,78 @@ export class WebhooksService {
 
     if (events.length === 0) return { ok: true, stored: 0 };
 
-    // DEV: compte Demo. En prod tu résous accountId autrement (host/header/subdomain).
-    const account = await this.prisma.account.findFirst({
-      where: { name: 'Demo' },
-    });
-    if (!account) throw new Error('Account Demo missing (run seed)');
+    const accountId = await this.getDemoAccountId();
 
     let stored = 0;
 
     for (const ev of events) {
-      // 1) resolve clientKey via ExternalAccount mapping
-      const channel = Channel.WHATSAPP;
-      const externalAccountId = ev.inboxExternalId ?? 'demo-whatsapp'; // phone_number_id Meta
+      // Meta phone_number_id (mapping ExternalAccount.externalId) = inboxExternalId
+      const externalAccountId = ev.inboxExternalId ?? 'demo-whatsapp';
+      const channel = 'WHATSAPP' as const;
 
-      const cfg = await this.clients.resolveClient({
-        accountId: account.id,
-        channel,
-        externalAccountId,
+      // resolve clientKey via ExternalAccount -> ClientConfig
+      // en dev : si pas trouvé, fallback "demo"
+      let clientKey = 'demo';
+      try {
+        const cfg = await this.clients.resolveClient({
+          accountId,
+          channel,
+          externalAccountId,
+        });
+        clientKey = cfg.clientKey;
+      } catch {
+        clientKey = 'demo';
+      }
+
+      const requestId = `wa_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+      const startedAt = Date.now();
+
+      // RoutingLog: RECEIVED
+      const routingLog = await this.prisma.routingLog.create({
+        data: {
+          account: { connect: { id: accountId } },
+          requestId,
+          clientKey,
+          agentKey: 'master-router',
+          channel,
+          externalAccountId,
+          status: 'RECEIVED',
+          source: 'whatsapp_webhook',
+        },
       });
 
-      // 2) upsert Inbox (externalId = phone_number_id)
-      const inbox = await this.prisma.inbox.upsert({
-        where: {
-          accountId_externalId: {
-            accountId: account.id,
-            externalId: externalAccountId,
-          },
-        },
-        update: {
-          channel,
-          name: `Inbox ${cfg.clientKey} WHATSAPP`,
-        },
-        create: {
-          accountId: account.id,
-          externalId: externalAccountId,
-          channel,
-          name: `Inbox ${cfg.clientKey} WHATSAPP`,
-        },
-      });
+      try {
+        const didStore = await this.prisma.$transaction(async (tx) => {
+          // 1) inbox (externalId = phone_number_id)
+          const inbox = await tx.inbox.upsert({
+            where: {
+              accountId_externalId: {
+                accountId,
+                externalId: externalAccountId,
+              },
+            },
+            update: { channel, name: `WhatsApp ${externalAccountId}` },
+            create: {
+              accountId,
+              externalId: externalAccountId,
+              name: `WhatsApp ${externalAccountId}`,
+              channel,
+            },
+          });
 
-      const didStore = await this.prisma.$transaction(
-        async (
-          tx: Omit<
-            PrismaClient,
-            '$connect' | '$disconnect' | '$on' | '$transaction' | '$extends'
-          >,
-        ) => {
-          // 3) contact upsert
+          // 2) contact upsert
           const contact = await tx.contact.upsert({
             where: { inboxId_phone: { inboxId: inbox.id, phone: ev.phone } },
             update: { name: ev.contactName ?? undefined },
             create: {
-              accountId: account.id,
+              accountId,
               inboxId: inbox.id,
               phone: ev.phone,
               name: ev.contactName ?? null,
             },
           });
 
-          // 4) conversation find/create (1 thread par contact+inbox)
+          // 3) conversation find/create (simple: 1 conversation active par contact+inbox)
           let conversation = await tx.conversation.findFirst({
             where: { inboxId: inbox.id, contactId: contact.id },
             orderBy: { createdAt: 'desc' },
@@ -98,42 +109,44 @@ export class WebhooksService {
                 lastActivityAt: new Date(),
               },
             });
-
-            this.logger.log(
-              `conversation:create inbox=${inbox.externalId} contact=${contact.phone}`,
-            );
           }
 
-          // 5) message create (idempotent)
+          // 4) message create idempotent (dedupe sur providerMessageId)
           const externalId = ev.providerMessageId ?? null;
 
           try {
             const message = await tx.message.create({
               data: {
                 conversationId: conversation.id,
-                channel, // IMPORTANT: toujours set
+                channel,
                 externalId,
                 direction: 'IN',
                 from: ev.phone,
-                to: inbox.externalId ?? null,
+                to: inbox.externalId,
                 text: ev.text ?? null,
                 timestamp: ev.sentAt ? new Date(ev.sentAt) : new Date(),
               },
             });
 
-            // 6) update conversation activity (+ reopen)
+            // 5) update conversation activity + reopen if closed
             await tx.conversation.update({
               where: { id: conversation.id },
               data: {
                 lastActivityAt: message.createdAt,
-                ...(conversation.status === 'CLOSED' ? { status: 'OPEN' } : {}),
+                status: 'OPEN',
               },
             });
 
-            // 7) trigger master-router (n8n) avec payload canonique minimal (via AgentsService)
+            // stash for routing log update (outside transaction ok too)
+            await tx.routingLog.update({
+              where: { id: routingLog.id },
+              data: { conversationId: conversation.id },
+            });
+
+            // trigger n8n via AgentsService (hors tx, mais on garde l’id ici)
             await this.agents.trigger({
               conversationId: conversation.id,
-              agentKey: cfg.defaultAgentKey ?? 'master-router',
+              agentKey: 'master-router',
               inputText: ev.text ?? '',
             });
 
@@ -144,19 +157,46 @@ export class WebhooksService {
               e.code === 'P2002' &&
               externalId
             ) {
-              this.logger.debug(
-                `dedupe externalId=${externalId} conv=${conversation.id}`,
-              );
+              this.logger.debug(`dedupe externalId=${externalId}`);
               return false;
             }
             throw e;
           }
-        },
-      );
+        });
 
-      if (didStore) stored += 1;
+        if (didStore) stored += 1;
+
+        await this.prisma.routingLog.update({
+          where: { id: routingLog.id },
+          data: {
+            status: 'FORWARDED',
+            latencyMs: Date.now() - startedAt,
+          },
+        });
+      } catch (err: any) {
+        const msg = err instanceof Error ? err.message : String(err);
+
+        await this.prisma.routingLog.update({
+          where: { id: routingLog.id },
+          data: {
+            status: 'FAILED',
+            latencyMs: Date.now() - startedAt,
+            error: msg.slice(0, 1000),
+          },
+        });
+
+        this.logger.error(msg);
+      }
     }
 
     return { ok: true, stored };
+  }
+
+  private async getDemoAccountId() {
+    const account = await this.prisma.account.findFirst({
+      where: { name: 'Demo' },
+    });
+    if (!account) throw new Error('Account Demo missing (run seed)');
+    return account.id;
   }
 }
