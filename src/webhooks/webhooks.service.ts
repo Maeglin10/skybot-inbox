@@ -2,6 +2,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Prisma, Channel } from '@prisma/client';
 import type { PrismaClient } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { ClientsService } from '../clients/clients.service';
+import { AgentsService } from '../agents/agents.service';
+
 import type { WhatsAppCloudWebhook } from './dto/whatsapp-cloud.dto';
 import { parseWhatsAppCloudWebhook } from './whatsapp.parser';
 
@@ -9,7 +12,11 @@ import { parseWhatsAppCloudWebhook } from './whatsapp.parser';
 export class WebhooksService {
   private readonly logger = new Logger(WebhooksService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly clients: ClientsService,
+    private readonly agents: AgentsService,
+  ) {}
 
   async handleWhatsAppWebhook(body: WhatsAppCloudWebhook) {
     const events = parseWhatsAppCloudWebhook(body);
@@ -17,24 +24,45 @@ export class WebhooksService {
 
     if (events.length === 0) return { ok: true, stored: 0 };
 
+    // DEV: compte Demo. En prod tu résous accountId autrement (host/header/subdomain).
     const account = await this.prisma.account.findFirst({
       where: { name: 'Demo' },
     });
     if (!account) throw new Error('Account Demo missing (run seed)');
 
-    const inboxExternalId = events[0]?.inboxExternalId ?? 'demo-whatsapp';
-
-    const inbox = await this.prisma.inbox.findFirst({
-      where: { accountId: account.id, externalId: inboxExternalId },
-    });
-    if (!inbox) throw new Error(`Inbox ${inboxExternalId} missing`);
-
-    // règle: canal = inbox.channel
-    const inboxChannel = inbox.channel ?? Channel.WHATSAPP;
-
     let stored = 0;
 
     for (const ev of events) {
+      // 1) resolve clientKey via ExternalAccount mapping
+      const channel = Channel.WHATSAPP;
+      const externalAccountId = ev.inboxExternalId ?? 'demo-whatsapp'; // phone_number_id Meta
+
+      const cfg = await this.clients.resolveClient({
+        accountId: account.id,
+        channel,
+        externalAccountId,
+      });
+
+      // 2) upsert Inbox (externalId = phone_number_id)
+      const inbox = await this.prisma.inbox.upsert({
+        where: {
+          accountId_externalId: {
+            accountId: account.id,
+            externalId: externalAccountId,
+          },
+        },
+        update: {
+          channel,
+          name: `Inbox ${cfg.clientKey} WHATSAPP`,
+        },
+        create: {
+          accountId: account.id,
+          externalId: externalAccountId,
+          channel,
+          name: `Inbox ${cfg.clientKey} WHATSAPP`,
+        },
+      });
+
       const didStore = await this.prisma.$transaction(
         async (
           tx: Omit<
@@ -42,7 +70,7 @@ export class WebhooksService {
             '$connect' | '$disconnect' | '$on' | '$transaction' | '$extends'
           >,
         ) => {
-          // 1) contact upsert
+          // 3) contact upsert
           const contact = await tx.contact.upsert({
             where: { inboxId_phone: { inboxId: inbox.id, phone: ev.phone } },
             update: { name: ev.contactName ?? undefined },
@@ -54,7 +82,7 @@ export class WebhooksService {
             },
           });
 
-          // 2) conversation find/create
+          // 4) conversation find/create (1 thread par contact+inbox)
           let conversation = await tx.conversation.findFirst({
             where: { inboxId: inbox.id, contactId: contact.id },
             orderBy: { createdAt: 'desc' },
@@ -65,7 +93,7 @@ export class WebhooksService {
               data: {
                 inboxId: inbox.id,
                 contactId: contact.id,
-                channel: inboxChannel,
+                channel,
                 status: 'OPEN',
                 lastActivityAt: new Date(),
               },
@@ -76,14 +104,14 @@ export class WebhooksService {
             );
           }
 
-          // 3) message create (idempotent)
+          // 5) message create (idempotent)
           const externalId = ev.providerMessageId ?? null;
 
           try {
             const message = await tx.message.create({
               data: {
                 conversationId: conversation.id,
-                channel: conversation.channel, // REQUIRED
+                channel, // IMPORTANT: toujours set
                 externalId,
                 direction: 'IN',
                 from: ev.phone,
@@ -93,17 +121,20 @@ export class WebhooksService {
               },
             });
 
-            // 4) update conversation
-            if (conversation.status === 'CLOSED') {
-              this.logger.log(`conversation:reopen id=${conversation.id}`);
-            }
-
+            // 6) update conversation activity (+ reopen)
             await tx.conversation.update({
               where: { id: conversation.id },
               data: {
                 lastActivityAt: message.createdAt,
                 ...(conversation.status === 'CLOSED' ? { status: 'OPEN' } : {}),
               },
+            });
+
+            // 7) trigger master-router (n8n) avec payload canonique minimal (via AgentsService)
+            await this.agents.trigger({
+              conversationId: conversation.id,
+              agentKey: cfg.defaultAgentKey ?? 'master-router',
+              inputText: ev.text ?? '',
             });
 
             return true;
