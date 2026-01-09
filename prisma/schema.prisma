@@ -11,11 +11,16 @@ datasource db {
  * ACCOUNT
  * =========================
  */
+
 model Account {
   id        String   @id @default(cuid())
   name      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  clientConfigs    ClientConfig[]
+  routingLogs      RoutingLog[]
+  externalAccounts ExternalAccount[]
 
   inboxes  Inbox[]
   contacts Contact[]
@@ -28,6 +33,7 @@ model Account {
  * INBOX
  * =========================
  */
+
 model Inbox {
   id         String  @id @default(cuid())
   accountId  String
@@ -52,6 +58,7 @@ model Inbox {
  * CONTACT
  * =========================
  */
+
 model Contact {
   id        String  @id @default(cuid())
   accountId String
@@ -131,6 +138,68 @@ model Message {
 
 /**
  * =========================
+ * CLIENT CONFIG (source of truth)
+ * =========================
+ */
+
+model ClientConfig {
+  id String @id @default(cuid())
+
+  accountId String
+  account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  clientKey String
+  status    ClientStatus @default(ACTIVE)
+  name      String?
+
+  defaultAgentKey String @default("master-router")
+
+  allowedAgents    Json
+  channels         Json
+  externalAccounts Json
+  n8nOverrides     Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([accountId, clientKey], name: "accountId_clientKey")
+  @@index([accountId])
+  @@index([status])
+}
+
+/**
+ * =========================
+ * ROUTING LOGS (audit + debug)
+ * =========================
+ */
+
+model RoutingLog {
+  id                String        @id @default(cuid())
+  accountId         String
+  requestId         String        @unique
+  clientKey         String
+  agentKey          String?
+  channel           Channel?
+  externalAccountId String?
+  conversationId    String?
+  status            RoutingStatus @default(RECEIVED)
+  latencyMs         Int?
+  error             String?
+  source            String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@index([clientKey])
+  @@index([status])
+  @@index([createdAt])
+}
+
+/**
+ * =========================
  * ENUMS
  * =========================
  */
@@ -151,4 +220,36 @@ enum Channel {
 enum MessageDirection {
   IN
   OUT
+}
+
+enum ClientStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum RoutingStatus {
+  RECEIVED
+  FORWARDED
+  FAILED
+}
+
+model ExternalAccount {
+  id         String  @id @default(cuid())
+  accountId  String
+  channel    Channel
+  externalId String
+  clientKey  String
+
+  name     String?
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, channel, externalId], name: "accountId_channel_externalId")
+  @@index([accountId])
+  @@index([clientKey])
+  @@index([channel])
 }
