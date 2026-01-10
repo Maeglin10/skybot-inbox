@@ -201,6 +201,35 @@ export class AgentsService {
           data = {};
         }
 
+        // après le JSON.parse
+        const parsed = (data ?? {}) as any;
+        const replyText =
+          typeof parsed?.replyText === 'string' && parsed.replyText.trim()
+            ? parsed.replyText.trim()
+            : null;
+
+        if (replyText) {
+          // message OUT en DB
+          await this.prisma.message.create({
+            data: {
+              conversationId: conversation.id,
+              channel: conversation.channel,
+              externalId: null,
+              direction: 'OUT',
+              from: conversation.inbox.externalId ?? null,
+              to: conversation.contact.phone,
+              text: replyText,
+              timestamp: new Date(),
+            },
+          });
+
+          // update conv activity
+          await this.prisma.conversation.update({
+            where: { id: conversation.id },
+            data: { lastActivityAt: new Date() },
+          });
+        }
+
         return { ok: true, data, requestId };
       } catch (e: any) {
         const latencyMs = Date.now() - startedAt;
