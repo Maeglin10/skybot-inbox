@@ -3,10 +3,10 @@ import {
   Injectable,
   NotFoundException,
   InternalServerErrorException,
+  Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
-import { Logger } from '@nestjs/common';
 import { ClientsService } from '../clients/clients.service';
 import { RoutingStatus } from '@prisma/client';
 
@@ -24,180 +24,232 @@ export class AgentsService {
     conversationId: string;
     agentKey: string;
     inputText?: string;
+    requestId?: string;
+    messageId?: string;
   }) {
-    const { conversationId, agentKey, inputText } = params;
+    const { conversationId, agentKey, inputText, messageId } = params;
+
+    // GUARD: évite les Prisma ValidationError "id: undefined"
+    if (!conversationId) {
+      throw new NotFoundException('conversationId missing');
+    }
+    if (!messageId) {
+      throw new NotFoundException('messageId missing');
+    }
 
     const startedAt = Date.now();
-    const requestId = `req_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    const requestId =
+      params.requestId ??
+      `req_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 
-    const conversation = await this.prisma.conversation.findUnique({
-      where: { id: conversationId },
-      include: { inbox: true, contact: true },
-    });
-    if (!conversation) throw new NotFoundException('Conversation not found');
-
-    const url = this.config.get<string>('N8N_MASTER_ROUTER_URL');
-    const secret = this.config.get<string>('N8N_MASTER_ROUTER_SECRET');
-    if (!url)
-      throw new InternalServerErrorException('N8N_MASTER_ROUTER_URL missing');
-    if (!secret)
-      throw new InternalServerErrorException(
-        'N8N_MASTER_ROUTER_SECRET missing',
-      );
-
-    // multi-tenant resolve
-    const accountId = conversation.inbox.accountId;
-    const channel = conversation.channel;
-    const externalAccountId = conversation.inbox.externalId;
-
-    const cfg = await this.clients.resolveClient({
-      accountId,
-      channel,
-      externalAccountId,
-    });
-
-    const allowedAgentsRaw = cfg.allowedAgents as unknown;
-    const allowedAgents =
-      Array.isArray(allowedAgentsRaw) &&
-      allowedAgentsRaw.every((x) => typeof x === 'string')
-        ? (allowedAgentsRaw as string[])
-        : [];
-
-    const effectiveAgentKey = allowedAgents.includes(agentKey)
-      ? agentKey
-      : (cfg.defaultAgentKey ?? 'master-router');
-
-    // routing log (ACCOUNT RELATION REQUIRED)
-    const log = await this.prisma.routingLog.create({
-      data: {
-        requestId,
-        account: { connect: { id: accountId } }, // <-- fix TS2322
-        clientKey: cfg.clientKey,
-        agentKey: effectiveAgentKey,
-        channel,
-        externalAccountId,
-        conversationId: conversation.id,
-        status: RoutingStatus.RECEIVED,
-        source: 'api:/agents/trigger',
-      },
-    });
-
-    const payload = {
-      requestId,
-      agentKey: effectiveAgentKey,
-      client: { clientKey: cfg.clientKey, name: cfg.name ?? null },
-      conversation: {
-        id: conversation.id,
-        channel: conversation.channel,
-        inbox: {
-          id: conversation.inbox.id,
-          externalId: conversation.inbox.externalId,
-          channel: conversation.inbox.channel,
-        },
-        contact: {
-          id: conversation.contact.id,
-          phone: conversation.contact.phone,
-          name: conversation.contact.name,
-        },
-      },
-      input: { text: inputText ?? null },
-      ts: new Date().toISOString(),
-    };
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12_000);
+    let routingLogId: string | null = null;
 
     try {
-      this.logger.log(
-        `POST n8n url=${url} req=${requestId} client=${cfg.clientKey} conv=${conversation.id} agentKey=${effectiveAgentKey}`,
-      );
-
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-master-secret': secret,
-          'x-request-id': requestId,
-          'x-client-key': cfg.clientKey,
-        },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
+      const conversation = await this.prisma.conversation.findUnique({
+        where: { id: conversationId },
+        include: { inbox: true, contact: true },
       });
+      if (!conversation) throw new NotFoundException('Conversation not found');
 
-      const raw = await res.text().catch(() => '');
-      const latencyMs = Date.now() - startedAt;
-
-      this.logger.log(
-        `n8n req=${requestId} status=${res.status} body_len=${raw.length} latencyMs=${latencyMs}`,
-      );
-
-      if (!res.ok) {
-        await this.prisma.routingLog.update({
-          where: { id: log.id },
-          data: {
-            status: RoutingStatus.FAILED,
-            latencyMs,
-            error: `n8n failed ${res.status}`,
-          },
-        });
-
-        throw new InternalServerErrorException(
-          `n8n failed ${res.status}: ${raw.slice(0, 500)}`,
+      // (optionnel mais utile) check message belongs to conversation
+      const msg = await this.prisma.message.findFirst({
+        where: { id: messageId, conversationId },
+        select: { id: true },
+      });
+      if (!msg) {
+        throw new NotFoundException(
+          `Message not found for conversationId=${conversationId}`,
         );
       }
 
-      await this.prisma.routingLog.update({
-        where: { id: log.id },
-        data: {
-          status: RoutingStatus.FORWARDED,
-          latencyMs,
-        },
+      const url = this.config.get<string>('N8N_MASTER_ROUTER_URL');
+      const secret = this.config.get<string>('N8N_MASTER_ROUTER_SECRET');
+      if (!url)
+        throw new InternalServerErrorException('N8N_MASTER_ROUTER_URL missing');
+      if (!secret)
+        throw new InternalServerErrorException(
+          'N8N_MASTER_ROUTER_SECRET missing',
+        );
+
+      // Multi-tenant resolve
+      const accountId = conversation.inbox.accountId;
+      const channel = conversation.channel;
+      const externalAccountId = conversation.inbox.externalId;
+
+      const cfg = await this.clients.resolveClient({
+        accountId,
+        channel,
+        externalAccountId,
       });
 
-      let data: unknown = {};
+      const allowedAgentsRaw = cfg.allowedAgents as unknown;
+      const allowedAgents =
+        Array.isArray(allowedAgentsRaw) &&
+        allowedAgentsRaw.every((x) => typeof x === 'string')
+          ? (allowedAgentsRaw as string[])
+          : [];
+
+      const effectiveAgentKey = allowedAgents.includes(agentKey)
+        ? agentKey
+        : (cfg.defaultAgentKey ?? 'master-router');
+
+      // Routing log (best-effort)
       try {
-        data = raw ? JSON.parse(raw) : {};
-      } catch {
-        data = {};
-      }
-
-      return { ok: true, data, requestId };
-    } catch (e: any) {
-      const latencyMs = Date.now() - startedAt;
-
-      if (e?.name === 'AbortError') {
-        this.logger.error(`n8n timeout req=${requestId}`);
-        await this.prisma.routingLog
-          .update({
-            where: { requestId },
-            data: { status: RoutingStatus.FAILED, latencyMs, error: 'timeout' },
-          })
-          .catch(() => undefined);
-        throw new InternalServerErrorException('n8n timeout');
-      }
-
-      this.logger.error(
-        `agent trigger failed req=${requestId}: ${e?.message ?? String(e)}`,
-      );
-
-      await this.prisma.routingLog
-        .update({
-          where: { requestId },
+        const log = await this.prisma.routingLog.create({
           data: {
-            status: RoutingStatus.FAILED,
-            latencyMs,
-            error: (e?.message ?? 'Agent trigger failed').slice(0, 500),
+            requestId,
+            account: { connect: { id: accountId } },
+            clientKey: cfg.clientKey,
+            agentKey: effectiveAgentKey,
+            channel,
+            externalAccountId,
+            conversationId: conversation.id,
+            status: RoutingStatus.RECEIVED,
+            source: 'api:/agents/trigger',
           },
-        })
-        .catch(() => undefined);
+        });
+        routingLogId = log.id;
+      } catch (e: any) {
+        this.logger.error(
+          `routingLog.create failed req=${requestId}: ${e?.message ?? String(e)}`,
+        );
+      }
 
-      throw e instanceof InternalServerErrorException
-        ? e
-        : new InternalServerErrorException(
-            e?.message ?? 'Agent trigger failed',
+      const payload = {
+        requestId,
+        agentKey: effectiveAgentKey,
+        client: { clientKey: cfg.clientKey, name: cfg.name ?? null },
+        event: {
+          conversationId: conversation.id,
+          messageId,
+          channel,
+          externalAccountId,
+        },
+        conversation: {
+          id: conversation.id,
+          channel: conversation.channel,
+          inbox: {
+            id: conversation.inbox.id,
+            externalId: conversation.inbox.externalId,
+            channel: conversation.inbox.channel,
+          },
+          contact: {
+            id: conversation.contact.id,
+            phone: conversation.contact.phone,
+            name: conversation.contact.name,
+          },
+        },
+        input: { text: inputText ?? null },
+        ts: new Date().toISOString(),
+      };
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 12_000);
+
+      try {
+        this.logger.log(
+          `POST n8n url=${url} req=${requestId} client=${cfg.clientKey} conv=${conversation.id} msg=${messageId} agentKey=${effectiveAgentKey}`,
+        );
+
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-master-secret': secret,
+            'x-request-id': requestId,
+            'x-client-key': cfg.clientKey,
+          },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        });
+
+        const raw = await res.text().catch(() => '');
+        const latencyMs = Date.now() - startedAt;
+
+        if (!res.ok) {
+          if (routingLogId) {
+            await this.prisma.routingLog
+              .update({
+                where: { id: routingLogId },
+                data: {
+                  status: RoutingStatus.FAILED,
+                  latencyMs,
+                  error: `n8n failed ${res.status}: ${raw.slice(0, 200)}`,
+                },
+              })
+              .catch(() => undefined);
+          }
+
+          throw new InternalServerErrorException(
+            `n8n failed ${res.status}: ${raw.slice(0, 500)}`,
           );
-    } finally {
-      clearTimeout(timeout);
+        }
+
+        if (routingLogId) {
+          await this.prisma.routingLog
+            .update({
+              where: { id: routingLogId },
+              data: { status: RoutingStatus.FORWARDED, latencyMs },
+            })
+            .catch(() => undefined);
+        }
+
+        let data: unknown = {};
+        try {
+          data = raw ? JSON.parse(raw) : {};
+        } catch {
+          data = {};
+        }
+
+        return { ok: true, data, requestId };
+      } catch (e: any) {
+        const latencyMs = Date.now() - startedAt;
+
+        if (e?.name === 'AbortError') {
+          if (routingLogId) {
+            await this.prisma.routingLog
+              .update({
+                where: { id: routingLogId },
+                data: {
+                  status: RoutingStatus.FAILED,
+                  latencyMs,
+                  error: 'timeout',
+                },
+              })
+              .catch(() => undefined);
+          }
+          throw new InternalServerErrorException('n8n timeout');
+        }
+
+        if (routingLogId) {
+          await this.prisma.routingLog
+            .update({
+              where: { id: routingLogId },
+              data: {
+                status: RoutingStatus.FAILED,
+                latencyMs,
+                error: (e?.message ?? 'Agent trigger failed').slice(0, 500),
+              },
+            })
+            .catch(() => undefined);
+        }
+
+        throw e instanceof InternalServerErrorException
+          ? e
+          : new InternalServerErrorException(
+              e?.message ?? 'Agent trigger failed',
+            );
+      } finally {
+        clearTimeout(timeout);
+      }
+    } catch (e: any) {
+      this.logger.error(`AgentsService.trigger failed req=${requestId}`);
+      this.logger.error(e?.stack ?? e?.message ?? String(e));
+
+      throw e instanceof InternalServerErrorException ||
+        e instanceof NotFoundException
+        ? e
+        : new InternalServerErrorException(e?.message ?? 'Internal error');
     }
   }
 }

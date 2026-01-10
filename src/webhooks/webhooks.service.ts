@@ -128,7 +128,7 @@ export class WebhooksService {
               },
             });
 
-            // 5) update conversation activity + reopen if closed
+            // update conv
             await tx.conversation.update({
               where: { id: conversation.id },
               data: {
@@ -137,17 +137,21 @@ export class WebhooksService {
               },
             });
 
-            // stash for routing log update (outside transaction ok too)
+            // routinglog conversationId
             await tx.routingLog.update({
               where: { id: routingLog.id },
               data: { conversationId: conversation.id },
             });
 
-            // trigger n8n via AgentsService (hors tx, mais on garde l’id ici)
-            await this.agents.trigger({
-              conversationId: conversation.id,
-              agentKey: 'master-router',
-              inputText: ev.text ?? '',
+            // trigger n8n (hors tx recommandé)
+            setImmediate(() => {
+              void this.agents.trigger({
+                requestId,
+                conversationId: conversation.id,
+                messageId: message.id,
+                agentKey: 'master-router',
+                inputText: ev.text ?? '',
+              });
             });
 
             return true;
