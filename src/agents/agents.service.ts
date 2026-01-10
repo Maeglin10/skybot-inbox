@@ -208,6 +208,21 @@ export class AgentsService {
             ? parsed.replyText.trim()
             : null;
 
+        // anti-spam: si le dernier message est déjà OUT avec même texte dans les 10s, skip
+        const last = await this.prisma.message.findFirst({
+          where: { conversationId: conversation.id },
+          orderBy: { createdAt: 'desc' },
+          select: { direction: true, text: true, createdAt: true },
+        });
+
+        if (
+          last?.direction === 'OUT' &&
+          last?.text === replyText &&
+          Date.now() - new Date(last.createdAt).getTime() < 10_000
+        ) {
+          return { ok: true, data, requestId, deduped: true };
+        }
+
         if (replyText) {
           // message OUT en DB
           await this.prisma.message.create({
