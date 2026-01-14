@@ -95,8 +95,9 @@ export class AgentsService {
 
       // Routing log (best-effort)
       try {
-        const log = await this.prisma.routingLog.create({
-          data: {
+        const log = await this.prisma.routingLog.upsert({
+          where: { requestId },
+          create: {
             requestId,
             account: { connect: { id: accountId } },
             clientKey: cfg.clientKey,
@@ -106,6 +107,12 @@ export class AgentsService {
             conversationId: conversation.id,
             status: RoutingStatus.RECEIVED,
             source: 'api:/agents/trigger',
+          },
+          update: {
+            // optionnel: rafraîchir certains champs si re-trigger
+            agentKey: effectiveAgentKey,
+            status: RoutingStatus.RECEIVED,
+            conversationId: conversation.id,
           },
         });
         routingLogId = log.id;
@@ -202,11 +209,52 @@ export class AgentsService {
         }
 
         // après le JSON.parse
-        const parsed = (data ?? {}) as any;
-        const replyText =
-          typeof parsed?.replyText === 'string' && parsed.replyText.trim()
-            ? parsed.replyText.trim()
-            : null;
+        // Compatible avec les deux formats:
+        // - Format skybot-inbox: { replyText: "..." }
+        // - Format SkyBot agents: { status: "success", output: { answer: "...", message: "..." } }
+
+        // Type-safe parsing of n8n response
+        interface N8nResponse {
+          replyText?: string;
+          status?: string;
+          output?: {
+            message?: string;
+            answer?: string;
+          };
+        }
+
+        const parsed: N8nResponse =
+          typeof data === 'object' && data !== null
+            ? (data as N8nResponse)
+            : {};
+
+        let replyText: string | null = null;
+
+        // Format 1: replyText direct (préféré)
+        if (typeof parsed.replyText === 'string' && parsed.replyText.trim()) {
+          replyText = parsed.replyText.trim();
+        }
+        // Format 2: SkyBot agents - output.message (Closer, Orders, etc.)
+        else if (
+          typeof parsed.output?.message === 'string' &&
+          parsed.output.message.trim()
+        ) {
+          replyText = parsed.output.message.trim();
+        }
+        // Format 3: SkyBot agents - output.answer (Info agent)
+        else if (
+          typeof parsed.output?.answer === 'string' &&
+          parsed.output.answer.trim()
+        ) {
+          replyText = parsed.output.answer.trim();
+        }
+
+        // Log pour debug si aucune réponse trouvée
+        if (!replyText && parsed.status === 'success') {
+          this.logger.warn(
+            `N8N returned success but no replyText found. Keys: ${Object.keys(parsed.output ?? {}).join(', ')}`,
+          );
+        }
 
         // anti-spam: si le dernier message est déjà OUT avec même texte dans les 10s, skip
         const last = await this.prisma.message.findFirst({

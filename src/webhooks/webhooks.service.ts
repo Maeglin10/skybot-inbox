@@ -32,7 +32,6 @@ export class WebhooksService {
       const channel = 'WHATSAPP' as const;
 
       // resolve clientKey via ExternalAccount -> ClientConfig
-      // en dev : si pas trouvé, fallback "demo"
       let clientKey = 'demo';
       try {
         const cfg = await this.clients.resolveClient({
@@ -41,7 +40,11 @@ export class WebhooksService {
           externalAccountId,
         });
         clientKey = cfg.clientKey;
-      } catch {
+      } catch (resolveErr) {
+        // Log l'erreur de résolution client - important pour le debug
+        this.logger.warn(
+          `Client resolution failed for externalAccountId=${externalAccountId}, using fallback 'demo': ${resolveErr instanceof Error ? resolveErr.message : String(resolveErr)}`,
+        );
         clientKey = 'demo';
       }
 
@@ -63,7 +66,7 @@ export class WebhooksService {
       });
 
       try {
-        const didStore = await this.prisma.$transaction(async (tx) => {
+        const txResult = await this.prisma.$transaction(async (tx) => {
           // 1) inbox (externalId = phone_number_id)
           const inbox = await tx.inbox.upsert({
             where: {
@@ -143,18 +146,17 @@ export class WebhooksService {
               data: { conversationId: conversation.id },
             });
 
-            // trigger n8n (hors tx recommandé)
-            setImmediate(() => {
-              void this.agents.trigger({
+            // Retourne les données nécessaires pour trigger n8n après la transaction
+            return {
+              stored: true,
+              triggerData: {
                 requestId,
                 conversationId: conversation.id,
                 messageId: message.id,
                 agentKey: 'master-router',
                 inputText: ev.text ?? '',
-              });
-            });
-
-            return true;
+              },
+            };
           } catch (e: unknown) {
             if (
               e instanceof Prisma.PrismaClientKnownRequestError &&
@@ -162,13 +164,28 @@ export class WebhooksService {
               externalId
             ) {
               this.logger.debug(`dedupe externalId=${externalId}`);
-              return false;
+              return { stored: false, triggerData: null };
             }
             throw e;
           }
         });
 
-        if (didStore) stored += 1;
+        if (txResult.stored) {
+          stored += 1;
+
+          // Trigger n8n APRÈS la transaction (synchrone, pas fire-and-forget)
+          if (txResult.triggerData) {
+            try {
+              await this.agents.trigger(txResult.triggerData);
+            } catch (triggerErr) {
+              // Log l'erreur mais ne fait pas échouer le webhook
+              // Le message est déjà stocké, n8n sera retry plus tard si besoin
+              this.logger.error(
+                `n8n trigger failed for message ${txResult.triggerData.messageId}: ${triggerErr instanceof Error ? triggerErr.message : String(triggerErr)}`,
+              );
+            }
+          }
+        }
 
         await this.prisma.routingLog.update({
           where: { id: routingLog.id },

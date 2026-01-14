@@ -6,11 +6,9 @@ datasource db {
   provider = "postgresql"
 }
 
-/**
- * =========================
- * ACCOUNT
- * =========================
- */
+// =========================
+// ACCOUNT
+// =========================
 
 model Account {
   id        String   @id @default(cuid())
@@ -28,11 +26,30 @@ model Account {
   @@index([createdAt])
 }
 
-/**
- * =========================
- * INBOX
- * =========================
- */
+model ExternalAccount {
+  id         String  @id @default(cuid())
+  accountId  String
+  channel    Channel
+  externalId String
+  clientKey  String
+
+  name     String?
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, channel, externalId], name: "accountId_channel_externalId")
+  @@index([accountId])
+  @@index([clientKey])
+  @@index([channel])
+}
+
+// =========================
+// INBOX
+// =========================
 
 model Inbox {
   id         String  @id @default(cuid())
@@ -53,11 +70,9 @@ model Inbox {
   @@index([channel])
 }
 
-/**
- * =========================
- * CONTACT
- * =========================
- */
+// =========================
+// CONTACT
+// =========================
 
 model Contact {
   id        String  @id @default(cuid())
@@ -78,11 +93,9 @@ model Contact {
   @@index([accountId])
 }
 
-/**
- * =========================
- * CONVERSATION
- * =========================
- */
+// =========================
+// CONVERSATION
+// =========================
 model Conversation {
   id String @id @default(cuid())
 
@@ -108,11 +121,9 @@ model Conversation {
   @@index([externalId])
 }
 
-/**
- * =========================
- * MESSAGE
- * =========================
- */
+// =========================
+// MESSAGE
+// =========================
 model Message {
   id String @id @default(cuid())
 
@@ -136,11 +147,9 @@ model Message {
   @@index([channel])
 }
 
-/**
- * =========================
- * CLIENT CONFIG (source of truth)
- * =========================
- */
+// =========================
+// CLIENT CONFIG
+// =========================
 
 model ClientConfig {
   id String @id @default(cuid())
@@ -167,11 +176,9 @@ model ClientConfig {
   @@index([status])
 }
 
-/**
- * =========================
- * ROUTING LOGS (audit + debug)
- * =========================
- */
+// =========================
+// ROUTING LOGS
+// =========================
 
 model RoutingLog {
   id                String        @id @default(cuid())
@@ -198,11 +205,9 @@ model RoutingLog {
   @@index([createdAt])
 }
 
-/**
- * =========================
- * ENUMS
- * =========================
- */
+// =========================
+// ENUMS
+// =========================
 enum ConversationStatus {
   OPEN
   PENDING
@@ -231,25 +236,4 @@ enum RoutingStatus {
   RECEIVED
   FORWARDED
   FAILED
-}
-
-model ExternalAccount {
-  id         String  @id @default(cuid())
-  accountId  String
-  channel    Channel
-  externalId String
-  clientKey  String
-
-  name     String?
-  isActive Boolean @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
-
-  @@unique([accountId, channel, externalId], name: "accountId_channel_externalId")
-  @@index([accountId])
-  @@index([clientKey])
-  @@index([channel])
 }
