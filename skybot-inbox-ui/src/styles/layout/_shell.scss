@@ -1,0 +1,107 @@
+@use "../abstracts/variables" as *;
+
+.nx-shell {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  height: 100vh;
+  background: $nx-bg;
+  color: $nx-text;
+  font-family: $nx-font-sans;
+
+.nx-sidebar {
+  border-right: 1px solid $nx-border;
+  background: $nx-surface;
+  display: flex;
+  flex-direction: column;
+
+  &__header {
+    padding: 16px;
+    font-weight: 600;
+    border-bottom: 1px solid $nx-border;
+  }
+}
+
+.nx-threadlist {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: auto;
+}
+
+.nx-thread {
+  text-align: left;
+  border: 1px solid $nx-border;
+  background: transparent;
+  border-radius: 14px;
+  padding: 12px;
+  cursor: pointer;
+
+  &.is-active {
+    border-color: $nx-primary;
+  }
+
+  &__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+
+  &__title { font-weight: 600; }
+  &__meta { font-size: 12px; opacity: 0.8; margin-bottom: 6px; }
+  &__last { font-size: 13px; opacity: 0.9; }
+}
+
+.nx-main {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-width: 0;
+
+  &__header {
+    padding: 16px;
+    border-bottom: 1px solid $nx-border;
+    background: $nx-bg;
+  }
+
+  &__title { font-weight: 600; }
+  &__meta { font-size: 12px; opacity: 0.8; }
+}
+
+.nx-messages {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: auto;
+}
+
+.nx-msg {
+  display: flex;
+  flex-direction: column;
+  max-width: 70%;
+
+  &.is-agent { align-self: flex-end; }
+  &.is-user { align-self: flex-start; }
+
+  &__bubble {
+    border: 1px solid $nx-border;
+    background: $nx-surface;
+    padding: 10px 12px;
+    border-radius: 14px;
+  }
+
+  &__time {
+    font-size: 11px;
+    opacity: 0.7;
+    margin-top: 4px;
+  }
+}
+
+.nx-composer {
+  padding: 12px;
+  border-top: 1px solid $nx-border;
+  display: flex;
+  gap: 10px;
+}}

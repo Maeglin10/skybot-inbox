@@ -1,12 +1,23 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { WebhooksService } from './webhooks.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 describe('WebhooksService', () => {
   let service: WebhooksService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [WebhooksService],
+      providers: [
+        WebhooksService,
+        {
+          provide: PrismaService,
+          useValue: {
+            account: { findFirst: jest.fn() },
+            inbox: { findFirst: jest.fn() },
+            $transaction: jest.fn(),
+          },
+        },
+      ],
     }).compile();
 
     service = module.get<WebhooksService>(WebhooksService);

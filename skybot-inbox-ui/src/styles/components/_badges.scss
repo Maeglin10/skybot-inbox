@@ -1,0 +1,15 @@
+@use "../abstracts/variables" as *;
+
+.nx-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: $nx-primary;
+  color: $nx-text;
+  font-size: 12px;
+  font-weight: 600;
+}

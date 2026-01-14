@@ -1,0 +1,10 @@
+@use "../abstracts" as *;
+
+.nx-inbox {
+  background: $nx-bg;
+}
+
+.nx-inbox__panel {
+  background: $nx-surface;
+  border-color: $nx-border;
+}

@@ -1,0 +1,12 @@
+@use "../abstracts" as *;
+
+body {
+  background: $nx-bg;
+  color: $nx-text;
+  font-family: $nx-font-sans;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}

@@ -12,6 +12,7 @@ import { MessagesModule } from './messages/messages.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { DebugModule } from './debug/debug.module';
 import { AuthModule } from './auth/auth.module';
+import { AgentsModule } from './agents/agents.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { AuthModule } from './auth/auth.module';
     }),
 
     PrismaModule,
+    AgentsModule,
     AuthModule,
     AccountsModule,
     InboxesModule,

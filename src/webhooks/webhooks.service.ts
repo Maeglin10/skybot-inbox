@@ -1,5 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { ClientsService } from '../clients/clients.service';
+import { AgentsService } from '../agents/agents.service';
 import type { WhatsAppCloudWebhook } from './dto/whatsapp-cloud.dto';
 import { parseWhatsAppCloudWebhook } from './whatsapp.parser';
 
@@ -7,125 +10,214 @@ import { parseWhatsAppCloudWebhook } from './whatsapp.parser';
 export class WebhooksService {
   private readonly logger = new Logger(WebhooksService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly clients: ClientsService,
+    private readonly agents: AgentsService,
+  ) {}
 
   async handleWhatsAppWebhook(body: WhatsAppCloudWebhook) {
     const events = parseWhatsAppCloudWebhook(body);
-
-    // LOG 1 — nombre d’événements reçus
     this.logger.log(`events=${events.length}`);
 
-    if (events.length === 0) {
-      return { ok: true, stored: 0 };
-    }
+    if (events.length === 0) return { ok: true, stored: 0 };
 
-    const account = await this.prisma.account.findFirst({
-      where: { name: 'Demo' },
-    });
-    if (!account) throw new Error('Account Demo missing (run seed)');
-
-    const inboxExternalId = events[0]?.inboxExternalId ?? 'demo-inbox';
-    const inbox = await this.prisma.inbox.findFirst({
-      where: { accountId: account.id, externalId: inboxExternalId },
-    });
-    if (!inbox) throw new Error(`Inbox ${inboxExternalId} missing`);
+    const accountId = await this.getDemoAccountId();
 
     let stored = 0;
 
     for (const ev of events) {
-      const didStore = await this.prisma.$transaction(async (tx) => {
-        // 1) Contact upsert
-        const contact = await tx.contact.upsert({
-          where: {
-            inboxId_phone: {
+      // Meta phone_number_id (mapping ExternalAccount.externalId) = inboxExternalId
+      const externalAccountId = ev.inboxExternalId ?? 'demo-whatsapp';
+      const channel = 'WHATSAPP' as const;
+
+      // resolve clientKey via ExternalAccount -> ClientConfig
+      let clientKey = 'demo';
+      try {
+        const cfg = await this.clients.resolveClient({
+          accountId,
+          channel,
+          externalAccountId,
+        });
+        clientKey = cfg.clientKey;
+      } catch (resolveErr) {
+        // Log l'erreur de résolution client - important pour le debug
+        this.logger.warn(
+          `Client resolution failed for externalAccountId=${externalAccountId}, using fallback 'demo': ${resolveErr instanceof Error ? resolveErr.message : String(resolveErr)}`,
+        );
+        clientKey = 'demo';
+      }
+
+      const requestId = `wa_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+      const startedAt = Date.now();
+
+      // RoutingLog: RECEIVED
+      const routingLog = await this.prisma.routingLog.create({
+        data: {
+          account: { connect: { id: accountId } },
+          requestId,
+          clientKey,
+          agentKey: 'master-router',
+          channel,
+          externalAccountId,
+          status: 'RECEIVED',
+          source: 'whatsapp_webhook',
+        },
+      });
+
+      try {
+        const txResult = await this.prisma.$transaction(async (tx) => {
+          // 1) inbox (externalId = phone_number_id)
+          const inbox = await tx.inbox.upsert({
+            where: {
+              accountId_externalId: {
+                accountId,
+                externalId: externalAccountId,
+              },
+            },
+            update: { channel, name: `WhatsApp ${externalAccountId}` },
+            create: {
+              accountId,
+              externalId: externalAccountId,
+              name: `WhatsApp ${externalAccountId}`,
+              channel,
+            },
+          });
+
+          // 2) contact upsert
+          const contact = await tx.contact.upsert({
+            where: { inboxId_phone: { inboxId: inbox.id, phone: ev.phone } },
+            update: { name: ev.contactName ?? undefined },
+            create: {
+              accountId,
               inboxId: inbox.id,
               phone: ev.phone,
-            },
-          },
-          update: {
-            name: ev.contactName ?? undefined,
-          },
-          create: {
-            accountId: account.id,
-            inboxId: inbox.id,
-            phone: ev.phone,
-            name: ev.contactName ?? null,
-          },
-        });
-
-        // 2) Conversation find/create
-        let conversation = await tx.conversation.findFirst({
-          where: { inboxId: inbox.id, contactId: contact.id },
-          orderBy: { createdAt: 'desc' },
-        });
-
-        if (!conversation) {
-          conversation = await tx.conversation.create({
-            data: {
-              inboxId: inbox.id,
-              contactId: contact.id,
-              status: 'OPEN',
-              lastActivityAt: new Date(),
+              name: ev.contactName ?? null,
             },
           });
 
-          // LOG 2 — conversation créée
-          this.logger.log(
-            `conversation:create inbox=${inbox.externalId} contact=${contact.phone}`,
-          );
-        }
-
-        // 3) DEDUPE
-        if (ev.providerMessageId) {
-          const existing = await tx.message.findFirst({
-            where: {
-              conversationId: conversation.id,
-              externalId: ev.providerMessageId,
-            },
-            select: { id: true },
+          // 3) conversation find/create (simple: 1 conversation active par contact+inbox)
+          let conversation = await tx.conversation.findFirst({
+            where: { inboxId: inbox.id, contactId: contact.id },
+            orderBy: { createdAt: 'desc' },
           });
 
-          if (existing) {
-            // LOG 3 — déduplication
-            this.logger.debug(
-              `dedupe externalId=${ev.providerMessageId} conv=${conversation.id}`,
-            );
-            return false;
+          if (!conversation) {
+            conversation = await tx.conversation.create({
+              data: {
+                inboxId: inbox.id,
+                contactId: contact.id,
+                channel,
+                status: 'OPEN',
+                lastActivityAt: new Date(),
+              },
+            });
+          }
+
+          // 4) message create idempotent (dedupe sur providerMessageId)
+          const externalId = ev.providerMessageId ?? null;
+
+          try {
+            const message = await tx.message.create({
+              data: {
+                conversationId: conversation.id,
+                channel,
+                externalId,
+                direction: 'IN',
+                from: ev.phone,
+                to: inbox.externalId,
+                text: ev.text ?? null,
+                timestamp: ev.sentAt ? new Date(ev.sentAt) : new Date(),
+              },
+            });
+
+            // update conv
+            await tx.conversation.update({
+              where: { id: conversation.id },
+              data: {
+                lastActivityAt: message.createdAt,
+                status: 'OPEN',
+              },
+            });
+
+            // routinglog conversationId
+            await tx.routingLog.update({
+              where: { id: routingLog.id },
+              data: { conversationId: conversation.id },
+            });
+
+            // Retourne les données nécessaires pour trigger n8n après la transaction
+            return {
+              stored: true,
+              triggerData: {
+                requestId,
+                conversationId: conversation.id,
+                messageId: message.id,
+                agentKey: 'master-router',
+                inputText: ev.text ?? '',
+              },
+            };
+          } catch (e: unknown) {
+            if (
+              e instanceof Prisma.PrismaClientKnownRequestError &&
+              e.code === 'P2002' &&
+              externalId
+            ) {
+              this.logger.debug(`dedupe externalId=${externalId}`);
+              return { stored: false, triggerData: null };
+            }
+            throw e;
+          }
+        });
+
+        if (txResult.stored) {
+          stored += 1;
+
+          // Trigger n8n APRÈS la transaction (synchrone, pas fire-and-forget)
+          if (txResult.triggerData) {
+            try {
+              await this.agents.trigger(txResult.triggerData);
+            } catch (triggerErr) {
+              // Log l'erreur mais ne fait pas échouer le webhook
+              // Le message est déjà stocké, n8n sera retry plus tard si besoin
+              this.logger.error(
+                `n8n trigger failed for message ${txResult.triggerData.messageId}: ${triggerErr instanceof Error ? triggerErr.message : String(triggerErr)}`,
+              );
+            }
           }
         }
 
-        // 4) Create message
-        const message = await tx.message.create({
+        await this.prisma.routingLog.update({
+          where: { id: routingLog.id },
           data: {
-            conversationId: conversation.id,
-            externalId: ev.providerMessageId ?? null,
-            direction: 'IN',
-            from: ev.phone,
-            to: inbox.externalId ?? null,
-            text: ev.text ?? null,
-            timestamp: ev.sentAt ? new Date(ev.sentAt) : new Date(),
+            status: 'FORWARDED',
+            latencyMs: Date.now() - startedAt,
+          },
+        });
+      } catch (err: any) {
+        const msg = err instanceof Error ? err.message : String(err);
+
+        await this.prisma.routingLog.update({
+          where: { id: routingLog.id },
+          data: {
+            status: 'FAILED',
+            latencyMs: Date.now() - startedAt,
+            error: msg.slice(0, 1000),
           },
         });
 
-        // 5) Update conversation (reopen si CLOSED)
-        if (conversation.status === 'CLOSED') {
-          this.logger.log(`conversation:reopen id=${conversation.id}`);
-        }
-
-        await tx.conversation.update({
-          where: { id: conversation.id },
-          data: {
-            lastActivityAt: message.createdAt,
-            ...(conversation.status === 'CLOSED' ? { status: 'OPEN' } : {}),
-          },
-        });
-
-        return true;
-      });
-
-      if (didStore) stored += 1;
+        this.logger.error(msg);
+      }
     }
 
     return { ok: true, stored };
+  }
+
+  private async getDemoAccountId() {
+    const account = await this.prisma.account.findFirst({
+      where: { name: 'Demo' },
+    });
+    if (!account) throw new Error('Account Demo missing (run seed)');
+    return account.id;
   }
 }

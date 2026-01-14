@@ -1,22 +1,39 @@
-import { IsIn, IsOptional, IsString, IsInt, Min } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform } from 'class-transformer';
+import {
+  IsBoolean,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
+import { Channel, ConversationStatus } from '@prisma/client';
 
 export class ListConversationsDto {
   @IsOptional()
-  @IsIn(['OPEN', 'PENDING', 'CLOSED'])
-  status?: 'OPEN' | 'PENDING' | 'CLOSED';
+  @IsEnum(ConversationStatus as unknown as object)
+  status?: ConversationStatus;
+
+  @IsOptional()
+  @IsEnum(Channel as unknown as object)
+  channel?: Channel;
 
   @IsOptional()
   @IsString()
   inboxId?: string;
 
   @IsOptional()
-  @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Transform(({ value }) => (value === undefined ? undefined : Number(value)))
   limit?: number;
 
   @IsOptional()
   @IsString()
-  cursor?: string; // Conversation.id
+  cursor?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === true || value === 'true' || value === '1')
+  lite?: boolean;
 }
