@@ -151,7 +151,7 @@ export class AgentsService {
       };
 
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 12_000);
+      const timeout = setTimeout(() => controller.abort(), 30_000); // 30s pour laisser le temps à OpenAI
 
       try {
         this.logger.log(

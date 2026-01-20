@@ -42,3 +42,7 @@ coverage/
 -d
 -H
 select "externalId", "text", "createdAt"?>  from "Message"?>  order by "createdAt" desc?>  limit 10;
+
+# Test folders (contain hardcoded secrets for testing)
+test/
+tests/
