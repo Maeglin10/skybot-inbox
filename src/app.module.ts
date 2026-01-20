@@ -13,6 +13,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
 import { DebugModule } from './debug/debug.module';
 import { AuthModule } from './auth/auth.module';
 import { AgentsModule } from './agents/agents.module';
+import { AppController } from './app.controller';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { AgentsModule } from './agents/agents.module';
     WebhooksModule,
     DebugModule,
   ],
+  controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}
