@@ -46,3 +46,10 @@ select "externalId", "text", "createdAt"?>  from "Message"?>  order by "createdA
 # Test folders (contain hardcoded secrets for testing)
 test/
 tests/
+
+# Archive scripts
+scripts/archive/
+.env.production
+
+# Allow env examples
+!.env.production.example
