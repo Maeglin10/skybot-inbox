@@ -21,6 +21,7 @@ src/generated/prisma/
 
 # Allow env example
 !.env.example
+!.env.production.example
 /docs/
 
 # zips
@@ -42,3 +43,5 @@ coverage/
 -d
 -H
 select "externalId", "text", "createdAt"?>  from "Message"?>  order by "createdAt" desc?>  limit 10;
+scripts/archive/
+.env.production
