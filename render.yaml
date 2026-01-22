@@ -4,7 +4,7 @@ services:
     name: skybot-inbox
     env: node
     region: oregon
-    plan: starter
+    plan: free
     buildCommand: npm install && npx prisma generate && npm run build
     startCommand: npx prisma migrate deploy && npm run start:prod
     healthCheckPath: /health
@@ -41,4 +41,4 @@ services:
 databases:
   - name: skybot-inbox-db
     databaseName: skybot_inbox
-    plan: starter
+    plan: free
