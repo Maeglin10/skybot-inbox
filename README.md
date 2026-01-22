@@ -1,98 +1,255 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# SkyBot - Multi-Tenant AI Agent Platform
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+## 🎯 Overview
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+SkyBot is a multi-tenant AI agent platform built on n8n that provides intelligent automation for sales, customer service, and analytics operations via WhatsApp and other channels.
 
-## Description
+## 🏗️ Architecture
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
-
-```bash
-$ npm install
+```
+┌─────────────────┐
+│  Master Router  │ ← Entry point (webhook)
+└────────┬────────┘
+         │
+         ├──→ Orders Agent     (Sales processing)
+         ├──→ CRM Agent        (Lead management)
+         ├──→ Setter Agent     (Lead qualification)
+         ├──→ Closer Agent     (Deal closing)
+         ├──→ Analytics Agent  (KPI reports)
+         └──→ Error Handler    (Global logging)
 ```
 
-## Compile and run the project
+### Multi-Tenant Isolation
+- Every request includes `clientKey` or `client_id`
+- Airtable queries filter by client
+- Prevents data leakage between tenants
 
+### Authentication
+- All webhooks use `x-master-secret` header authentication
+- Credentials ID: `YtknbW2TJvEOZvHi` (Master Router Secret)
+
+## 📦 Active Agents
+
+### 1. **Master Router** (`core/master-router.json`)
+- **Webhook**: `https://vmilliand.app.n8n.cloud/webhook/router`
+- **Purpose**: Routes requests to specialized agents based on intent
+- **Auth**: Required
+
+### 2. **Orders Agent** (`sales/orders.json`)
+- **Webhook**: `https://vmilliand.app.n8n.cloud/webhook/orders`
+- **Purpose**: Processes customer orders, validates product availability, calculates totals
+- **DB Tables**: `orders`, `products`, `leads`
+
+### 3. **CRM Agent** (`service/crm.json`)
+- **Webhook**: `https://vmilliand.app.n8n.cloud/webhook/crm`
+- **Purpose**: Manages lead lifecycle, updates lead categories (hot/warm/cold)
+- **DB Tables**: `leads`
+
+### 4. **Setter Agent** (`sales/setter.json`)
+- **Purpose**: Lead qualification and initial engagement
+- **DB Tables**: `leads`, `conversations`
+
+### 5. **Closer Agent** (`sales/closer.json`)
+- **Purpose**: Deal closing and order confirmation
+- **DB Tables**: `leads`, `orders`
+
+### 6. **Analytics Agent** (`analytics/analytics.json`)
+- **Webhook**: `https://vmilliand.app.n8n.cloud/webhook/analytics`
+- **Purpose**: Generates KPI reports (conversion rate, revenue, lead quality)
+- **DB Tables**: `AgentLogs`, `leads`, `orders`, `analytics_reports`
+- **Features**:
+  - Period analysis (today/week/month/custom)
+  - Trend comparison with historical data
+  - Alert generation for critical metrics
+  - OpenAI executive summary
+
+### 7. **Error Handler** (`core/global-error-handler.json`)
+- **Webhook**: `https://vmilliand.app.n8n.cloud/webhook/error-handler`
+- **Purpose**: Centralized error logging for all agents
+- **DB Tables**: `ErrorLogs`
+
+### 8. **Aftersale Agent** (`service/aftersale.json`)
+- **Purpose**: Post-purchase customer support and follow-up
+- **DB Tables**: `orders`, `leads`
+
+## 🗄️ Airtable Schema
+
+**Base ID**: `app4AupCG2KBpN3Vd` (Nexxa)
+
+### Core Tables
+- **AgentLogs** (`tbl3fFZdOt59T7yjv`) - Agent execution logs
+- **leads** (`tblCAI5p5tr4m46q7`) - Lead management
+- **orders** (`tblUk2O8GpEPHnpb5`) - Order tracking
+- **products** - Product catalog
+- **analytics_reports** (`tblrA1AOkOwCS49TU`) - Historical analytics
+- **ErrorLogs** - Error tracking
+- **Notifications** (`tblKoq9Iru9ohqXjE`) - Alert notifications
+
+### Multi-Tenant Fields
+- `clientKey` - Client identifier (AgentLogs)
+- `client_id` - Client identifier (leads, orders)
+- `related_client_id` - Client identifier (analytics_reports)
+
+## 🚀 Setup
+
+### 1. Import Workflows to n8n
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+# Upload all workflows from /agents/active/ to your n8n instance
+# Location: /Local Sites/SkyBot/agents/active/
 ```
 
-## Run tests
+### 2. Configure Credentials
+Required credentials in n8n:
+- **Airtable Personal Access Token** (ID: `IBkgSLty98SNmjm4`)
+- **Master Router Secret** (ID: `YtknbW2TJvEOZvHi`) - For webhook auth
+- **OpenAI API** - For AI processing
+- **WhatsApp API** (ID: `gjWdThhRhUn6GT00`) - For WhatsApp messaging
 
-```bash
-# unit tests
-$ npm run test
+### 3. Activate Workflows
+In n8n UI, activate:
+1. Master Router
+2. All active agents (Orders, CRM, Analytics, etc.)
+3. Error Handler
 
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+### 4. Test with Postman
+Import the Postman collection:
+```
+/postman-collection.json
 ```
 
-## Deployment
+Test endpoints:
+- Master Router: POST `https://vmilliand.app.n8n.cloud/webhook/router`
+- Analytics: POST `https://vmilliand.app.n8n.cloud/webhook/analytics`
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## 📊 Analytics Example Request
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+curl -X POST "https://vmilliand.app.n8n.cloud/webhook/analytics" \
+  -H "Content-Type: application/json" \
+  -H "x-master-secret: YOUR_SECRET" \
+  -d '{
+    "period": "today",
+    "requestedBy": "nexxa"
+  }'
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+**Response**:
+```json
+{
+  "status": "success",
+  "output": {
+    "summary": "...",
+    "kpis": {
+      "messages": 150,
+      "leads": 25,
+      "conversions": 5
+    },
+    "trend": "up"
+  }
+}
+```
 
-## Resources
+## 🔧 Development
 
-Check out a few resources that may come in handy when working with NestJS:
+### File Structure
+```
+/Local Sites/SkyBot/
+├── agents/
+│   ├── active/           ← Production agents (8 active)
+│   │   ├── sales/
+│   │   ├── service/
+│   │   ├── analytics/
+│   │   └── core/
+│   └── templates/        ← Unused templates (for reference)
+├── config/
+│   └── bot_config.json
+└── connectors/
+    ├── meta.json
+    ├── openai.json
+    └── ...
+```
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+### Scripts Archive
+Temporary fix scripts (already applied):
+```
+/skybot-inbox/scripts/archive/
+├── fix_analytics_mappings.py
+├── fix_analytics_timestamp.py
+├── fix_error_handler_auth.py
+├── fix_error_handler_env_vars.py
+├── fix_crm_upper_formula.py
+└── fix_crm_newline_trim.py
+```
 
-## Support
+## 🐛 Troubleshooting
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+### Common Issues
 
-## Stay in touch
+**1. Webhook 404 Error**
+- Ensure workflow is ACTIVE in n8n
+- Check webhook path matches URL
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+**2. Airtable Formula Errors**
+- All formulas must start with `=`
+- Example: `=AND({field} = 'value', ...)`
 
-## License
+**3. Environment Variable Errors**
+- n8n Cloud doesn't support `$env` access
+- Use hardcoded values or credentials instead
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+**4. Multi-Tenant Data Leakage**
+- Always filter by `clientKey` / `client_id` in Airtable queries
+- Verify `filterByFormula` includes client filter
+
+## 📈 Monitoring
+
+### Agent Performance Dashboard
+Track via Airtable tables:
+- **AgentLogs**: Execution time, success rate per agent
+- **analytics_reports**: Historical KPI trends
+- **ErrorLogs**: Error frequency by agent
+
+### Key Metrics
+- Orders processed per day
+- Lead conversion rate
+- Average response time
+- Error rate by agent
+
+## 🔐 Security
+
+- All webhooks require `x-master-secret` header
+- Multi-tenant isolation via client filtering
+- No `$env` variable usage (n8n Cloud restriction)
+- Credentials stored in n8n encrypted vault
+
+## 📝 Contributing
+
+### Adding a New Agent
+1. Create workflow in `/agents/active/[category]/`
+2. Add webhook with authentication
+3. Include multi-tenant filtering in all Airtable queries
+4. Add AgentLogs entry on execution
+5. Test with `clientKey` parameter
+
+### Deploying Changes
+1. Export workflow from n8n UI
+2. Save to `/agents/active/`
+3. Test in staging environment
+4. Activate in production
+
+## 📞 Support
+
+- **Issues**: Report bugs in the project repository
+- **Documentation**: Check `/docs` folder for detailed guides
+- **API Reference**: See Postman collection for endpoint specs
+
+## 📄 License
+
+Proprietary - SkyBot Platform
+
+---
+
+**Last Updated**: January 21, 2026
+**Version**: 1.0.0
+**Active Agents**: 8
+**Status**: ✅ Production Ready

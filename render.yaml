@@ -1,0 +1,44 @@
+services:
+  # SkyBot Inbox API
+  - type: web
+    name: skybot-inbox
+    env: node
+    region: oregon
+    plan: starter
+    buildCommand: npm install && npx prisma generate && npm run build
+    startCommand: npx prisma migrate deploy && npm run start:prod
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: DATABASE_URL
+        fromDatabase:
+          name: skybot-inbox-db
+          property: connectionString
+      - key: API_KEY
+        generateValue: true
+      - key: N8N_WEBHOOK_BASE_URL
+        value: https://vmilliand.app.n8n.cloud/webhook/
+      - key: N8N_MASTER_ROUTER_URL
+        value: https://vmilliand.app.n8n.cloud/webhook/whatsapp-master-webhook
+      - key: N8N_MASTER_ROUTER_SECRET
+        sync: false
+      - key: WHATSAPP_APP_SECRET
+        sync: false
+      - key: WHATSAPP_VERIFY_TOKEN
+        sync: false
+      - key: AIRTABLE_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: COMPANY_EMAIL
+        value: contact@nexxa.com
+      - key: COMPANY_NAME
+        value: Nexxa
+
+databases:
+  - name: skybot-inbox-db
+    databaseName: skybot_inbox
+    plan: starter

@@ -1,0 +1,126 @@
+version: '3.8'
+
+services:
+  # PostgreSQL partagé (SkyBot + n8n)
+  postgres:
+    image: postgres:16-alpine
+    container_name: skybot-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: skybot
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: skybot_inbox
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - skybot-network
+    ports:
+      - "5432:5432"
+
+  # SkyBot Inbox API (NestJS)
+  skybot-inbox:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: skybot-inbox-api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://skybot:${POSTGRES_PASSWORD}@postgres:5432/skybot_inbox?schema=public
+      API_KEY: ${API_KEY}
+      N8N_WEBHOOK_BASE_URL: http://n8n:5678/webhook/
+      N8N_MASTER_ROUTER_URL: http://n8n:5678/webhook/whatsapp-master-webhook
+      N8N_MASTER_ROUTER_SECRET: ${N8N_MASTER_ROUTER_SECRET}
+      PORT: 3001
+      WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET}
+      WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN}
+      AIRTABLE_API_KEY: ${AIRTABLE_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      COMPANY_EMAIL: ${COMPANY_EMAIL}
+      COMPANY_NAME: ${COMPANY_NAME}
+    depends_on:
+      - postgres
+    networks:
+      - skybot-network
+    ports:
+      - "3001:3001"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.skybot-api.rule=Host(`api.nexxa.com`)"
+      - "traefik.http.routers.skybot-api.entrypoints=websecure"
+      - "traefik.http.routers.skybot-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.skybot-api.loadbalancer.server.port=3001"
+
+  # n8n Self-hosted (remplace n8n Cloud)
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: skybot-n8n
+    restart: unless-stopped
+    environment:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: skybot
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
+      N8N_HOST: n8n.nexxa.com
+      N8N_PORT: 5678
+      N8N_PROTOCOL: https
+      WEBHOOK_URL: https://n8n.nexxa.com/
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      EXECUTIONS_DATA_SAVE_ON_SUCCESS: all
+      EXECUTIONS_DATA_SAVE_ON_ERROR: all
+      N8N_METRICS: true
+      GENERIC_TIMEZONE: Europe/Paris
+    depends_on:
+      - postgres
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - skybot-network
+    ports:
+      - "5678:5678"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.n8n.rule=Host(`n8n.nexxa.com`)"
+      - "traefik.http.routers.n8n.entrypoints=websecure"
+      - "traefik.http.routers.n8n.tls.certresolver=letsencrypt"
+      - "traefik.http.services.n8n.loadbalancer.server.port=5678"
+
+  # Traefik (Reverse Proxy + SSL automatique)
+  traefik:
+    image: traefik:v2.10
+    container_name: skybot-traefik
+    restart: unless-stopped
+    command:
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencrypt.acme.email=${LETSENCRYPT_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_letsencrypt:/letsencrypt
+    networks:
+      - skybot-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.nexxa.com`)"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.traefik.service=api@internal"
+
+networks:
+  skybot-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  n8n_data:
+  traefik_letsencrypt:
