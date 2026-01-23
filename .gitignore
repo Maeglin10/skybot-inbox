@@ -21,6 +21,7 @@ src/generated/prisma/
 
 # Allow env example
 !.env.example
+!.env.production.example
 /docs/
 
 # zips

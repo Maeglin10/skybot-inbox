@@ -22,7 +22,28 @@ export class WebhooksService {
 
     if (events.length === 0) return { ok: true, stored: 0 };
 
-    const accountId = await this.getDemoAccountId();
+    // Extract account from webhook or use demo fallback
+    let accountId: string | undefined;
+    try {
+      // Try to get account from webhook metadata
+      const webhookAccountId = body.entry?.[0]?.id;
+      if (webhookAccountId) {
+        // Look up account by name (Account model doesn't have externalId)
+        const account = await this.prisma.account.findFirst({
+          where: { name: webhookAccountId }
+        });
+        if (account) {
+          accountId = account.id;
+        }
+      }
+    } catch (err) {
+      this.logger.warn(`Failed to extract account from webhook: ${err}`);
+    }
+    
+    // Fallback to demo if no account found
+    if (!accountId) {
+      accountId = await this.getDemoAccountId();
+    }
 
     let stored = 0;
 
@@ -30,23 +51,6 @@ export class WebhooksService {
       // Meta phone_number_id (mapping ExternalAccount.externalId) = inboxExternalId
       const externalAccountId = ev.inboxExternalId ?? 'demo-whatsapp';
       const channel = 'WHATSAPP' as const;
-
-      // resolve clientKey via ExternalAccount -> ClientConfig
-      let clientKey = 'demo';
-      try {
-        const cfg = await this.clients.resolveClient({
-          accountId,
-          channel,
-          externalAccountId,
-        });
-        clientKey = cfg.clientKey;
-      } catch (resolveErr) {
-        // Log l'erreur de résolution client - important pour le debug
-        this.logger.warn(
-          `Client resolution failed for externalAccountId=${externalAccountId}, using fallback 'demo': ${resolveErr instanceof Error ? resolveErr.message : String(resolveErr)}`,
-        );
-        clientKey = 'demo';
-      }
 
       const requestId = `wa_${Date.now()}_${Math.random().toString(16).slice(2)}`;
       const startedAt = Date.now();
@@ -56,7 +60,7 @@ export class WebhooksService {
         data: {
           account: { connect: { id: accountId } },
           requestId,
-          clientKey,
+          clientKey: 'demo', // Will be updated after ExternalAccount creation
           agentKey: 'master-router',
           channel,
           externalAccountId,
@@ -67,6 +71,45 @@ export class WebhooksService {
 
       try {
         const txResult = await this.prisma.$transaction(async (tx) => {
+          // 0) external account upsert (MUST be first!)
+          const externalAccount = await tx.externalAccount.upsert({
+            where: {
+              accountId_channel_externalId: {
+                accountId,
+                channel,
+                externalId: externalAccountId,
+              },
+            },
+            update: { isActive: true },
+            create: {
+              accountId,
+              channel,
+              externalId: externalAccountId,
+              clientKey: 'demo',
+              isActive: true,
+            },
+          });
+
+          // 0.5) client config upsert (also missing!)
+          await tx.clientConfig.upsert({
+            where: {
+              accountId_clientKey: {
+                accountId,
+                clientKey: 'demo',
+              },
+            },
+            update: { status: 'ACTIVE' },
+            create: {
+              accountId,
+              clientKey: 'demo',
+              status: 'ACTIVE',
+              name: 'Demo WhatsApp Client',
+              allowedAgents: ['master-router'],
+              channels: ['WHATSAPP'],
+              externalAccounts: { 'phone-number-id': { name: 'Demo WhatsApp' } },
+            },
+          });
+
           // 1) inbox (externalId = phone_number_id)
           const inbox = await tx.inbox.upsert({
             where: {
@@ -112,6 +155,22 @@ export class WebhooksService {
                 lastActivityAt: new Date(),
               },
             });
+          }
+
+          // 4) NOW resolve client AFTER ExternalAccount exists!
+          let clientKey = 'demo';
+          try {
+            const cfg = await this.clients.resolveClient({
+              accountId,
+              channel,
+              externalAccountId,
+            });
+            clientKey = cfg.clientKey;
+          } catch (resolveErr) {
+            this.logger.warn(
+              `Client resolution failed for externalAccountId=${externalAccountId}, using fallback 'demo': ${resolveErr instanceof Error ? resolveErr.message : String(resolveErr)}`,
+            );
+            clientKey = 'demo';
           }
 
           // 4) message create idempotent (dedupe sur providerMessageId)
@@ -210,7 +269,7 @@ export class WebhooksService {
       }
     }
 
-    return { ok: true, stored };
+    return { ok: stored > 0, stored, errors: [] };
   }
 
   private async getDemoAccountId() {

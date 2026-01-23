@@ -318,6 +318,99 @@ Le backend démarre sur `http://localhost:3000`.
 
 ### 3. Setup Frontend
 
+## 🎯 Overview
+
+SkyBot is a multi-tenant AI agent platform built on n8n that provides intelligent automation for sales, customer service, and analytics operations via WhatsApp and other channels.
+
+## 🏗️ Architecture
+
+```
+┌─────────────────┐
+│  Master Router  │ ← Entry point (webhook)
+└────────┬────────┘
+         │
+         ├──→ Orders Agent     (Sales processing)
+         ├──→ CRM Agent        (Lead management)
+         ├──→ Setter Agent     (Lead qualification)
+         ├──→ Closer Agent     (Deal closing)
+         ├──→ Analytics Agent  (KPI reports)
+         └──→ Error Handler    (Global logging)
+```
+
+### Multi-Tenant Isolation
+- Every request includes `clientKey` or `client_id`
+- Airtable queries filter by client
+- Prevents data leakage between tenants
+
+### Authentication
+- All webhooks use `x-master-secret` header authentication
+- Credentials ID: `YtknbW2TJvEOZvHi` (Master Router Secret)
+
+## 📦 Active Agents
+
+### 1. **Master Router** (`core/master-router.json`)
+- **Webhook**: `https://vmilliand.app.n8n.cloud/webhook/router`
+- **Purpose**: Routes requests to specialized agents based on intent
+- **Auth**: Required
+
+### 2. **Orders Agent** (`sales/orders.json`)
+- **Webhook**: `https://vmilliand.app.n8n.cloud/webhook/orders`
+- **Purpose**: Processes customer orders, validates product availability, calculates totals
+- **DB Tables**: `orders`, `products`, `leads`
+
+### 3. **CRM Agent** (`service/crm.json`)
+- **Webhook**: `https://vmilliand.app.n8n.cloud/webhook/crm`
+- **Purpose**: Manages lead lifecycle, updates lead categories (hot/warm/cold)
+- **DB Tables**: `leads`
+
+### 4. **Setter Agent** (`sales/setter.json`)
+- **Purpose**: Lead qualification and initial engagement
+- **DB Tables**: `leads`, `conversations`
+
+### 5. **Closer Agent** (`sales/closer.json`)
+- **Purpose**: Deal closing and order confirmation
+- **DB Tables**: `leads`, `orders`
+
+### 6. **Analytics Agent** (`analytics/analytics.json`)
+- **Webhook**: `https://vmilliand.app.n8n.cloud/webhook/analytics`
+- **Purpose**: Generates KPI reports (conversion rate, revenue, lead quality)
+- **DB Tables**: `AgentLogs`, `leads`, `orders`, `analytics_reports`
+- **Features**:
+  - Period analysis (today/week/month/custom)
+  - Trend comparison with historical data
+  - Alert generation for critical metrics
+  - OpenAI executive summary
+
+### 7. **Error Handler** (`core/global-error-handler.json`)
+- **Webhook**: `https://vmilliand.app.n8n.cloud/webhook/error-handler`
+- **Purpose**: Centralized error logging for all agents
+- **DB Tables**: `ErrorLogs`
+
+### 8. **Aftersale Agent** (`service/aftersale.json`)
+- **Purpose**: Post-purchase customer support and follow-up
+- **DB Tables**: `orders`, `leads`
+
+## 🗄️ Airtable Schema
+
+**Base ID**: `app4AupCG2KBpN3Vd` (Nexxa)
+
+### Core Tables
+- **AgentLogs** (`tbl3fFZdOt59T7yjv`) - Agent execution logs
+- **leads** (`tblCAI5p5tr4m46q7`) - Lead management
+- **orders** (`tblUk2O8GpEPHnpb5`) - Order tracking
+- **products** - Product catalog
+- **analytics_reports** (`tblrA1AOkOwCS49TU`) - Historical analytics
+- **ErrorLogs** - Error tracking
+- **Notifications** (`tblKoq9Iru9ohqXjE`) - Alert notifications
+
+### Multi-Tenant Fields
+- `clientKey` - Client identifier (AgentLogs)
+- `client_id` - Client identifier (leads, orders)
+- `related_client_id` - Client identifier (analytics_reports)
+
+## 🚀 Setup
+
+### 1. Import Workflows to n8n
 ```bash
 cd skybot-inbox-ui
 
@@ -602,7 +695,7 @@ const conversations = await prisma.conversation.findMany({
 - **IMPORT_GUIDE.md** : Import des agents dans n8n
 - **CLIENT_INTEGRATION_GUIDE.md** : Guide d'intégration client
 
-## License
+---
 
 Propriétaire - SkyCode Agency
 
