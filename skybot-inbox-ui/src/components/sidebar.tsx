@@ -9,7 +9,9 @@ import {
   Users, 
   BarChart3, 
   Settings, 
-  LayoutDashboard 
+  LayoutDashboard,
+  Calendar,
+  User
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -17,7 +19,9 @@ const NAV_ITEMS = [
   { href: '/inbox', label: 'Inbox', icon: Inbox },
   { href: '/alerts', label: 'Alerts', icon: Bell },
   { href: '/crm', label: 'CRM', icon: Users },         // Was Leads
+  { href: '/calendar', label: 'Calendar', icon: Calendar },
   { href: '/analytics', label: 'Analytics', icon: BarChart3 },
+  { href: '/account/login', label: 'Account', icon: User },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 

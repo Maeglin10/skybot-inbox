@@ -1,117 +1,104 @@
-import { mockDelay, type MockListResponse } from '../api.mock';
-import type { Lead, Feedback, LeadStatus, Temperature } from '../types/crm';
+import type { Lead, Feedback, LeadStatus } from '../types/crm';
+import { apiGetClient, apiPostClient, apiPatchClient } from '../api.client';
 
-const MOCK_LEADS: Lead[] = [
-  {
-    id: 'lead-1',
-    name: 'Sarah Connor',
-    company: 'SkyNet Corp',
-    email: 'sarah@skynet.com',
-    phone: '+1 555 000 1111',
-    status: 'NEW',
-    temperature: 'HOT',
-    channel: 'WHATSAPP',
-    lastInteractionAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-    tags: ['urgent', 'enterprise']
-  },
-  {
-    id: 'lead-2',
-    name: 'John Doe',
-    company: 'Acme Inc.',
-    status: 'CONTACTED',
-    temperature: 'WARM',
-    channel: 'EMAIL',
-    lastInteractionAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
-    tags: ['referral']
-  },
-  {
-    id: 'lead-3',
-    name: 'Jane Smith',
-    company: 'Tech Solutions',
-    status: 'QUALIFIED',
-    temperature: 'HOT',
-    channel: 'INSTAGRAM',
-    lastInteractionAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString(),
-    tags: []
-  },
-  {
-    id: 'lead-4',
-    name: 'Mike Myers',
-    status: 'LOST',
-    temperature: 'COLD',
-    channel: 'OTHER',
-    lastInteractionAt: new Date(Date.now() - 1000 * 60 * 60 * 120).toISOString(),
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 200).toISOString(),
-    tags: ['price-too-high']
-  },
-  {
-    id: 'lead-5',
-    name: 'Ellen Ripley',
-    company: 'Weyland-Yutani',
-    status: 'WON',
-    temperature: 'HOT',
-    channel: 'EMAIL',
-    lastInteractionAt: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(),
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 150).toISOString(),
-    tags: ['vip']
-  }
-];
+type ListResponse<T> = {
+  items: T[];
+  total: number;
+};
 
-const MOCK_FEEDBACKS: Feedback[] = [
-  {
-    id: 'fb-1',
-    customerName: 'Sarah Connor',
-    rating: 5,
-    snippet: 'Great service, very fast response time.',
-    fullText: 'I really appreciated how quickly the bot forwarded me to a human agent when I asked. The transition was seamless.',
-    channel: 'WHATSAPP',
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
-    linkedLeadId: 'lead-1'
-  },
-  {
-    id: 'fb-2',
-    customerName: 'John Doe',
-    rating: 3,
-    snippet: 'Bot was a bit repetitive.',
-    fullText: 'The AI kept asking me for my order number even though I had already provided it in the previous message.',
-    channel: 'EMAIL',
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-    linkedLeadId: 'lead-2'
-  },
-  {
-    id: 'fb-3',
-    customerName: 'Anonymous User',
-    rating: 4,
-    snippet: 'Overall good experience.',
-    fullText: 'Easy to use, handled my return request efficiently.',
-    channel: 'INSTAGRAM',
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString()
-  }
-];
+// Get clientKey from environment or use a default for development
+const getClientKey = () => {
+  return typeof window !== 'undefined'
+    ? localStorage.getItem('clientKey') || 'demo-client'
+    : 'demo-client';
+};
 
-export async function fetchLeads(status?: LeadStatus | 'ALL'): Promise<MockListResponse<Lead>> {
-  await mockDelay(500);
-  let items = [...MOCK_LEADS];
-  if (status && status !== 'ALL') {
-    items = items.filter(l => l.status === status);
+async function apiFetch(path: string, init: RequestInit = {}) {
+  const headers = {
+    ...init.headers,
+    'x-client-key': getClientKey(),
+  };
+
+  const normalized = path.startsWith('/') ? path : `/${path}`;
+  const url = `/api/proxy${normalized}`;
+
+  const res = await fetch(url, {
+    ...init,
+    headers,
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '');
+    throw new Error(`HTTP ${res.status} ${res.statusText} ${txt}`);
   }
-  return { items, total: items.length };
+
+  return res.json();
+}
+
+export async function fetchLeads(status?: LeadStatus | 'ALL'): Promise<ListResponse<Lead>> {
+  const query = status && status !== 'ALL' ? `?status=${status}` : '';
+  return apiFetch(`/crm/leads${query}`);
 }
 
 export async function fetchLead(id: string): Promise<Lead | null> {
-  await mockDelay(300);
-  return MOCK_LEADS.find(l => l.id === id) || null;
+  try {
+    return await apiFetch(`/crm/leads/${id}`);
+  } catch (error) {
+    console.error('Failed to fetch lead:', error);
+    return null;
+  }
 }
 
-export async function fetchFeedbacks(): Promise<MockListResponse<Feedback>> {
-  await mockDelay(500);
-  return { items: [...MOCK_FEEDBACKS], total: MOCK_FEEDBACKS.length };
+export async function fetchFeedbacks(): Promise<ListResponse<Feedback>> {
+  return apiFetch('/crm/feedbacks');
 }
 
 export async function fetchFeedback(id: string): Promise<Feedback | null> {
-  await mockDelay(300);
-  return MOCK_FEEDBACKS.find(f => f.id === id) || null;
+  try {
+    return await apiFetch(`/crm/feedbacks/${id}`);
+  } catch (error) {
+    console.error('Failed to fetch feedback:', error);
+    return null;
+  }
+}
+
+export async function createLead(data: Partial<Lead>): Promise<Lead> {
+  return apiFetch('/crm/leads', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateLead(id: string, data: Partial<Lead>): Promise<Lead> {
+  return apiFetch(`/crm/leads/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteLead(id: string): Promise<void> {
+  await apiFetch(`/crm/leads/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function createFeedback(data: Partial<Feedback>): Promise<Feedback> {
+  return apiFetch('/crm/feedbacks', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateFeedback(id: string, data: Partial<Feedback>): Promise<Feedback> {
+  return apiFetch(`/crm/feedbacks/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteFeedback(id: string): Promise<void> {
+  await apiFetch(`/crm/feedbacks/${id}`, {
+    method: 'DELETE',
+  });
 }

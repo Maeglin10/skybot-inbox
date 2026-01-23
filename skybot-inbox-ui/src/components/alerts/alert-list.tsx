@@ -3,7 +3,6 @@
 import * as React from 'react';
 import type { AlertItem } from '@/lib/adapters/alertsAdapter';
 import { Badge, BellRing, CircleDollarSign, MessageCircleWarning, Filter } from 'lucide-react';
-import { getMockAlerts } from '@/lib/adapters/alertsAdapter'; // assuming mock getter exists or just passed props
 import { EmptyState } from '@/components/ui/empty-state';
 
 function fmtDate(ts: string) {
