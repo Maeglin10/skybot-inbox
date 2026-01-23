@@ -1,6 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+
+// Helper to check for Prisma unique constraint violation
+function isPrismaUniqueConstraintError(e: unknown): boolean {
+  return (
+    typeof e === 'object' &&
+    e !== null &&
+    'code' in e &&
+    (e as { code: string }).code === 'P2002'
+  );
+}
 import { ClientsService } from '../clients/clients.service';
 import { AgentsService } from '../agents/agents.service';
 import type { WhatsAppCloudWebhook } from './dto/whatsapp-cloud.dto';
@@ -158,11 +167,7 @@ export class WebhooksService {
               },
             };
           } catch (e: unknown) {
-            if (
-              e instanceof Prisma.PrismaClientKnownRequestError &&
-              e.code === 'P2002' &&
-              externalId
-            ) {
+            if (isPrismaUniqueConstraintError(e) && externalId) {
               this.logger.debug(`dedupe externalId=${externalId}`);
               return { stored: false, triggerData: null };
             }
