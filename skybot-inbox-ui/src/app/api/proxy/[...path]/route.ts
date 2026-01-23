@@ -16,6 +16,10 @@ async function forward(
   const ct = req.headers.get("content-type");
   if (ct) headers["content-type"] = ct;
 
+  // Forward x-client-key header for multi-tenant support
+  const clientKey = req.headers.get("x-client-key");
+  if (clientKey) headers["x-client-key"] = clientKey;
+
   const init: RequestInit = { method: req.method, headers, cache: "no-store" };
   if (req.method !== "GET" && req.method !== "HEAD") {
     init.body = await req.text();

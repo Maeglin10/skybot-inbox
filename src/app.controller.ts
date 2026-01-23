@@ -1,4 +1,5 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { PrismaService } from './prisma/prisma.service';
 import { ApiKeyGuard } from './auth/api-key.guard';
 
@@ -7,9 +8,9 @@ import { ApiKeyGuard } from './auth/api-key.guard';
 export class AppController {
   constructor(private readonly prisma: PrismaService) {}
 
+  @SkipThrottle()
   @Get('health')
-  async health() {
-    await this.prisma.$queryRaw`SELECT 1`;
-    return { ok: true };
+  health() {
+    return { status: 'ok', timestamp: new Date().toISOString() };
   }
 }

@@ -13,6 +13,11 @@ import { WebhooksModule } from './webhooks/webhooks.module';
 import { DebugModule } from './debug/debug.module';
 import { AuthModule } from './auth/auth.module';
 import { AgentsModule } from './agents/agents.module';
+import { AirtableModule } from './airtable/airtable.module';
+import { CrmModule } from './crm/crm.module';
+import { AnalyticsModule } from './analytics/analytics.module';
+import { AlertsModule } from './alerts/alerts.module';
+import { SettingsModule } from './settings/settings.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -26,6 +31,11 @@ import { AppController } from './app.controller';
     PrismaModule,
     AgentsModule,
     AuthModule,
+    AirtableModule,
+    CrmModule,
+    AnalyticsModule,
+    AlertsModule,
+    SettingsModule,
     AccountsModule,
     InboxesModule,
     ContactsModule,
