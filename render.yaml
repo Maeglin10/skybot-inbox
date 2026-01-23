@@ -7,7 +7,7 @@ services:
     plan: free
     buildCommand: npm install --include=dev && npx prisma generate && npm run build
     startCommand: npx prisma migrate deploy && node dist/src/main
-    healthCheckPath: /health
+    # healthCheckPath: /health  # Temporarily disabled
     envVars:
       - key: NODE_ENV
         value: production
@@ -28,6 +28,8 @@ services:
       - key: WHATSAPP_VERIFY_TOKEN
         sync: false
       - key: AIRTABLE_API_KEY
+        sync: false
+      - key: AIRTABLE_BASE_ID
         sync: false
       - key: OPENAI_API_KEY
         sync: false
