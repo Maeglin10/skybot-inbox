@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import type { AlertItem } from '@/lib/adapters/alertsAdapter';
-import { Badge, BellRing, CircleDollarSign, MessageCircleWarning, Filter } from 'lucide-react';
+import { Badge, Bell, CreditCard, Bot, Filter } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 
 function fmtDate(ts: string) {
@@ -17,9 +17,9 @@ function fmtDate(ts: string) {
 }
 
 function AlertIcon({ type }: { type: string }) {
-  if (type === 'PAYMENT') return <CircleDollarSign size={16} className="text-red-400" />;
-  if (type === 'HANDOFF') return <MessageCircleWarning size={16} className="text-amber-400" />;
-  return <BellRing size={16} />;
+  if (type === 'PAYMENT') return <CreditCard size={16} className="text-red-400" />;
+  if (type === 'HANDOFF') return <Bot size={16} className="text-amber-400" />;
+  return <Bell size={16} />;
 }
 
 export function AlertList({

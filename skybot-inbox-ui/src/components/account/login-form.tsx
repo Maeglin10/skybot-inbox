@@ -160,7 +160,8 @@ export default function LoginForm() {
       <Button
         variant="outline"
         type="button"
-        className="w-full border-muted-foreground/20 text-muted-foreground hover:text-foreground hover:border-muted-foreground/50"
+        className="w-full bg-transparent hover:bg-muted/10"
+        style={{ borderColor: '#939AA1', color: '#939AA1' }}
         disabled={isSubmitting}
       >
         Google

@@ -58,7 +58,7 @@ export default function CalendarWeekView({
                 GMT+1
             </div>
             {days.map((day, i) => (
-                <div key={i} className={`p-2 text-center border-r border-border/50 last:border-r-0 ${isToday(day) ? 'bg-primary/5' : ''}`}>
+                <div key={i} className={`p-2 text-center border-r border-border/50 last:border-r-0 ${isToday(day) ? 'bg-[#521E49]/30' : ''}`}>
                     <div className="text-xs uppercase text-muted-foreground font-semibold">
                         {day.toLocaleDateString('en-US', { weekday: 'short' })}
                     </div>
@@ -133,13 +133,10 @@ export default function CalendarWeekView({
                                              onEventClick(event);
                                          }}
                                          className={`
-                                             absolute left-1 right-1 rounded px-2 py-1 text-xs border cursor-pointer hover:brightness-95 transition-all shadow-sm z-10
-                                             ${event.type === 'meeting' ? 'bg-blue-500/10 border-blue-500/20 text-blue-700 dark:text-blue-300' : ''}
-                                             ${event.type === 'task' ? 'bg-green-500/10 border-green-500/20 text-green-700 dark:text-green-300' : ''}
-                                             ${event.type === 'call' ? 'bg-orange-500/10 border-orange-500/20 text-orange-700 dark:text-orange-300' : ''}
-                                             ${event.type === 'reminder' ? 'bg-purple-500/10 border-purple-500/20 text-purple-700 dark:text-purple-300' : ''}
+                                             absolute left-1 right-1 rounded-r px-2 py-1 text-xs border-l-[3px] cursor-pointer hover:brightness-95 transition-all shadow-sm z-10
+                                             bg-[#521E49]/20 text-white
                                          `}
-                                         style={{ top: `${top}px`, height: `${Math.max(height, 24)}px` }}
+                                         style={{ top: `${top}px`, height: `${Math.max(height, 24)}px`, borderLeftColor: '#9E398D' }}
                                      >
                                          <div className="font-semibold truncate leading-none mb-1">
                                              {event.title}

@@ -29,20 +29,23 @@ function TempBadge({ temp }: { temp: string }) {
 }
 
 function StatusBadge({ status }: { status: string }) {
-    // "Lost" / "Contacted" → #939AA1 (Gray)
-    // "Won" / "Qualified" → #9E398D (Violet) → Primary
-    
-    let styles = "bg-muted/30 text-muted-foreground"; // Default gray
-    
     const s = status.toUpperCase();
-    if (s === 'WON' || s === 'QUALIFIED') {
-        styles = "bg-primary/20 text-primary border border-primary/30";
-    } else if (s === 'NEW' || s === 'OPEN') {
-        styles = "bg-blue-500/10 text-blue-400";
+    if (['WON', 'QUALIFIED'].includes(s)) {
+        return (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white" style={{ backgroundColor: '#9E398D' }}>
+                {status}
+            </span>
+        );
     }
-
+    if (['LOST', 'CONTACTED'].includes(s)) {
+        return (
+             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-transparent border text-[#939AA1]" style={{ borderColor: '#939AA1' }}>
+                {status}
+            </span>
+        );
+    }
     return (
-        <span className={`inline-flex items-center px-2 py-0.5 rounded textxs font-medium ${styles}`}>
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted/30 text-muted-foreground">
             {status}
         </span>
     );
@@ -113,7 +116,7 @@ export function LeadsTable({
               <th className="p-4 font-medium">Status</th>
               <th className="p-4 font-medium">Temperature</th>
               <th className="p-4 font-medium">Channel</th>
-              <th className="p-4 font-medium text-right">Last Interaction</th>
+              <th className="p-4 font-medium text-left">Last Interaction</th>
               <th className="p-4 font-medium">Tags</th>
             </tr>
           </thead>
@@ -132,7 +135,7 @@ export function LeadsTable({
             {filtered.map((lead) => (
               <tr 
                 key={lead.id} 
-                className="group border-b border-white/5 hover:bg-muted/20 cursor-pointer transition-colors last:border-0"
+                className="group border-b border-white/10 hover:bg-muted/20 cursor-pointer transition-colors last:border-0"
                 onClick={() => onSelect(lead.id)}
               >
                 <td className="p-4">
@@ -151,7 +154,7 @@ export function LeadsTable({
                      {lead.channel}
                    </div>
                 </td>
-                <td className="p-4 text-xs text-muted-foreground text-right font-mono">
+                <td className="p-4 text-xs text-muted-foreground text-left font-mono">
                    {new Date(lead.lastInteraction).toLocaleDateString()}
                 </td>
                 <td className="p-4">

@@ -52,7 +52,8 @@ export function AlertDetail({
                <Button
                  size="sm"
                  onClick={() => onResolve(alert.id)}
-                 className="h-9 bg-primary hover:bg-primary/90 text-primary-foreground border-none"
+                 className="h-9 text-white border-none"
+                 style={{ backgroundColor: '#9E398D' }}
                >
                  <CheckCircle2 size={14} className="mr-2" />
                  Resolve
@@ -83,7 +84,7 @@ export function AlertDetail({
         
         {/* Payment Details */}
         {alert.type === 'PAYMENT' && (
-          <section className="rounded-lg border border-border p-4 bg-transparent">
+          <section className="rounded-lg border p-4 bg-transparent" style={{ borderColor: '#521E49' }}>
             <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border/50">
                <CreditCard size={16} className="text-primary" /> 
                <span className="font-semibold text-sm">Transaction Details</span>
@@ -108,7 +109,7 @@ export function AlertDetail({
                </div>
                
                <div className="col-span-2 pt-2">
-                 <Button className="w-full h-9 bg-muted hover:bg-muted/80 text-foreground border border-border">
+                 <Button className="w-full h-9 hover:opacity-90 border" style={{ backgroundColor: '#521E49', borderColor: '#521E49', color: '#fff' }}>
                     Retry Charge
                  </Button>
                </div>
@@ -117,7 +118,7 @@ export function AlertDetail({
         )}
 
         {/* Conversation Context */}
-        <section className="rounded-lg border border-border p-4 bg-transparent">
+        <section className="rounded-lg border p-4 bg-transparent" style={{ borderColor: '#521E49' }}>
            <div className="flex items-center justify-between mb-4 pb-3 border-b border-border/50">
                <div className="flex items-center gap-2">
                    <MessageSquare size={16} className="text-primary" /> 

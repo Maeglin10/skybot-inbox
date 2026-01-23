@@ -215,7 +215,7 @@
 .ui-bubble {
   max-width: 72%;
   border: 1px solid color-mix(in oklab, hsl(var(--border)) 35%, transparent);
-  border-radius: 1.25rem;
+  border-radius: 1rem;
   padding: 0.95rem 1.05rem;
   background: #939aa1; /* IN */
   color: #ffffff; /* texte IN blanc */
@@ -239,8 +239,8 @@
   display: flex;
   justify-content: flex-end;
   font-size: 0.7rem;
-  color: #ffffff; /* heure IN/OUT blanc */
-  opacity: 0.9;
+  color: #939aa1;
+  opacity: 1;
 }
 
 .ui-pill.is-open {
@@ -292,22 +292,27 @@
 
 .ui-input {
   flex: 1;
-  height: 2.75rem;
-  border-radius: 0.85rem;
-  border: 1px solid color-mix(in oklab, hsl(var(--border)) 35%, transparent);
-  background: #939aa1; /* comme bulles IN */
+  height: 2.25rem;
+  border-radius: 0.65rem;
+  border: 1px solid #521e49;
+  background: #000000; /* Dark background */
   padding: 0 0.9rem;
   color: #ffffff; /* texte tapé blanc */
+  transition: border-color 0.2s;
+}
+.ui-input:focus {
+  border-color: #9e398d;
+  outline: none;
 }
 
 /* placeholder blanc */
 .ui-input::placeholder {
-  color: #ffffff;
-  opacity: 0.9;
+  color: #939aa1;
+  opacity: 1;
 }
 
 .ui-btn {
-  height: 2.75rem;
+  height: 2.25rem;
   padding: 0 1rem;
   border-radius: 0.85rem;
   border: 1px solid color-mix(in oklab, hsl(var(--border)) 35%, transparent);
@@ -320,8 +325,8 @@
 }
 
 .ui-btn--primary {
-  background-color: #521e49 !important;
-  border-color: #521e49 !important;
+  background-color: #9e398d !important;
+  border-color: #9e398d !important;
   color: #fff !important;
   opacity: 1 !important;
   background-image: none !important;
@@ -329,6 +334,17 @@
 }
 
 .ui-btn--primary:hover {
+  background-color: #8c327d !important;
+  border-color: #8c327d !important;
+}
+
+.ui-btn--secondary {
+  background-color: #521e49 !important;
+  border-color: #521e49 !important;
+  color: #fff !important;
+}
+
+.ui-btn--secondary:hover {
   background-color: #3f1638 !important;
   border-color: #3f1638 !important;
 }
@@ -369,10 +385,10 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 0.75rem;
+  padding: 0.25rem;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.25rem;
 }
 
 .ui-convCard {
@@ -390,7 +406,7 @@
 .ui-convBtn {
   width: 100%;
   text-align: left;
-  padding: 0.9rem 0.9rem 0.75rem;
+  padding: 0.6rem 0.6rem 0.5rem;
   background: transparent;
   border: 0;
   color: hsl(var(--foreground));

@@ -78,8 +78,9 @@ export default function CalendarMonthView({ currentDate, events }: CalendarMonth
                 <div 
                     key={idx} 
                     className={`
-                        min-h-[100px] border-b border-r border-border p-2 flex flex-col gap-1 transition-colors
+                        min-h-[100px] border-b border-r border-white/5 p-2 flex flex-col gap-1 transition-colors
                         ${!dayItem.isCurrentMonth ? 'bg-muted/10 text-muted-foreground' : ''}
+                        ${isCurrentDay ? 'bg-[#521E49]/30' : ''}
                         ${(idx + 1) % 7 === 0 ? 'border-r-0' : ''} /* Remove right border for last col */
                         hover:bg-muted/20
                     `}
@@ -98,12 +99,10 @@ export default function CalendarMonthView({ currentDate, events }: CalendarMonth
                             <div 
                                 key={event.id}
                                 className={`
-                                    text-xs truncate px-1.5 py-0.5 rounded border
-                                    ${event.type === 'meeting' ? 'bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400' : ''}
-                                    ${event.type === 'task' ? 'bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400' : ''}
-                                    ${event.type === 'call' ? 'bg-orange-500/10 border-orange-500/20 text-orange-600 dark:text-orange-400' : ''}
-                                    ${event.type === 'reminder' ? 'bg-purple-500/10 border-purple-500/20 text-purple-600 dark:text-purple-400' : ''}
+                                    text-xs truncate px-1.5 py-0.5 rounded-r border-l-[3px]
+                                    bg-[#521E49]/20 text-white
                                 `}
+                                style={{ borderLeftColor: '#9E398D' }}
                             >
                                 {event.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {event.title}
                             </div>
