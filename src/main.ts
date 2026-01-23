@@ -8,7 +8,19 @@ import type { Request } from 'express';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableCors({
-    origin: ['http://localhost:3000'],
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like health checks, curl, Postman)
+      if (!origin) return callback(null, true);
+
+      // Allow localhost for development
+      if (origin.includes('localhost')) return callback(null, true);
+
+      // Allow Render internal health checks
+      if (origin.includes('onrender.com')) return callback(null, true);
+
+      // Reject others
+      callback(new Error('Not allowed by CORS'));
+    },
     credentials: false,
     allowedHeaders: ['Content-Type', 'x-api-key'],
     methods: ['GET', 'POST', 'PATCH', 'OPTIONS'],
