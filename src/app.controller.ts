@@ -6,8 +6,7 @@ export class AppController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Get('health')
-  async health() {
-    await this.prisma.$queryRaw`SELECT 1`;
-    return { ok: true };
+  health() {
+    return { status: 'ok', timestamp: new Date().toISOString() };
   }
 }
