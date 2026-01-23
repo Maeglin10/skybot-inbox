@@ -62,13 +62,24 @@ export class AirtableService implements OnModuleInit {
 
     const records: Array<{ id: string; fields: T }> = [];
 
+    // Build select options, only including defined values
+    // Airtable SDK requires these to be numbers, not undefined
+    const selectOptions: Record<string, unknown> = {
+      filterByFormula: combinedFilter,
+    };
+
+    if (options?.sort) {
+      selectOptions.sort = options.sort;
+    }
+    if (typeof options?.maxRecords === 'number') {
+      selectOptions.maxRecords = options.maxRecords;
+    }
+    if (typeof options?.pageSize === 'number') {
+      selectOptions.pageSize = options.pageSize;
+    }
+
     await table
-      .select({
-        filterByFormula: combinedFilter,
-        sort: options?.sort,
-        maxRecords: options?.maxRecords,
-        pageSize: options?.pageSize,
-      })
+      .select(selectOptions)
       .eachPage((pageRecords, fetchNextPage) => {
         pageRecords.forEach((record) => {
           records.push({
