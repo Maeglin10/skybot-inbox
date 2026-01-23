@@ -3,12 +3,22 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { 
+  Inbox, 
+  Bell, 
+  Users, 
+  BarChart3, 
+  Settings, 
+  LayoutDashboard 
+} from 'lucide-react';
 
 const NAV_ITEMS = [
-  { href: '/inbox', label: 'Inbox' },
-  { href: '/alertes', label: 'Alertes' },
-  { href: '/leads', label: 'Leads' },
-  { href: '/settings', label: 'Settings' },
+  // { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }, // Future?
+  { href: '/inbox', label: 'Inbox', icon: Inbox },
+  { href: '/alerts', label: 'Alerts', icon: Bell },
+  { href: '/crm', label: 'CRM', icon: Users },         // Was Leads
+  { href: '/analytics', label: 'Analytics', icon: BarChart3 },
+  { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
 function isActive(pathname: string, href: string) {
@@ -36,13 +46,15 @@ export function Sidebar() {
       <nav className="ui-sidebar__nav">
         {NAV_ITEMS.map((it) => {
           const active = isActive(pathname, it.href);
+          const Icon = it.icon;
           return (
             <Link
               key={it.href}
               href={it.href}
-              className={`ui-sidebar__link ${active ? 'is-active' : ''}`}
+              className={`ui-sidebar__link flex items-center gap-3 ${active ? 'is-active' : ''}`}
             >
-              {it.label}
+              <Icon size={18} strokeWidth={2} className={active ? 'text-foreground' : 'text-muted-foreground'} />
+              <span>{it.label}</span>
             </Link>
           );
         })}
