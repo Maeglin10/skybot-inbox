@@ -1,67 +1,78 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { AirtableService } from '../airtable/airtable.service';
+import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateAlertDto,
   AlertStatus,
   AlertType,
+  AlertPriority,
 } from './dto/create-alert.dto';
 import { UpdateAlertDto } from './dto/update-alert.dto';
 import { AssignAlertDto } from './dto/assign-alert.dto';
+import {
+  AlertType as PrismaAlertType,
+  AlertStatus as PrismaAlertStatus,
+  AlertPriority as PrismaAlertPriority,
+  Channel as PrismaChannel,
+} from '@prisma/client';
 
-const ALERTS_TABLE = 'Notifications'; // Using existing Notifications table
-
-interface AlertRecord {
-  message: string; // Maps to "title" in frontend
-  type: string;
-  priority: string;
-  leadName?: string; // Maps to "customerName" in frontend
-  leadEmail?: string; // Maps to "customerEmail" in frontend
-  timestamp?: string; // Maps to "createdAt" in frontend
-  read?: boolean; // Maps to "status" (false=OPEN, true=RESOLVED)
+export interface AlertItem {
+  id: string;
+  type: AlertType;
+  title: string;
+  subtitle?: string;
+  status: AlertStatus;
+  priority: AlertPriority;
+  amount?: number;
+  currency?: string;
+  customerName?: string;
+  channel?: string;
+  conversationId?: string;
+  assignee?: string;
+  resolvedAt?: string;
+  resolvedBy?: string;
+  createdAt: string;
+  updatedAt?: string;
 }
 
 @Injectable()
 export class AlertsService {
   private readonly logger = new Logger(AlertsService.name);
 
-  constructor(private readonly airtable: AirtableService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(clientKey: string, status?: AlertStatus, type?: AlertType) {
+  private async getAccountId(clientKey: string): Promise<string> {
+    const config = await this.prisma.clientConfig.findFirst({
+      where: { clientKey },
+      select: { accountId: true },
+    });
+
+    if (!config) {
+      throw new NotFoundException(`Client config not found for key: ${clientKey}`);
+    }
+
+    return config.accountId;
+  }
+
+  async findAll(
+    clientKey: string,
+    status?: AlertStatus,
+    type?: AlertType,
+  ): Promise<{ items: AlertItem[]; total: number }> {
     try {
-      let filterFormula = '';
+      const accountId = await this.getAccountId(clientKey);
 
-      // Map status to read field: OPEN -> read=false, RESOLVED -> read=true
-      if (status && type) {
-        const readValue = status === AlertStatus.RESOLVED ? 'TRUE()' : 'FALSE()';
-        filterFormula = `AND({read} = ${readValue}, {type} = '${type}')`;
-      } else if (status) {
-        const readValue = status === AlertStatus.RESOLVED ? 'TRUE()' : 'FALSE()';
-        filterFormula = `{read} = ${readValue}`;
-      } else if (type) {
-        filterFormula = `{type} = '${type}'`;
-      }
+      const where: any = { accountId };
+      if (status) where.status = status as PrismaAlertStatus;
+      if (type) where.type = type as PrismaAlertType;
 
-      const records = await this.airtable.query<AlertRecord>(
-        ALERTS_TABLE,
-        clientKey,
-        filterFormula || undefined,
-        {
-          sort: [{ field: 'timestamp', direction: 'desc' }],
-        },
-      );
+      const alerts = await this.prisma.alert.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+      });
 
       return {
-        items: records.map((r) => ({
-          id: r.id,
-          title: r.fields.message,
-          type: r.fields.type,
-          priority: r.fields.priority,
-          customerName: r.fields.leadName,
-          customerEmail: r.fields.leadEmail,
-          createdAt: r.fields.timestamp,
-          status: r.fields.read ? AlertStatus.RESOLVED : AlertStatus.OPEN,
-        })),
-        total: records.length,
+        items: alerts.map((a) => this.mapToAlertItem(a)),
+        total: alerts.length,
       };
     } catch (error) {
       this.logger.error('Failed to fetch alerts:', error);
@@ -69,107 +80,106 @@ export class AlertsService {
     }
   }
 
-  async findOne(clientKey: string, id: string) {
+  async findOne(clientKey: string, id: string): Promise<AlertItem> {
     try {
-      const records = await this.airtable.query<AlertRecord>(
-        ALERTS_TABLE,
-        clientKey,
-        `RECORD_ID() = '${id}'`,
-      );
+      const accountId = await this.getAccountId(clientKey);
 
-      if (records.length === 0) {
+      const alert = await this.prisma.alert.findFirst({
+        where: { id, accountId },
+      });
+
+      if (!alert) {
         throw new NotFoundException(`Alert with ID ${id} not found`);
       }
 
-      const r = records[0];
-      return {
-        id: r.id,
-        title: r.fields.message,
-        type: r.fields.type,
-        priority: r.fields.priority,
-        customerName: r.fields.leadName,
-        customerEmail: r.fields.leadEmail,
-        createdAt: r.fields.timestamp,
-        status: r.fields.read ? AlertStatus.RESOLVED : AlertStatus.OPEN,
-      };
+      return this.mapToAlertItem(alert);
     } catch (error) {
       this.logger.error(`Failed to fetch alert ${id}:`, error);
       throw error;
     }
   }
 
-  async create(clientKey: string, dto: CreateAlertDto) {
+  async create(clientKey: string, dto: CreateAlertDto): Promise<AlertItem> {
     try {
-      const record = await this.airtable.create<AlertRecord>(ALERTS_TABLE, {
-        message: dto.title,
-        type: dto.type,
-        priority: dto.priority,
-        leadName: dto.customerName,
-        // leadEmail field not in DTO
-        timestamp: new Date().toISOString(),
-        read: dto.status === AlertStatus.RESOLVED,
+      const accountId = await this.getAccountId(clientKey);
+
+      const alert = await this.prisma.alert.create({
+        data: {
+          accountId,
+          type: dto.type as PrismaAlertType,
+          title: dto.title,
+          subtitle: dto.subtitle,
+          status: dto.status as PrismaAlertStatus,
+          priority: dto.priority as PrismaAlertPriority,
+          amount: dto.amount,
+          currency: dto.currency,
+          customerName: dto.customerName,
+          channel: dto.channel as PrismaChannel | undefined,
+          conversationId: dto.conversationId,
+          assignee: dto.assignee,
+        },
       });
 
-      return {
-        id: record.id,
-        title: record.fields.message,
-        type: record.fields.type,
-        priority: record.fields.priority,
-        customerName: record.fields.leadName,
-        customerEmail: record.fields.leadEmail,
-        createdAt: record.fields.timestamp,
-        status: record.fields.read ? AlertStatus.RESOLVED : AlertStatus.OPEN,
-
-      };
+      return this.mapToAlertItem(alert);
     } catch (error) {
       this.logger.error('Failed to create alert:', error);
       throw error;
     }
   }
 
-  async update(clientKey: string, id: string, dto: UpdateAlertDto) {
+  async update(
+    clientKey: string,
+    id: string,
+    dto: UpdateAlertDto,
+  ): Promise<AlertItem> {
     try {
-      // First verify the alert belongs to this client
-      await this.findOne(clientKey, id);
+      const accountId = await this.getAccountId(clientKey);
 
-      const updateFields: Record<string, unknown> = {};
-      if (dto.type !== undefined) updateFields.type = dto.type;
-      if (dto.title !== undefined) updateFields.message = dto.title;
-      if (dto.status !== undefined)
-        updateFields.read = dto.status === AlertStatus.RESOLVED;
-      if (dto.priority !== undefined) updateFields.priority = dto.priority;
-      if (dto.customerName !== undefined)
-        updateFields.leadName = dto.customerName;
+      const existing = await this.prisma.alert.findFirst({
+        where: { id, accountId },
+      });
 
-      const record = await this.airtable.update<AlertRecord>(
-        ALERTS_TABLE,
-        id,
-        updateFields,
-      );
+      if (!existing) {
+        throw new NotFoundException(`Alert with ID ${id} not found`);
+      }
 
-      return {
-        id: record.id,
-        title: record.fields.message,
-        type: record.fields.type,
-        priority: record.fields.priority,
-        customerName: record.fields.leadName,
-        customerEmail: record.fields.leadEmail,
-        createdAt: record.fields.timestamp,
-        status: record.fields.read ? AlertStatus.RESOLVED : AlertStatus.OPEN,
+      const alert = await this.prisma.alert.update({
+        where: { id },
+        data: {
+          ...(dto.type !== undefined && { type: dto.type as PrismaAlertType }),
+          ...(dto.title !== undefined && { title: dto.title }),
+          ...(dto.subtitle !== undefined && { subtitle: dto.subtitle }),
+          ...(dto.status !== undefined && { status: dto.status as PrismaAlertStatus }),
+          ...(dto.priority !== undefined && { priority: dto.priority as PrismaAlertPriority }),
+          ...(dto.amount !== undefined && { amount: dto.amount }),
+          ...(dto.currency !== undefined && { currency: dto.currency }),
+          ...(dto.customerName !== undefined && { customerName: dto.customerName }),
+          ...(dto.channel !== undefined && { channel: dto.channel as PrismaChannel }),
+          ...(dto.conversationId !== undefined && { conversationId: dto.conversationId }),
+          ...(dto.assignee !== undefined && { assignee: dto.assignee }),
+        },
+      });
 
-      };
+      return this.mapToAlertItem(alert);
     } catch (error) {
       this.logger.error(`Failed to update alert ${id}:`, error);
       throw error;
     }
   }
 
-  async delete(clientKey: string, id: string) {
+  async delete(clientKey: string, id: string): Promise<{ success: boolean }> {
     try {
-      // First verify the alert belongs to this client
-      await this.findOne(clientKey, id);
+      const accountId = await this.getAccountId(clientKey);
 
-      await this.airtable.delete(ALERTS_TABLE, id);
+      const existing = await this.prisma.alert.findFirst({
+        where: { id, accountId },
+      });
+
+      if (!existing) {
+        throw new NotFoundException(`Alert with ID ${id} not found`);
+      }
+
+      await this.prisma.alert.delete({ where: { id } });
       return { success: true };
     } catch (error) {
       this.logger.error(`Failed to delete alert ${id}:`, error);
@@ -177,45 +187,84 @@ export class AlertsService {
     }
   }
 
-  async resolve(clientKey: string, id: string) {
+  async resolve(
+    clientKey: string,
+    id: string,
+    resolvedBy?: string,
+  ): Promise<AlertItem> {
     try {
-      const alert = await this.findOne(clientKey, id);
+      const accountId = await this.getAccountId(clientKey);
 
-      const record = await this.airtable.update<AlertRecord>(ALERTS_TABLE, id, {
-        read: true, // Mark as read = RESOLVED
+      const existing = await this.prisma.alert.findFirst({
+        where: { id, accountId },
       });
 
-      return {
-        id: record.id,
-        title: record.fields.message,
-        type: record.fields.type,
-        priority: record.fields.priority,
-        customerName: record.fields.leadName,
-        customerEmail: record.fields.leadEmail,
-        createdAt: record.fields.timestamp,
-        status: AlertStatus.RESOLVED,
+      if (!existing) {
+        throw new NotFoundException(`Alert with ID ${id} not found`);
+      }
 
-      };
+      const alert = await this.prisma.alert.update({
+        where: { id },
+        data: {
+          status: 'RESOLVED' as PrismaAlertStatus,
+          resolvedAt: new Date(),
+          resolvedBy,
+        },
+      });
+
+      return this.mapToAlertItem(alert);
     } catch (error) {
       this.logger.error(`Failed to resolve alert ${id}:`, error);
       throw error;
     }
   }
 
-  async assign(clientKey: string, id: string, dto: AssignAlertDto) {
+  async assign(
+    clientKey: string,
+    id: string,
+    dto: AssignAlertDto,
+  ): Promise<AlertItem> {
     try {
-      const alert = await this.findOne(clientKey, id);
+      const accountId = await this.getAccountId(clientKey);
 
-      // Note: Notifications table doesn't have assignee field
-      // This operation will be a no-op for now, but keep the API for future compatibility
-      this.logger.warn(
-        `Notifications table does not support assignee field. Assignment request ignored for alert ${id}`,
-      );
+      const existing = await this.prisma.alert.findFirst({
+        where: { id, accountId },
+      });
 
-      return alert; // Return unchanged alert
+      if (!existing) {
+        throw new NotFoundException(`Alert with ID ${id} not found`);
+      }
+
+      const alert = await this.prisma.alert.update({
+        where: { id },
+        data: { assignee: dto.assignee },
+      });
+
+      return this.mapToAlertItem(alert);
     } catch (error) {
       this.logger.error(`Failed to assign alert ${id}:`, error);
       throw error;
     }
+  }
+
+  private mapToAlertItem(alert: any): AlertItem {
+    return {
+      id: alert.id,
+      type: alert.type as AlertType,
+      title: alert.title,
+      subtitle: alert.subtitle || undefined,
+      status: alert.status as AlertStatus,
+      priority: alert.priority as AlertPriority,
+      amount: alert.amount || undefined,
+      currency: alert.currency || undefined,
+      customerName: alert.customerName || undefined,
+      channel: alert.channel || undefined,
+      conversationId: alert.conversationId || undefined,
+      assignee: alert.assignee || undefined,
+      resolvedAt: alert.resolvedAt?.toISOString(),
+      resolvedBy: alert.resolvedBy || undefined,
+      createdAt: alert.createdAt.toISOString(),
+      updatedAt: alert.updatedAt?.toISOString(),
+    };
   }
 }

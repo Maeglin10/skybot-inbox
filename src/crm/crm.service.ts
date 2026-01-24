@@ -1,81 +1,52 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { AirtableService } from '../airtable/airtable.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateLeadDto, LeadStatus } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
 import { CreateFeedbackDto } from './dto/create-feedback.dto';
 import { UpdateFeedbackDto } from './dto/update-feedback.dto';
-
-const LEADS_TABLE = 'Leads';
-const FEEDBACKS_TABLE = 'Feedbacks';
-
-interface LeadRecord {
-  name: string;
-  email?: string;
-  phone?: string;
-  status: string;
-  urgency?: string; // Maps to "temperature" in frontend
-  source?: string; // Maps to "channel" in frontend
-  assigned_agent?: string;
-  last_interaction?: string;
-  created_at?: string;
-  client_id: string;
-  // Additional existing fields we can use
-  lead_id?: string;
-  intent?: string;
-  category?: string;
-  score?: number;
-  stage?: string;
-  notes?: string;
-  interest?: string;
-  conversation_id?: string;
-}
-
-interface FeedbackRecord {
-  customerName: string;
-  customerEmail?: string;
-  rating: number;
-  snippet: string;
-  fullText: string;
-  channel: string;
-  linkedLeadId?: string;
-  createdAt?: string;
-  clientKey: string;
-}
+import {
+  LeadStatus as PrismaLeadStatus,
+  Temperature as PrismaTemperature,
+  FeedbackType as PrismaFeedbackType,
+  FeedbackStatus as PrismaFeedbackStatus,
+} from '@prisma/client';
 
 @Injectable()
 export class CrmService {
   private readonly logger = new Logger(CrmService.name);
 
-  constructor(private readonly airtable: AirtableService) {}
+  constructor(private readonly prisma: PrismaService) {}
+
+  private async getAccountId(clientKey: string): Promise<string> {
+    const config = await this.prisma.clientConfig.findFirst({
+      where: { clientKey },
+      select: { accountId: true },
+    });
+
+    if (!config) {
+      throw new NotFoundException(`Client config not found for key: ${clientKey}`);
+    }
+
+    return config.accountId;
+  }
 
   // ==================== LEADS ====================
 
   async findAllLeads(clientKey: string, status?: LeadStatus) {
     try {
-      const filterFormula = status ? `{status} = '${status}'` : undefined;
+      const accountId = await this.getAccountId(clientKey);
 
-      const records = await this.airtable.query<LeadRecord>(
-        LEADS_TABLE,
-        clientKey,
-        filterFormula,
-        {
-          sort: [{ field: 'created_at', direction: 'desc' }],
-        },
-      );
+      const where: any = { accountId };
+      if (status) where.status = status as PrismaLeadStatus;
+
+      const leads = await this.prisma.lead.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+      });
 
       return {
-        items: records.map((r) => ({
-          id: r.id,
-          ...r.fields,
-          // Map existing fields to expected frontend names
-          temperature: r.fields.urgency,
-          channel: r.fields.source,
-          assignedTo: r.fields.assigned_agent,
-          lastInteractionAt: r.fields.last_interaction,
-          createdAt: r.fields.created_at,
-          clientKey: r.fields.client_id,
-        })),
-        total: records.length,
+        items: leads.map((l) => this.mapLead(l)),
+        total: leads.length,
       };
     } catch (error) {
       this.logger.error('Failed to fetch leads:', error);
@@ -85,28 +56,17 @@ export class CrmService {
 
   async findOneLead(clientKey: string, id: string) {
     try {
-      const records = await this.airtable.query<LeadRecord>(
-        LEADS_TABLE,
-        clientKey,
-        `RECORD_ID() = '${id}'`,
-      );
+      const accountId = await this.getAccountId(clientKey);
 
-      if (records.length === 0) {
+      const lead = await this.prisma.lead.findFirst({
+        where: { id, accountId },
+      });
+
+      if (!lead) {
         throw new NotFoundException(`Lead with ID ${id} not found`);
       }
 
-      const r = records[0];
-      return {
-        id: r.id,
-        ...r.fields,
-        // Map existing fields to expected frontend names
-        temperature: r.fields.urgency,
-        channel: r.fields.source,
-        assignedTo: r.fields.assigned_agent,
-        lastInteractionAt: r.fields.last_interaction,
-        createdAt: r.fields.created_at,
-        clientKey: r.fields.client_id,
-      };
+      return this.mapLead(lead);
     } catch (error) {
       this.logger.error(`Failed to fetch lead ${id}:`, error);
       throw error;
@@ -115,29 +75,24 @@ export class CrmService {
 
   async createLead(clientKey: string, dto: CreateLeadDto) {
     try {
-      const record = await this.airtable.create<LeadRecord>(LEADS_TABLE, {
-        name: dto.name,
-        email: dto.email,
-        phone: dto.phone,
-        status: dto.status,
-        urgency: dto.temperature, // Map temperature -> urgency
-        source: dto.channel, // Map channel -> source
-        assigned_agent: dto.assignedTo,
-        client_id: clientKey,
-        last_interaction: new Date().toISOString(),
-        created_at: new Date().toISOString(),
+      const accountId = await this.getAccountId(clientKey);
+
+      const lead = await this.prisma.lead.create({
+        data: {
+          accountId,
+          name: dto.name,
+          company: dto.company,
+          email: dto.email,
+          phone: dto.phone,
+          status: dto.status as PrismaLeadStatus,
+          temperature: dto.temperature as PrismaTemperature,
+          channel: dto.channel,
+          assignedTo: dto.assignedTo,
+          tags: dto.tags || [],
+        },
       });
 
-      return {
-        id: record.id,
-        ...record.fields,
-        temperature: record.fields.urgency,
-        channel: record.fields.source,
-        assignedTo: record.fields.assigned_agent,
-        lastInteractionAt: record.fields.last_interaction,
-        createdAt: record.fields.created_at,
-        clientKey: record.fields.client_id,
-      };
+      return this.mapLead(lead);
     } catch (error) {
       this.logger.error('Failed to create lead:', error);
       throw error;
@@ -146,38 +101,32 @@ export class CrmService {
 
   async updateLead(clientKey: string, id: string, dto: UpdateLeadDto) {
     try {
-      // First verify the lead belongs to this client
-      await this.findOneLead(clientKey, id);
+      const accountId = await this.getAccountId(clientKey);
 
-      const updateFields: Record<string, unknown> = {};
-      if (dto.name !== undefined) updateFields.name = dto.name;
-      if (dto.email !== undefined) updateFields.email = dto.email;
-      if (dto.phone !== undefined) updateFields.phone = dto.phone;
-      if (dto.status !== undefined) updateFields.status = dto.status;
-      if (dto.temperature !== undefined)
-        updateFields.urgency = dto.temperature; // Map temperature -> urgency
-      if (dto.channel !== undefined) updateFields.source = dto.channel; // Map channel -> source
-      if (dto.assignedTo !== undefined)
-        updateFields.assigned_agent = dto.assignedTo;
+      const existing = await this.prisma.lead.findFirst({
+        where: { id, accountId },
+      });
 
-      updateFields.last_interaction = new Date().toISOString();
+      if (!existing) {
+        throw new NotFoundException(`Lead with ID ${id} not found`);
+      }
 
-      const record = await this.airtable.update<LeadRecord>(
-        LEADS_TABLE,
-        id,
-        updateFields,
-      );
+      const lead = await this.prisma.lead.update({
+        where: { id },
+        data: {
+          ...(dto.name !== undefined && { name: dto.name }),
+          ...(dto.company !== undefined && { company: dto.company }),
+          ...(dto.email !== undefined && { email: dto.email }),
+          ...(dto.phone !== undefined && { phone: dto.phone }),
+          ...(dto.status !== undefined && { status: dto.status as PrismaLeadStatus }),
+          ...(dto.temperature !== undefined && { temperature: dto.temperature as PrismaTemperature }),
+          ...(dto.channel !== undefined && { channel: dto.channel }),
+          ...(dto.assignedTo !== undefined && { assignedTo: dto.assignedTo }),
+          ...(dto.tags !== undefined && { tags: dto.tags }),
+        },
+      });
 
-      return {
-        id: record.id,
-        ...record.fields,
-        temperature: record.fields.urgency,
-        channel: record.fields.source,
-        assignedTo: record.fields.assigned_agent,
-        lastInteractionAt: record.fields.last_interaction,
-        createdAt: record.fields.created_at,
-        clientKey: record.fields.client_id,
-      };
+      return this.mapLead(lead);
     } catch (error) {
       this.logger.error(`Failed to update lead ${id}:`, error);
       throw error;
@@ -186,10 +135,17 @@ export class CrmService {
 
   async deleteLead(clientKey: string, id: string) {
     try {
-      // First verify the lead belongs to this client
-      await this.findOneLead(clientKey, id);
+      const accountId = await this.getAccountId(clientKey);
 
-      await this.airtable.delete(LEADS_TABLE, id);
+      const existing = await this.prisma.lead.findFirst({
+        where: { id, accountId },
+      });
+
+      if (!existing) {
+        throw new NotFoundException(`Lead with ID ${id} not found`);
+      }
+
+      await this.prisma.lead.delete({ where: { id } });
       return { success: true };
     } catch (error) {
       this.logger.error(`Failed to delete lead ${id}:`, error);
@@ -201,21 +157,16 @@ export class CrmService {
 
   async findAllFeedbacks(clientKey: string) {
     try {
-      const records = await this.airtable.query<FeedbackRecord>(
-        FEEDBACKS_TABLE,
-        clientKey,
-        undefined,
-        {
-          sort: [{ field: 'createdAt', direction: 'desc' }],
-        },
-      );
+      const accountId = await this.getAccountId(clientKey);
+
+      const feedbacks = await this.prisma.feedback.findMany({
+        where: { accountId },
+        orderBy: { createdAt: 'desc' },
+      });
 
       return {
-        items: records.map((r) => ({
-          id: r.id,
-          ...r.fields,
-        })),
-        total: records.length,
+        items: feedbacks.map((f) => this.mapFeedback(f)),
+        total: feedbacks.length,
       };
     } catch (error) {
       this.logger.error('Failed to fetch feedbacks:', error);
@@ -225,20 +176,17 @@ export class CrmService {
 
   async findOneFeedback(clientKey: string, id: string) {
     try {
-      const records = await this.airtable.query<FeedbackRecord>(
-        FEEDBACKS_TABLE,
-        clientKey,
-        `RECORD_ID() = '${id}'`,
-      );
+      const accountId = await this.getAccountId(clientKey);
 
-      if (records.length === 0) {
+      const feedback = await this.prisma.feedback.findFirst({
+        where: { id, accountId },
+      });
+
+      if (!feedback) {
         throw new NotFoundException(`Feedback with ID ${id} not found`);
       }
 
-      return {
-        id: records[0].id,
-        ...records[0].fields,
-      };
+      return this.mapFeedback(feedback);
     } catch (error) {
       this.logger.error(`Failed to fetch feedback ${id}:`, error);
       throw error;
@@ -247,25 +195,22 @@ export class CrmService {
 
   async createFeedback(clientKey: string, dto: CreateFeedbackDto) {
     try {
-      const record = await this.airtable.create<FeedbackRecord>(
-        FEEDBACKS_TABLE,
-        {
+      const accountId = await this.getAccountId(clientKey);
+
+      const feedback = await this.prisma.feedback.create({
+        data: {
+          accountId,
           customerName: dto.customerName,
           customerEmail: dto.customerEmail,
           rating: dto.rating,
-          snippet: dto.snippet,
-          fullText: dto.fullText,
+          message: dto.fullText || dto.snippet,
           channel: dto.channel,
-          linkedLeadId: dto.linkedLeadId,
-          clientKey,
-          createdAt: new Date().toISOString(),
+          type: PrismaFeedbackType.GENERAL,
+          status: PrismaFeedbackStatus.PENDING,
         },
-      );
+      });
 
-      return {
-        id: record.id,
-        ...record.fields,
-      };
+      return this.mapFeedback(feedback);
     } catch (error) {
       this.logger.error('Failed to create feedback:', error);
       throw error;
@@ -274,31 +219,30 @@ export class CrmService {
 
   async updateFeedback(clientKey: string, id: string, dto: UpdateFeedbackDto) {
     try {
-      // First verify the feedback belongs to this client
-      await this.findOneFeedback(clientKey, id);
+      const accountId = await this.getAccountId(clientKey);
 
-      const updateFields: Record<string, unknown> = {};
-      if (dto.customerName !== undefined)
-        updateFields.customerName = dto.customerName;
-      if (dto.customerEmail !== undefined)
-        updateFields.customerEmail = dto.customerEmail;
-      if (dto.rating !== undefined) updateFields.rating = dto.rating;
-      if (dto.snippet !== undefined) updateFields.snippet = dto.snippet;
-      if (dto.fullText !== undefined) updateFields.fullText = dto.fullText;
-      if (dto.channel !== undefined) updateFields.channel = dto.channel;
-      if (dto.linkedLeadId !== undefined)
-        updateFields.linkedLeadId = dto.linkedLeadId;
+      const existing = await this.prisma.feedback.findFirst({
+        where: { id, accountId },
+      });
 
-      const record = await this.airtable.update<FeedbackRecord>(
-        FEEDBACKS_TABLE,
-        id,
-        updateFields,
-      );
+      if (!existing) {
+        throw new NotFoundException(`Feedback with ID ${id} not found`);
+      }
 
-      return {
-        id: record.id,
-        ...record.fields,
-      };
+      const feedback = await this.prisma.feedback.update({
+        where: { id },
+        data: {
+          ...(dto.customerName !== undefined && { customerName: dto.customerName }),
+          ...(dto.customerEmail !== undefined && { customerEmail: dto.customerEmail }),
+          ...(dto.rating !== undefined && { rating: dto.rating }),
+          ...((dto.fullText !== undefined || dto.snippet !== undefined) && {
+            message: dto.fullText || dto.snippet || existing.message
+          }),
+          ...(dto.channel !== undefined && { channel: dto.channel }),
+        },
+      });
+
+      return this.mapFeedback(feedback);
     } catch (error) {
       this.logger.error(`Failed to update feedback ${id}:`, error);
       throw error;
@@ -307,14 +251,62 @@ export class CrmService {
 
   async deleteFeedback(clientKey: string, id: string) {
     try {
-      // First verify the feedback belongs to this client
-      await this.findOneFeedback(clientKey, id);
+      const accountId = await this.getAccountId(clientKey);
 
-      await this.airtable.delete(FEEDBACKS_TABLE, id);
+      const existing = await this.prisma.feedback.findFirst({
+        where: { id, accountId },
+      });
+
+      if (!existing) {
+        throw new NotFoundException(`Feedback with ID ${id} not found`);
+      }
+
+      await this.prisma.feedback.delete({ where: { id } });
       return { success: true };
     } catch (error) {
       this.logger.error(`Failed to delete feedback ${id}:`, error);
       throw error;
     }
+  }
+
+  private mapLead(lead: any) {
+    return {
+      id: lead.id,
+      name: lead.name,
+      company: lead.company,
+      email: lead.email,
+      phone: lead.phone,
+      status: lead.status,
+      temperature: lead.temperature,
+      channel: lead.channel,
+      assignedTo: lead.assignedTo,
+      tags: lead.tags,
+      value: lead.value,
+      currency: lead.currency,
+      notes: lead.notes,
+      createdAt: lead.createdAt.toISOString(),
+      updatedAt: lead.updatedAt?.toISOString(),
+    };
+  }
+
+  private mapFeedback(feedback: any) {
+    return {
+      id: feedback.id,
+      customerName: feedback.customerName,
+      customerEmail: feedback.customerEmail,
+      customerPhone: feedback.customerPhone,
+      type: feedback.type,
+      status: feedback.status,
+      rating: feedback.rating,
+      message: feedback.message,
+      snippet: feedback.message?.substring(0, 100),
+      fullText: feedback.message,
+      channel: feedback.channel,
+      response: feedback.response,
+      respondedAt: feedback.respondedAt?.toISOString(),
+      respondedBy: feedback.respondedBy,
+      createdAt: feedback.createdAt.toISOString(),
+      updatedAt: feedback.updatedAt?.toISOString(),
+    };
   }
 }

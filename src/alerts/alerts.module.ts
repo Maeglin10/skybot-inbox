@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { AlertsService } from './alerts.service';
 import { AlertsController } from './alerts.controller';
-import { AirtableModule } from '../airtable/airtable.module';
+import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
-  imports: [AirtableModule],
+  imports: [PrismaModule],
   controllers: [AlertsController],
   providers: [AlertsService],
   exports: [AlertsService],

@@ -3,6 +3,8 @@ import { IsString, IsEnum, IsOptional, IsNumber, MinLength } from 'class-validat
 export enum AlertType {
   PAYMENT = 'PAYMENT',
   HANDOFF = 'HANDOFF',
+  SYSTEM = 'SYSTEM',
+  CUSTOM = 'CUSTOM',
 }
 
 export enum AlertStatus {
