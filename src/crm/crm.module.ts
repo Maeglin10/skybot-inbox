@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { CrmService } from './crm.service';
 import { CrmController } from './crm.controller';
-import { AirtableModule } from '../airtable/airtable.module';
+import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
-  imports: [AirtableModule],
+  imports: [PrismaModule],
   controllers: [CrmController],
   providers: [CrmService],
   exports: [CrmService],
