@@ -289,7 +289,7 @@ model UserPreference {
   id            String @id @default(cuid())
   userAccountId String @unique
 
-  theme      Theme    @default(DARK)
+  theme      Theme    @default(DEFAULT)
   language   Language @default(EN)
   timezone   String   @default("UTC")
   dateFormat String   @default("YYYY-MM-DD")
@@ -415,9 +415,13 @@ enum AccountStatus {
 }
 
 enum Theme {
-  LIGHT
-  DARK
-  SYSTEM
+  DEFAULT   // The default shadcn/ui theme
+  NORD      // An arctic, north-bluish color palette
+  GOLD      // A warm and inviting color palette of rich browns and shimmering golds
+  NATURE    // A soothing palette of soft yellows, greens, and blues
+  NETFLIX   // A bold color palette of black, white, and fiery red
+  LARACON   // A vibrant color palette celebrating Laracon US 2023
+  DRACULA   // A dark theme using Dracula colors
 }
 
 enum Language {

@@ -48,7 +48,7 @@ export class PreferencesService {
       const created = await this.prisma.userPreference.create({
         data: {
           userAccountId,
-          theme: dto.theme || 'DARK',
+          theme: dto.theme || 'DEFAULT',
           language: dto.language || 'EN',
           timezone: dto.timezone || 'UTC',
           dateFormat: dto.dateFormat || 'YYYY-MM-DD',
