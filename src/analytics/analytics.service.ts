@@ -97,6 +97,7 @@ export class AnalyticsService {
           'Leads',
           clientKey,
           `IS_AFTER({createdAt}, '${startDate.toISOString()}')`,
+          { maxRecords: 1000, pageSize: 100 },
         );
 
         leads.forEach((lead) => {
@@ -117,6 +118,7 @@ export class AnalyticsService {
           'Feedbacks',
           clientKey,
           `IS_AFTER({createdAt}, '${startDate.toISOString()}')`,
+          { maxRecords: 1000, pageSize: 100 },
         );
 
         feedbacks.forEach((fb) => {
@@ -202,7 +204,12 @@ export class AnalyticsService {
   }
 
   private async getLeadKpis(clientKey: string) {
-    const leads = await this.airtable.query<LeadRecord>('Leads', clientKey);
+    const leads = await this.airtable.query<LeadRecord>(
+      'Leads',
+      clientKey,
+      undefined,
+      { maxRecords: 1000, pageSize: 100 },
+    );
     const total = leads.length;
     const qualified = leads.filter((l) => l.fields.status === 'QUALIFIED').length;
     const lost = leads.filter((l) => l.fields.status === 'LOST').length;
@@ -250,6 +257,8 @@ export class AnalyticsService {
     const feedbacks = await this.airtable.query<FeedbackRecord>(
       'Feedbacks',
       clientKey,
+      undefined,
+      { maxRecords: 1000, pageSize: 100 },
     );
 
     const total = feedbacks.length;
@@ -272,7 +281,12 @@ export class AnalyticsService {
   }
 
   private async getChannelBreakdown(clientKey: string) {
-    const leads = await this.airtable.query<LeadRecord>('Leads', clientKey);
+    const leads = await this.airtable.query<LeadRecord>(
+      'Leads',
+      clientKey,
+      undefined,
+      { maxRecords: 1000, pageSize: 100 },
+    );
     const channelCounts = new Map<string, number>();
 
     leads.forEach((lead) => {
@@ -287,7 +301,12 @@ export class AnalyticsService {
   }
 
   private async getTemperatureBreakdown(clientKey: string) {
-    const leads = await this.airtable.query<LeadRecord>('Leads', clientKey);
+    const leads = await this.airtable.query<LeadRecord>(
+      'Leads',
+      clientKey,
+      undefined,
+      { maxRecords: 1000, pageSize: 100 },
+    );
     const tempCounts = new Map<string, number>();
 
     leads.forEach((lead) => {
@@ -305,6 +324,8 @@ export class AnalyticsService {
     const feedbacks = await this.airtable.query<FeedbackRecord>(
       'Feedbacks',
       clientKey,
+      undefined,
+      { maxRecords: 1000, pageSize: 100 },
     );
 
     const ratingCounts = { '5': 0, '4': 0, '3': 0, '1-2': 0 };
