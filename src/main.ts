@@ -48,6 +48,9 @@ async function bootstrap() {
     }),
   );
 
+  // Add global /api prefix to all routes
+  app.setGlobalPrefix('api');
+
   const port = process.env.PORT ? Number(process.env.PORT) : 3000;
   await app.listen(port, '0.0.0.0');
   console.log(`🚀 Application is running on http://0.0.0.0:${port}`);
