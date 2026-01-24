@@ -54,11 +54,23 @@ export class AirtableService implements OnModuleInit {
     const base = this.getBase();
     const table = base(tableName);
 
-    // Combine clientKey filter with additional filters
-    const clientFilter = `{clientKey} = '${clientKey}'`;
-    const combinedFilter = filterFormula
-      ? `AND(${clientFilter}, ${filterFormula})`
-      : clientFilter;
+    // Use different client field names based on table
+    const clientFieldMap: Record<string, string> = {
+      Leads: 'client_id',
+      Feedbacks: 'client_id',
+      Notifications: '', // Notifications table has no client field
+    };
+
+    const clientFieldName = clientFieldMap[tableName] || 'clientKey';
+
+    // Combine clientKey filter with additional filters (skip if no client field)
+    let combinedFilter = filterFormula;
+    if (clientFieldName) {
+      const clientFilter = `{${clientFieldName}} = '${clientKey}'`;
+      combinedFilter = filterFormula
+        ? `AND(${clientFilter}, ${filterFormula})`
+        : clientFilter;
+    }
 
     const records: Array<{ id: string; fields: T }> = [];
 

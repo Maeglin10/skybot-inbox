@@ -10,17 +10,24 @@ const FEEDBACKS_TABLE = 'Feedbacks';
 
 interface LeadRecord {
   name: string;
-  company?: string;
   email?: string;
   phone?: string;
   status: string;
-  temperature: string;
-  channel: string;
-  assignedTo?: string;
-  tags?: string[];
-  lastInteractionAt?: string;
-  createdAt?: string;
-  clientKey: string;
+  urgency?: string; // Maps to "temperature" in frontend
+  source?: string; // Maps to "channel" in frontend
+  assigned_agent?: string;
+  last_interaction?: string;
+  created_at?: string;
+  client_id: string;
+  // Additional existing fields we can use
+  lead_id?: string;
+  intent?: string;
+  category?: string;
+  score?: number;
+  stage?: string;
+  notes?: string;
+  interest?: string;
+  conversation_id?: string;
 }
 
 interface FeedbackRecord {
@@ -52,7 +59,7 @@ export class CrmService {
         clientKey,
         filterFormula,
         {
-          sort: [{ field: 'createdAt', direction: 'desc' }],
+          sort: [{ field: 'created_at', direction: 'desc' }],
         },
       );
 
@@ -60,6 +67,13 @@ export class CrmService {
         items: records.map((r) => ({
           id: r.id,
           ...r.fields,
+          // Map existing fields to expected frontend names
+          temperature: r.fields.urgency,
+          channel: r.fields.source,
+          assignedTo: r.fields.assigned_agent,
+          lastInteractionAt: r.fields.last_interaction,
+          createdAt: r.fields.created_at,
+          clientKey: r.fields.client_id,
         })),
         total: records.length,
       };
@@ -81,9 +95,17 @@ export class CrmService {
         throw new NotFoundException(`Lead with ID ${id} not found`);
       }
 
+      const r = records[0];
       return {
-        id: records[0].id,
-        ...records[0].fields,
+        id: r.id,
+        ...r.fields,
+        // Map existing fields to expected frontend names
+        temperature: r.fields.urgency,
+        channel: r.fields.source,
+        assignedTo: r.fields.assigned_agent,
+        lastInteractionAt: r.fields.last_interaction,
+        createdAt: r.fields.created_at,
+        clientKey: r.fields.client_id,
       };
     } catch (error) {
       this.logger.error(`Failed to fetch lead ${id}:`, error);
@@ -95,22 +117,26 @@ export class CrmService {
     try {
       const record = await this.airtable.create<LeadRecord>(LEADS_TABLE, {
         name: dto.name,
-        company: dto.company,
         email: dto.email,
         phone: dto.phone,
         status: dto.status,
-        temperature: dto.temperature,
-        channel: dto.channel,
-        assignedTo: dto.assignedTo,
-        tags: dto.tags || [],
-        clientKey,
-        lastInteractionAt: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
+        urgency: dto.temperature, // Map temperature -> urgency
+        source: dto.channel, // Map channel -> source
+        assigned_agent: dto.assignedTo,
+        client_id: clientKey,
+        last_interaction: new Date().toISOString(),
+        created_at: new Date().toISOString(),
       });
 
       return {
         id: record.id,
         ...record.fields,
+        temperature: record.fields.urgency,
+        channel: record.fields.source,
+        assignedTo: record.fields.assigned_agent,
+        lastInteractionAt: record.fields.last_interaction,
+        createdAt: record.fields.created_at,
+        clientKey: record.fields.client_id,
       };
     } catch (error) {
       this.logger.error('Failed to create lead:', error);
@@ -125,17 +151,16 @@ export class CrmService {
 
       const updateFields: Record<string, unknown> = {};
       if (dto.name !== undefined) updateFields.name = dto.name;
-      if (dto.company !== undefined) updateFields.company = dto.company;
       if (dto.email !== undefined) updateFields.email = dto.email;
       if (dto.phone !== undefined) updateFields.phone = dto.phone;
       if (dto.status !== undefined) updateFields.status = dto.status;
       if (dto.temperature !== undefined)
-        updateFields.temperature = dto.temperature;
-      if (dto.channel !== undefined) updateFields.channel = dto.channel;
-      if (dto.assignedTo !== undefined) updateFields.assignedTo = dto.assignedTo;
-      if (dto.tags !== undefined) updateFields.tags = dto.tags;
+        updateFields.urgency = dto.temperature; // Map temperature -> urgency
+      if (dto.channel !== undefined) updateFields.source = dto.channel; // Map channel -> source
+      if (dto.assignedTo !== undefined)
+        updateFields.assigned_agent = dto.assignedTo;
 
-      updateFields.lastInteractionAt = new Date().toISOString();
+      updateFields.last_interaction = new Date().toISOString();
 
       const record = await this.airtable.update<LeadRecord>(
         LEADS_TABLE,
@@ -146,6 +171,12 @@ export class CrmService {
       return {
         id: record.id,
         ...record.fields,
+        temperature: record.fields.urgency,
+        channel: record.fields.source,
+        assignedTo: record.fields.assigned_agent,
+        lastInteractionAt: record.fields.last_interaction,
+        createdAt: record.fields.created_at,
+        clientKey: record.fields.client_id,
       };
     } catch (error) {
       this.logger.error(`Failed to update lead ${id}:`, error);
