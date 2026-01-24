@@ -1,4 +1,11 @@
-import { Injectable, Logger, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { AirtableService } from '../airtable/airtable.service';
 import {
   CreateAccountDto,
@@ -6,6 +13,8 @@ import {
   AccountStatus,
 } from './dto/create-account.dto';
 import { UpdateAccountDto } from './dto/update-account.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import * as crypto from 'crypto';
 
 const ACCOUNTS_TABLE = 'UserAccounts';
 
@@ -17,6 +26,7 @@ interface AccountRecord {
   status: string;
   notes?: string;
   avatarUrl?: string;
+  passwordHash?: string;
   clientKey: string;
   createdAt?: string;
   updatedAt?: string;
@@ -212,6 +222,107 @@ export class AccountsService {
 
   async demoteToUser(clientKey: string, id: string): Promise<AccountItem> {
     return this.update(clientKey, id, { role: AccountRole.USER });
+  }
+
+  async changePassword(
+    clientKey: string,
+    id: string,
+    dto: ChangePasswordDto,
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      // Validate passwords match
+      if (dto.newPassword !== dto.confirmPassword) {
+        throw new BadRequestException('New password and confirmation do not match');
+      }
+
+      // Verify account exists
+      const records = await this.airtable.query<AccountRecord>(
+        ACCOUNTS_TABLE,
+        clientKey,
+        `RECORD_ID() = '${id}'`,
+      );
+
+      if (records.length === 0) {
+        throw new NotFoundException(`Account with ID ${id} not found`);
+      }
+
+      const account = records[0];
+
+      // Verify current password (if passwordHash exists)
+      if (account.fields.passwordHash) {
+        const currentHash = this.hashPassword(dto.currentPassword);
+        if (currentHash !== account.fields.passwordHash) {
+          throw new UnauthorizedException('Current password is incorrect');
+        }
+      }
+
+      // Hash new password and update
+      const newPasswordHash = this.hashPassword(dto.newPassword);
+
+      await this.airtable.update<AccountRecord>(ACCOUNTS_TABLE, id, {
+        passwordHash: newPasswordHash,
+        updatedAt: new Date().toISOString(),
+      });
+
+      this.logger.log(`Password changed successfully for account ${id}`);
+      return { success: true, message: 'Password changed successfully' };
+    } catch (error) {
+      this.logger.error(`Failed to change password for account ${id}:`, error);
+      throw error;
+    }
+  }
+
+  async setInitialPassword(
+    clientKey: string,
+    id: string,
+    password: string,
+  ): Promise<{ success: boolean }> {
+    try {
+      await this.findOne(clientKey, id);
+
+      const passwordHash = this.hashPassword(password);
+
+      await this.airtable.update<AccountRecord>(ACCOUNTS_TABLE, id, {
+        passwordHash,
+        updatedAt: new Date().toISOString(),
+      });
+
+      return { success: true };
+    } catch (error) {
+      this.logger.error(`Failed to set initial password for account ${id}:`, error);
+      throw error;
+    }
+  }
+
+  async verifyPassword(clientKey: string, email: string, password: string): Promise<AccountItem | null> {
+    try {
+      const records = await this.airtable.query<AccountRecord>(
+        ACCOUNTS_TABLE,
+        clientKey,
+        `{email} = '${email}'`,
+      );
+
+      if (records.length === 0) {
+        return null;
+      }
+
+      const account = records[0];
+      const passwordHash = this.hashPassword(password);
+
+      if (account.fields.passwordHash !== passwordHash) {
+        return null;
+      }
+
+      return this.mapRecordToAccount(account);
+    } catch (error) {
+      this.logger.error(`Failed to verify password for ${email}:`, error);
+      return null;
+    }
+  }
+
+  private hashPassword(password: string): string {
+    // Simple SHA-256 hash - in production, use bcrypt or argon2
+    return crypto.createHash('sha256').update(password).digest('hex');
   }
 
   private mapRecordToAccount(record: { id: string; fields: AccountRecord }): AccountItem {

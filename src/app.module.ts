@@ -18,6 +18,7 @@ import { CrmModule } from './crm/crm.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { AlertsModule } from './alerts/alerts.module';
 import { SettingsModule } from './settings/settings.module';
+import { UserPreferencesModule } from './user-preferences/user-preferences.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -36,6 +37,7 @@ import { AppController } from './app.controller';
     AnalyticsModule,
     AlertsModule,
     SettingsModule,
+    UserPreferencesModule,
     AccountsModule,
     InboxesModule,
     ContactsModule,

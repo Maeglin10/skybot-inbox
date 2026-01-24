@@ -16,6 +16,7 @@ import { AccountsService } from './accounts.service';
 import { CreateAccountDto, AccountRole, AccountStatus } from './dto/create-account.dto';
 import { UpdateAccountDto } from './dto/update-account.dto';
 import { ListAccountsDto } from './dto/list-accounts.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Controller('accounts')
 @UseGuards(ApiKeyGuard)
@@ -116,5 +117,28 @@ export class AccountsController {
   ) {
     this.logger.log(`POST /accounts/${id}/demote clientKey=${clientKey}`);
     return this.accountsService.demoteToUser(clientKey, id);
+  }
+
+  @Post(':id/change-password')
+  async changePassword(
+    @Headers('x-client-key') clientKey: string,
+    @Param('id') id: string,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    this.logger.log(`POST /accounts/${id}/change-password clientKey=${clientKey}`);
+    return this.accountsService.changePassword(clientKey, id, dto);
+  }
+
+  @Post('verify')
+  async verifyPassword(
+    @Headers('x-client-key') clientKey: string,
+    @Body() body: { email: string; password: string },
+  ) {
+    this.logger.log(`POST /accounts/verify clientKey=${clientKey} email=${body.email}`);
+    const account = await this.accountsService.verifyPassword(clientKey, body.email, body.password);
+    if (!account) {
+      return { success: false, message: 'Invalid credentials' };
+    }
+    return { success: true, account };
   }
 }
