@@ -18,6 +18,7 @@ import { parseWhatsAppCloudWebhook } from './whatsapp.parser';
 @Injectable()
 export class WebhooksService {
   private readonly logger = new Logger(WebhooksService.name);
+  private demoAccountIdCache: string | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -219,10 +220,18 @@ export class WebhooksService {
   }
 
   private async getDemoAccountId() {
+    // Return cached value if available
+    if (this.demoAccountIdCache) {
+      return this.demoAccountIdCache;
+    }
+
+    // Query DB and cache result
     const account = await this.prisma.account.findFirst({
       where: { name: 'Demo' },
     });
     if (!account) throw new Error('Account Demo missing (run seed)');
+
+    this.demoAccountIdCache = account.id;
     return account.id;
   }
 }

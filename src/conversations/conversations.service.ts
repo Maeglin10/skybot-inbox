@@ -71,11 +71,16 @@ export class ConversationsService {
         include: {
           inbox: true,
           contact: true,
-          messages: {
-            orderBy: { createdAt: 'desc' },
-            take: 1,
-            select: { text: true, timestamp: true },
-          },
+          messages: lite
+            ? {
+                orderBy: { createdAt: 'desc' },
+                take: 1,
+                select: { text: true, timestamp: true },
+              }
+            : {
+                orderBy: { createdAt: 'asc' },
+                take: 50,
+              },
         },
       });
 
@@ -112,30 +117,21 @@ export class ConversationsService {
       return { items, cursor: nextCursor };
     }
 
-    const items = await Promise.all(
-      slice.map(async (c) => {
-        const messages = await this.prisma.message.findMany({
-          where: { conversationId: c.id },
-          orderBy: { createdAt: 'asc' },
-          take: 50,
-        });
-
-        return {
-          id: c.id,
-          inboxId: c.inboxId,
-          contactId: c.contactId,
-          channel: c.channel,
-          externalId: c.externalId,
-          status: c.status,
-          lastActivityAt: c.lastActivityAt,
-          createdAt: c.createdAt,
-          updatedAt: c.updatedAt,
-          inbox: c.inbox,
-          contact: c.contact,
-          messages,
-        };
-      }),
-    );
+    // Full mode: messages already loaded via include
+    const items = slice.map((c) => ({
+      id: c.id,
+      inboxId: c.inboxId,
+      contactId: c.contactId,
+      channel: c.channel,
+      externalId: c.externalId,
+      status: c.status,
+      lastActivityAt: c.lastActivityAt,
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      inbox: c.inbox,
+      contact: c.contact,
+      messages: c.messages,
+    }));
 
     return { items, cursor: nextCursor };
   }

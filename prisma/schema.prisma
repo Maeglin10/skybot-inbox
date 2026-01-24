@@ -125,6 +125,8 @@ model Conversation {
   @@index([contactId])
   @@index([channel])
   @@index([externalId])
+  @@index([lastActivityAt])
+  @@index([status, lastActivityAt])
 }
 
 // =========================
@@ -151,6 +153,8 @@ model Message {
   @@index([conversationId])
   @@index([externalId])
   @@index([channel])
+  @@index([timestamp])
+  @@index([conversationId, createdAt])
 }
 
 // =========================
@@ -209,6 +213,8 @@ model RoutingLog {
   @@index([clientKey])
   @@index([status])
   @@index([createdAt])
+  @@index([clientKey, createdAt])
+  @@index([status, createdAt])
 }
 
 // =========================
@@ -322,6 +328,7 @@ model Lead {
   @@index([temperature])
   @@index([assignedTo])
   @@index([createdAt])
+  @@index([accountId, status])
 }
 
 // =========================
@@ -387,6 +394,7 @@ model Alert {
   @@index([priority])
   @@index([assignee])
   @@index([createdAt])
+  @@index([accountId, status])
 }
 
 // =========================
