@@ -1,20 +1,10 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { AirtableService } from '../airtable/airtable.service';
+import { Injectable, Logger } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 import { UpdatePreferencesDto, Theme, Language } from './dto/update-preferences.dto';
-
-const PREFERENCES_TABLE = 'UserPreferences';
-
-interface PreferencesRecord {
-  userId: string;
-  theme: string;
-  language: string;
-  timezone?: string;
-  dateFormat?: string;
-  timeFormat?: string;
-  clientKey: string;
-  createdAt?: string;
-  updatedAt?: string;
-}
+import {
+  Theme as PrismaTheme,
+  Language as PrismaLanguage,
+} from '@prisma/client';
 
 export interface UserPreferences {
   id: string;
@@ -28,7 +18,7 @@ export interface UserPreferences {
   updatedAt?: string;
 }
 
-const DEFAULT_PREFERENCES: Omit<UserPreferences, 'id' | 'userId' | 'createdAt' | 'updatedAt'> = {
+const DEFAULT_PREFERENCES = {
   theme: Theme.DARK,
   language: Language.EN,
   timezone: 'UTC',
@@ -40,18 +30,15 @@ const DEFAULT_PREFERENCES: Omit<UserPreferences, 'id' | 'userId' | 'createdAt' |
 export class UserPreferencesService {
   private readonly logger = new Logger(UserPreferencesService.name);
 
-  constructor(private readonly airtable: AirtableService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async getPreferences(clientKey: string, userId: string): Promise<UserPreferences> {
     try {
-      const records = await this.airtable.query<PreferencesRecord>(
-        PREFERENCES_TABLE,
-        clientKey,
-        `{userId} = '${userId}'`,
-      );
+      const prefs = await this.prisma.userPreference.findUnique({
+        where: { userAccountId: userId },
+      });
 
-      if (records.length === 0) {
-        // Return default preferences if none exist
+      if (!prefs) {
         return {
           id: '',
           userId,
@@ -60,10 +47,9 @@ export class UserPreferencesService {
         };
       }
 
-      return this.mapRecordToPreferences(records[0]);
+      return this.mapToUserPreferences(prefs, userId);
     } catch (error) {
       this.logger.error(`Failed to fetch preferences for user ${userId}:`, error);
-      // Return defaults on error
       return {
         id: '',
         userId,
@@ -79,50 +65,39 @@ export class UserPreferencesService {
     dto: UpdatePreferencesDto,
   ): Promise<UserPreferences> {
     try {
-      // Check if preferences exist
-      const records = await this.airtable.query<PreferencesRecord>(
-        PREFERENCES_TABLE,
-        clientKey,
-        `{userId} = '${userId}'`,
-      );
+      const existing = await this.prisma.userPreference.findUnique({
+        where: { userAccountId: userId },
+      });
 
-      const now = new Date().toISOString();
-
-      if (records.length === 0) {
+      if (!existing) {
         // Create new preferences
-        const record = await this.airtable.create<PreferencesRecord>(PREFERENCES_TABLE, {
-          userId,
-          theme: dto.theme || DEFAULT_PREFERENCES.theme,
-          language: dto.language || DEFAULT_PREFERENCES.language,
-          timezone: dto.timezone || DEFAULT_PREFERENCES.timezone,
-          dateFormat: dto.dateFormat || DEFAULT_PREFERENCES.dateFormat,
-          timeFormat: dto.timeFormat || DEFAULT_PREFERENCES.timeFormat,
-          clientKey,
-          createdAt: now,
-          updatedAt: now,
+        const prefs = await this.prisma.userPreference.create({
+          data: {
+            userAccountId: userId,
+            theme: (dto.theme || DEFAULT_PREFERENCES.theme) as PrismaTheme,
+            language: (dto.language || DEFAULT_PREFERENCES.language) as PrismaLanguage,
+            timezone: dto.timezone || DEFAULT_PREFERENCES.timezone,
+            dateFormat: dto.dateFormat || DEFAULT_PREFERENCES.dateFormat,
+            timeFormat: dto.timeFormat || DEFAULT_PREFERENCES.timeFormat,
+          },
         });
 
-        return this.mapRecordToPreferences(record);
+        return this.mapToUserPreferences(prefs, userId);
       }
 
-      // Update existing preferences
-      const updateFields: Record<string, unknown> = {
-        updatedAt: now,
-      };
+      // Update existing
+      const prefs = await this.prisma.userPreference.update({
+        where: { userAccountId: userId },
+        data: {
+          ...(dto.theme !== undefined && { theme: dto.theme as PrismaTheme }),
+          ...(dto.language !== undefined && { language: dto.language as PrismaLanguage }),
+          ...(dto.timezone !== undefined && { timezone: dto.timezone }),
+          ...(dto.dateFormat !== undefined && { dateFormat: dto.dateFormat }),
+          ...(dto.timeFormat !== undefined && { timeFormat: dto.timeFormat }),
+        },
+      });
 
-      if (dto.theme !== undefined) updateFields.theme = dto.theme;
-      if (dto.language !== undefined) updateFields.language = dto.language;
-      if (dto.timezone !== undefined) updateFields.timezone = dto.timezone;
-      if (dto.dateFormat !== undefined) updateFields.dateFormat = dto.dateFormat;
-      if (dto.timeFormat !== undefined) updateFields.timeFormat = dto.timeFormat;
-
-      const record = await this.airtable.update<PreferencesRecord>(
-        PREFERENCES_TABLE,
-        records[0].id,
-        updateFields,
-      );
-
-      return this.mapRecordToPreferences(record);
+      return this.mapToUserPreferences(prefs, userId);
     } catch (error) {
       this.logger.error(`Failed to update preferences for user ${userId}:`, error);
       throw error;
@@ -131,15 +106,9 @@ export class UserPreferencesService {
 
   async resetPreferences(clientKey: string, userId: string): Promise<UserPreferences> {
     try {
-      const records = await this.airtable.query<PreferencesRecord>(
-        PREFERENCES_TABLE,
-        clientKey,
-        `{userId} = '${userId}'`,
-      );
-
-      if (records.length > 0) {
-        await this.airtable.delete(PREFERENCES_TABLE, records[0].id);
-      }
+      await this.prisma.userPreference.deleteMany({
+        where: { userAccountId: userId },
+      });
 
       return {
         id: '',
@@ -153,17 +122,17 @@ export class UserPreferencesService {
     }
   }
 
-  private mapRecordToPreferences(record: { id: string; fields: PreferencesRecord }): UserPreferences {
+  private mapToUserPreferences(prefs: any, userId: string): UserPreferences {
     return {
-      id: record.id,
-      userId: record.fields.userId,
-      theme: (record.fields.theme as Theme) || DEFAULT_PREFERENCES.theme,
-      language: (record.fields.language as Language) || DEFAULT_PREFERENCES.language,
-      timezone: record.fields.timezone || DEFAULT_PREFERENCES.timezone,
-      dateFormat: record.fields.dateFormat || DEFAULT_PREFERENCES.dateFormat,
-      timeFormat: record.fields.timeFormat || DEFAULT_PREFERENCES.timeFormat,
-      createdAt: record.fields.createdAt || new Date().toISOString(),
-      updatedAt: record.fields.updatedAt,
+      id: prefs.id,
+      userId,
+      theme: prefs.theme as Theme,
+      language: prefs.language as Language,
+      timezone: prefs.timezone,
+      dateFormat: prefs.dateFormat,
+      timeFormat: prefs.timeFormat,
+      createdAt: prefs.createdAt.toISOString(),
+      updatedAt: prefs.updatedAt?.toISOString(),
     };
   }
 }

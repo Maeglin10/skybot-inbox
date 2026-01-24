@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { UserPreferencesService } from './user-preferences.service';
 import { UserPreferencesController } from './user-preferences.controller';
-import { AirtableModule } from '../airtable/airtable.module';
+import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
-  imports: [AirtableModule],
+  imports: [PrismaModule],
   controllers: [UserPreferencesController],
   providers: [UserPreferencesService],
   exports: [UserPreferencesService],

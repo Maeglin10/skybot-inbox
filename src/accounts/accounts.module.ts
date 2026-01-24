@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { AccountsService } from './accounts.service';
 import { AccountsController } from './accounts.controller';
-import { AirtableModule } from '../airtable/airtable.module';
+import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
-  imports: [AirtableModule],
+  imports: [PrismaModule],
   controllers: [AccountsController],
   providers: [AccountsService],
   exports: [AccountsService],

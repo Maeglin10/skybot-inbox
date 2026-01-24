@@ -23,6 +23,12 @@ model Account {
   inboxes  Inbox[]
   contacts Contact[]
 
+  // New relations
+  userAccounts UserAccount[]
+  leads        Lead[]
+  feedbacks    Feedback[]
+  alerts       Alert[]
+
   @@index([createdAt])
 }
 
@@ -236,4 +242,223 @@ enum RoutingStatus {
   RECEIVED
   FORWARDED
   FAILED
+}
+
+// =========================
+// USER ACCOUNT (Admin/User)
+// =========================
+model UserAccount {
+  id        String @id @default(cuid())
+  accountId String // Links to business Account
+
+  email        String
+  passwordHash String?
+  name         String
+  phone        String?
+  role         UserRole      @default(USER)
+  status       AccountStatus @default(ACTIVE)
+  avatarUrl    String?
+  notes        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  account     Account          @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  preferences UserPreference?
+
+  @@unique([accountId, email], name: "accountId_email")
+  @@index([accountId])
+  @@index([email])
+  @@index([role])
+  @@index([status])
+}
+
+// =========================
+// USER PREFERENCES
+// =========================
+model UserPreference {
+  id            String @id @default(cuid())
+  userAccountId String @unique
+
+  theme      Theme    @default(DARK)
+  language   Language @default(EN)
+  timezone   String   @default("UTC")
+  dateFormat String   @default("YYYY-MM-DD")
+  timeFormat String   @default("24h")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userAccount UserAccount @relation(fields: [userAccountId], references: [id], onDelete: Cascade)
+}
+
+// =========================
+// CRM - LEADS
+// =========================
+model Lead {
+  id        String @id @default(cuid())
+  accountId String
+
+  name        String
+  company     String?
+  email       String?
+  phone       String?
+  status      LeadStatus  @default(NEW)
+  temperature Temperature @default(WARM)
+  channel     String
+  assignedTo  String?
+  tags        String[] // PostgreSQL array
+  notes       String?
+  value       Float?
+  currency    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@index([status])
+  @@index([temperature])
+  @@index([assignedTo])
+  @@index([createdAt])
+}
+
+// =========================
+// CRM - FEEDBACK
+// =========================
+model Feedback {
+  id        String @id @default(cuid())
+  accountId String
+
+  customerName  String
+  customerEmail String?
+  customerPhone String?
+  type          FeedbackType   @default(GENERAL)
+  status        FeedbackStatus @default(PENDING)
+  rating        Int? // 1-5
+  message       String
+  response      String?
+  respondedAt   DateTime?
+  respondedBy   String?
+  channel       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@index([status])
+  @@index([type])
+  @@index([rating])
+  @@index([createdAt])
+}
+
+// =========================
+// ALERTS
+// =========================
+model Alert {
+  id        String @id @default(cuid())
+  accountId String
+
+  type           AlertType
+  title          String
+  subtitle       String?
+  status         AlertStatus   @default(OPEN)
+  priority       AlertPriority @default(MEDIUM)
+  amount         Float?
+  currency       String?
+  customerName   String?
+  channel        Channel?
+  conversationId String?
+  assignee       String?
+  resolvedAt     DateTime?
+  resolvedBy     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@index([status])
+  @@index([type])
+  @@index([priority])
+  @@index([assignee])
+  @@index([createdAt])
+}
+
+// =========================
+// NEW ENUMS
+// =========================
+enum UserRole {
+  ADMIN
+  USER
+}
+
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING
+}
+
+enum Theme {
+  LIGHT
+  DARK
+  SYSTEM
+}
+
+enum Language {
+  EN
+  FR
+  ES
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  LOST
+  WON
+}
+
+enum Temperature {
+  HOT
+  WARM
+  COLD
+}
+
+enum FeedbackType {
+  COMPLAINT
+  SUGGESTION
+  PRAISE
+  QUESTION
+  GENERAL
+}
+
+enum FeedbackStatus {
+  PENDING
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum AlertType {
+  PAYMENT
+  HANDOFF
+  SYSTEM
+  CUSTOM
+}
+
+enum AlertStatus {
+  OPEN
+  PENDING
+  RESOLVED
+}
+
+enum AlertPriority {
+  HIGH
+  MEDIUM
+  LOW
 }

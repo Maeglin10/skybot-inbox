@@ -6,7 +6,7 @@ import {
   BadRequestException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { AirtableService } from '../airtable/airtable.service';
+import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateAccountDto,
   AccountRole,
@@ -15,22 +15,10 @@ import {
 import { UpdateAccountDto } from './dto/update-account.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import * as crypto from 'crypto';
-
-const ACCOUNTS_TABLE = 'UserAccounts';
-
-interface AccountRecord {
-  name: string;
-  email: string;
-  phone?: string;
-  role: string;
-  status: string;
-  notes?: string;
-  avatarUrl?: string;
-  passwordHash?: string;
-  clientKey: string;
-  createdAt?: string;
-  updatedAt?: string;
-}
+import {
+  UserRole as PrismaUserRole,
+  AccountStatus as PrismaAccountStatus,
+} from '@prisma/client';
 
 export interface AccountItem {
   id: string;
@@ -49,7 +37,20 @@ export interface AccountItem {
 export class AccountsService {
   private readonly logger = new Logger(AccountsService.name);
 
-  constructor(private readonly airtable: AirtableService) {}
+  constructor(private readonly prisma: PrismaService) {}
+
+  private async getAccountId(clientKey: string): Promise<string> {
+    const config = await this.prisma.clientConfig.findFirst({
+      where: { clientKey },
+      select: { accountId: true },
+    });
+
+    if (!config) {
+      throw new NotFoundException(`Client config not found for key: ${clientKey}`);
+    }
+
+    return config.accountId;
+  }
 
   async findAll(
     clientKey: string,
@@ -57,28 +58,20 @@ export class AccountsService {
     status?: AccountStatus,
   ): Promise<{ items: AccountItem[]; total: number }> {
     try {
-      let filterFormula = '';
+      const accountId = await this.getAccountId(clientKey);
 
-      if (role && status) {
-        filterFormula = `AND({role} = '${role}', {status} = '${status}')`;
-      } else if (role) {
-        filterFormula = `{role} = '${role}'`;
-      } else if (status) {
-        filterFormula = `{status} = '${status}'`;
-      }
+      const where: any = { accountId };
+      if (role) where.role = role as PrismaUserRole;
+      if (status) where.status = status as PrismaAccountStatus;
 
-      const records = await this.airtable.query<AccountRecord>(
-        ACCOUNTS_TABLE,
-        clientKey,
-        filterFormula || undefined,
-        {
-          sort: [{ field: 'createdAt', direction: 'desc' }],
-        },
-      );
+      const users = await this.prisma.userAccount.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+      });
 
       return {
-        items: records.map((r) => this.mapRecordToAccount(r)),
-        total: records.length,
+        items: users.map((u) => this.mapToAccountItem(u)),
+        total: users.length,
       };
     } catch (error) {
       this.logger.error('Failed to fetch accounts:', error);
@@ -88,17 +81,17 @@ export class AccountsService {
 
   async findOne(clientKey: string, id: string): Promise<AccountItem> {
     try {
-      const records = await this.airtable.query<AccountRecord>(
-        ACCOUNTS_TABLE,
-        clientKey,
-        `RECORD_ID() = '${id}'`,
-      );
+      const accountId = await this.getAccountId(clientKey);
 
-      if (records.length === 0) {
+      const user = await this.prisma.userAccount.findFirst({
+        where: { id, accountId },
+      });
+
+      if (!user) {
         throw new NotFoundException(`Account with ID ${id} not found`);
       }
 
-      return this.mapRecordToAccount(records[0]);
+      return this.mapToAccountItem(user);
     } catch (error) {
       this.logger.error(`Failed to fetch account ${id}:`, error);
       throw error;
@@ -107,17 +100,17 @@ export class AccountsService {
 
   async findByEmail(clientKey: string, email: string): Promise<AccountItem | null> {
     try {
-      const records = await this.airtable.query<AccountRecord>(
-        ACCOUNTS_TABLE,
-        clientKey,
-        `{email} = '${email}'`,
-      );
+      const accountId = await this.getAccountId(clientKey);
 
-      if (records.length === 0) {
+      const user = await this.prisma.userAccount.findFirst({
+        where: { accountId, email },
+      });
+
+      if (!user) {
         return null;
       }
 
-      return this.mapRecordToAccount(records[0]);
+      return this.mapToAccountItem(user);
     } catch (error) {
       this.logger.error(`Failed to fetch account by email ${email}:`, error);
       throw error;
@@ -126,27 +119,30 @@ export class AccountsService {
 
   async create(clientKey: string, dto: CreateAccountDto): Promise<AccountItem> {
     try {
-      // Check if email already exists
-      const existing = await this.findByEmail(clientKey, dto.email);
+      const accountId = await this.getAccountId(clientKey);
+
+      const existing = await this.prisma.userAccount.findFirst({
+        where: { accountId, email: dto.email },
+      });
+
       if (existing) {
         throw new ConflictException(`Account with email ${dto.email} already exists`);
       }
 
-      const now = new Date().toISOString();
-      const record = await this.airtable.create<AccountRecord>(ACCOUNTS_TABLE, {
-        name: dto.name,
-        email: dto.email,
-        phone: dto.phone,
-        role: dto.role,
-        status: dto.status || AccountStatus.ACTIVE,
-        notes: dto.notes,
-        avatarUrl: dto.avatarUrl,
-        clientKey,
-        createdAt: now,
-        updatedAt: now,
+      const user = await this.prisma.userAccount.create({
+        data: {
+          accountId,
+          name: dto.name,
+          email: dto.email,
+          phone: dto.phone,
+          role: dto.role as PrismaUserRole,
+          status: (dto.status || AccountStatus.ACTIVE) as PrismaAccountStatus,
+          notes: dto.notes,
+          avatarUrl: dto.avatarUrl,
+        },
       });
 
-      return this.mapRecordToAccount(record);
+      return this.mapToAccountItem(user);
     } catch (error) {
       this.logger.error('Failed to create account:', error);
       throw error;
@@ -159,36 +155,39 @@ export class AccountsService {
     dto: UpdateAccountDto,
   ): Promise<AccountItem> {
     try {
-      // Verify account exists and belongs to client
-      await this.findOne(clientKey, id);
+      const accountId = await this.getAccountId(clientKey);
 
-      // If updating email, check for duplicates
-      if (dto.email) {
-        const existing = await this.findByEmail(clientKey, dto.email);
-        if (existing && existing.id !== id) {
+      const existing = await this.prisma.userAccount.findFirst({
+        where: { id, accountId },
+      });
+
+      if (!existing) {
+        throw new NotFoundException(`Account with ID ${id} not found`);
+      }
+
+      if (dto.email && dto.email !== existing.email) {
+        const emailExists = await this.prisma.userAccount.findFirst({
+          where: { accountId, email: dto.email, NOT: { id } },
+        });
+        if (emailExists) {
           throw new ConflictException(`Account with email ${dto.email} already exists`);
         }
       }
 
-      const updateFields: Record<string, unknown> = {
-        updatedAt: new Date().toISOString(),
-      };
+      const user = await this.prisma.userAccount.update({
+        where: { id },
+        data: {
+          ...(dto.name !== undefined && { name: dto.name }),
+          ...(dto.email !== undefined && { email: dto.email }),
+          ...(dto.phone !== undefined && { phone: dto.phone }),
+          ...(dto.role !== undefined && { role: dto.role as PrismaUserRole }),
+          ...(dto.status !== undefined && { status: dto.status as PrismaAccountStatus }),
+          ...(dto.notes !== undefined && { notes: dto.notes }),
+          ...(dto.avatarUrl !== undefined && { avatarUrl: dto.avatarUrl }),
+        },
+      });
 
-      if (dto.name !== undefined) updateFields.name = dto.name;
-      if (dto.email !== undefined) updateFields.email = dto.email;
-      if (dto.phone !== undefined) updateFields.phone = dto.phone;
-      if (dto.role !== undefined) updateFields.role = dto.role;
-      if (dto.status !== undefined) updateFields.status = dto.status;
-      if (dto.notes !== undefined) updateFields.notes = dto.notes;
-      if (dto.avatarUrl !== undefined) updateFields.avatarUrl = dto.avatarUrl;
-
-      const record = await this.airtable.update<AccountRecord>(
-        ACCOUNTS_TABLE,
-        id,
-        updateFields,
-      );
-
-      return this.mapRecordToAccount(record);
+      return this.mapToAccountItem(user);
     } catch (error) {
       this.logger.error(`Failed to update account ${id}:`, error);
       throw error;
@@ -197,10 +196,17 @@ export class AccountsService {
 
   async delete(clientKey: string, id: string): Promise<{ success: boolean }> {
     try {
-      // Verify account exists and belongs to client
-      await this.findOne(clientKey, id);
+      const accountId = await this.getAccountId(clientKey);
 
-      await this.airtable.delete(ACCOUNTS_TABLE, id);
+      const existing = await this.prisma.userAccount.findFirst({
+        where: { id, accountId },
+      });
+
+      if (!existing) {
+        throw new NotFoundException(`Account with ID ${id} not found`);
+      }
+
+      await this.prisma.userAccount.delete({ where: { id } });
       return { success: true };
     } catch (error) {
       this.logger.error(`Failed to delete account ${id}:`, error);
@@ -230,38 +236,32 @@ export class AccountsService {
     dto: ChangePasswordDto,
   ): Promise<{ success: boolean; message: string }> {
     try {
-      // Validate passwords match
       if (dto.newPassword !== dto.confirmPassword) {
         throw new BadRequestException('New password and confirmation do not match');
       }
 
-      // Verify account exists
-      const records = await this.airtable.query<AccountRecord>(
-        ACCOUNTS_TABLE,
-        clientKey,
-        `RECORD_ID() = '${id}'`,
-      );
+      const accountId = await this.getAccountId(clientKey);
 
-      if (records.length === 0) {
+      const user = await this.prisma.userAccount.findFirst({
+        where: { id, accountId },
+      });
+
+      if (!user) {
         throw new NotFoundException(`Account with ID ${id} not found`);
       }
 
-      const account = records[0];
-
-      // Verify current password (if passwordHash exists)
-      if (account.fields.passwordHash) {
+      if (user.passwordHash) {
         const currentHash = this.hashPassword(dto.currentPassword);
-        if (currentHash !== account.fields.passwordHash) {
+        if (currentHash !== user.passwordHash) {
           throw new UnauthorizedException('Current password is incorrect');
         }
       }
 
-      // Hash new password and update
       const newPasswordHash = this.hashPassword(dto.newPassword);
 
-      await this.airtable.update<AccountRecord>(ACCOUNTS_TABLE, id, {
-        passwordHash: newPasswordHash,
-        updatedAt: new Date().toISOString(),
+      await this.prisma.userAccount.update({
+        where: { id },
+        data: { passwordHash: newPasswordHash },
       });
 
       this.logger.log(`Password changed successfully for account ${id}`);
@@ -282,9 +282,9 @@ export class AccountsService {
 
       const passwordHash = this.hashPassword(password);
 
-      await this.airtable.update<AccountRecord>(ACCOUNTS_TABLE, id, {
-        passwordHash,
-        updatedAt: new Date().toISOString(),
+      await this.prisma.userAccount.update({
+        where: { id },
+        data: { passwordHash },
       });
 
       return { success: true };
@@ -294,26 +294,29 @@ export class AccountsService {
     }
   }
 
-  async verifyPassword(clientKey: string, email: string, password: string): Promise<AccountItem | null> {
+  async verifyPassword(
+    clientKey: string,
+    email: string,
+    password: string,
+  ): Promise<AccountItem | null> {
     try {
-      const records = await this.airtable.query<AccountRecord>(
-        ACCOUNTS_TABLE,
-        clientKey,
-        `{email} = '${email}'`,
-      );
+      const accountId = await this.getAccountId(clientKey);
 
-      if (records.length === 0) {
+      const user = await this.prisma.userAccount.findFirst({
+        where: { accountId, email },
+      });
+
+      if (!user || !user.passwordHash) {
         return null;
       }
 
-      const account = records[0];
       const passwordHash = this.hashPassword(password);
 
-      if (account.fields.passwordHash !== passwordHash) {
+      if (user.passwordHash !== passwordHash) {
         return null;
       }
 
-      return this.mapRecordToAccount(account);
+      return this.mapToAccountItem(user);
     } catch (error) {
       this.logger.error(`Failed to verify password for ${email}:`, error);
       return null;
@@ -321,22 +324,21 @@ export class AccountsService {
   }
 
   private hashPassword(password: string): string {
-    // Simple SHA-256 hash - in production, use bcrypt or argon2
     return crypto.createHash('sha256').update(password).digest('hex');
   }
 
-  private mapRecordToAccount(record: { id: string; fields: AccountRecord }): AccountItem {
+  private mapToAccountItem(user: any): AccountItem {
     return {
-      id: record.id,
-      name: record.fields.name,
-      email: record.fields.email,
-      phone: record.fields.phone,
-      role: record.fields.role as AccountRole,
-      status: record.fields.status as AccountStatus,
-      notes: record.fields.notes,
-      avatarUrl: record.fields.avatarUrl,
-      createdAt: record.fields.createdAt || new Date().toISOString(),
-      updatedAt: record.fields.updatedAt,
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone || undefined,
+      role: user.role as AccountRole,
+      status: user.status as AccountStatus,
+      notes: user.notes || undefined,
+      avatarUrl: user.avatarUrl || undefined,
+      createdAt: user.createdAt.toISOString(),
+      updatedAt: user.updatedAt?.toISOString(),
     };
   }
 }
