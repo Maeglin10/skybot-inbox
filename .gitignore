@@ -47,6 +47,11 @@ select "externalId", "text", "createdAt"?>  from "Message"?>  order by "createdA
 test/
 tests/
 
+# CSV data files (client data - NEVER commit)
+tables/
+*.csv
+!example.csv
+
 # Archive scripts
 scripts/archive/
 .env.production
