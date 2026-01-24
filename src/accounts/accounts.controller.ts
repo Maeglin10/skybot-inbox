@@ -17,6 +17,7 @@ import { CreateAccountDto, AccountRole, AccountStatus } from './dto/create-accou
 import { UpdateAccountDto } from './dto/update-account.dto';
 import { ListAccountsDto } from './dto/list-accounts.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { UpdateFeaturesDto } from './dto/update-features.dto';
 
 @Controller('accounts')
 @UseGuards(ApiKeyGuard)
@@ -140,5 +141,28 @@ export class AccountsController {
       return { success: false, message: 'Invalid credentials' };
     }
     return { success: true, account };
+  }
+
+  /**
+   * GET /accounts/:accountId/features
+   * Get account features
+   */
+  @Get(':accountId/features')
+  async getFeatures(@Param('accountId') accountId: string) {
+    this.logger.log(`GET /accounts/${accountId}/features`);
+    return this.accountsService.getFeatures(accountId);
+  }
+
+  /**
+   * PATCH /accounts/:accountId/features
+   * Update account features
+   */
+  @Patch(':accountId/features')
+  async updateFeatures(
+    @Param('accountId') accountId: string,
+    @Body() dto: UpdateFeaturesDto,
+  ) {
+    this.logger.log(`PATCH /accounts/${accountId}/features`);
+    return this.accountsService.updateFeatures(accountId, dto);
   }
 }

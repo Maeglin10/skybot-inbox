@@ -341,4 +341,53 @@ export class AccountsService {
       updatedAt: user.updatedAt?.toISOString(),
     };
   }
+
+  /**
+   * Get account features
+   */
+  async getFeatures(accountId: string) {
+    const account = await this.prisma.account.findUnique({
+      where: { id: accountId },
+      select: { id: true, name: true, isDemo: true, features: true },
+    });
+
+    if (!account) {
+      throw new NotFoundException(`Account ${accountId} not found`);
+    }
+
+    return {
+      id: account.id,
+      name: account.name,
+      isDemo: account.isDemo,
+      features: account.features || {},
+    };
+  }
+
+  /**
+   * Update account features
+   */
+  async updateFeatures(accountId: string, features: Record<string, boolean>) {
+    const account = await this.prisma.account.findUnique({
+      where: { id: accountId },
+    });
+
+    if (!account) {
+      throw new NotFoundException(`Account ${accountId} not found`);
+    }
+
+    const currentFeatures = (account.features as Record<string, boolean>) || {};
+    const updatedFeatures = { ...currentFeatures, ...features };
+
+    const updated = await this.prisma.account.update({
+      where: { id: accountId },
+      data: { features: updatedFeatures },
+    });
+
+    return {
+      id: updated.id,
+      name: updated.name,
+      isDemo: updated.isDemo,
+      features: updated.features || {},
+    };
+  }
 }

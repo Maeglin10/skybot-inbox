@@ -138,9 +138,30 @@ async function main() {
   for (const config of clientsConfig) {
     if (!config.client_id || !config.client_name) continue;
 
+    // Demo account has all features enabled
+    const isDemo = config.client_name?.toLowerCase() === 'demo';
+    const features = isDemo
+      ? {
+          inbox: true,
+          crm: true,
+          analytics: true,
+          alerts: true,
+          settings: true,
+          orders: true,
+        }
+      : {
+          inbox: true,
+          crm: true,
+          analytics: true,
+          alerts: true,
+          settings: true,
+        };
+
     const account = await prisma.account.create({
       data: {
         name: config.client_name,
+        isDemo,
+        features,
       },
     });
 

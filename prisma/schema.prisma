@@ -13,6 +13,8 @@ datasource db {
 model Account {
   id        String   @id @default(cuid())
   name      String
+  isDemo    Boolean  @default(false) // Demo account flag
+  features  Json?    // Feature toggles: { crm: true, analytics: true, ... }
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -30,6 +32,7 @@ model Account {
   alerts       Alert[]
 
   @@index([createdAt])
+  @@index([isDemo])
 }
 
 model ExternalAccount {
@@ -421,6 +424,7 @@ enum Language {
   EN
   FR
   ES
+  PT
 }
 
 enum LeadStatus {
