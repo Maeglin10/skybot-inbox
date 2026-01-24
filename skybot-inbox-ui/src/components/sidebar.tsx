@@ -13,6 +13,7 @@ import {
   Calendar,
   User
 } from 'lucide-react';
+import { ThemeSwitcher } from './theme-switcher';
 
 const NAV_ITEMS = [
   // { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }, // Future?
@@ -64,9 +65,16 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="ui-sidebar__footer">
-        <div className="ui-sidebar__footerTitle">Nexxa Agent System</div>
-        <div className="ui-sidebar__footerVersion">V1</div>
+      <div className="ui-sidebar__footer !block">
+        <div className="mb-2 flex items-center justify-between">
+          <div className="ui-sidebar__footerTitle">Nexxa Agent System</div>
+          <div className="ui-sidebar__footerVersion">V1</div>
+        </div>
+        <div className="w-full">
+          <div className="w-full flex justify-center">
+             <ThemeSwitcher />
+          </div>
+        </div>
       </div>
     </aside>
   );

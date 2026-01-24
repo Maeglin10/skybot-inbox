@@ -302,6 +302,22 @@ model UserPreference {
 }
 
 // =========================
+// MAGIC LINKS (Passwordless Auth)
+// =========================
+model MagicLink {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  used      Boolean  @default(false)
+  expiresAt DateTime
+
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([token])
+}
+
+// =========================
 // CRM - LEADS
 // =========================
 model Lead {
