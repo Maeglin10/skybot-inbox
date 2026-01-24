@@ -13,6 +13,7 @@ import {
   AccountStatus,
 } from './dto/create-account.dto';
 import { UpdateAccountDto } from './dto/update-account.dto';
+import { UpdateFeaturesDto } from './dto/update-features.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import * as crypto from 'crypto';
 import {
@@ -366,7 +367,7 @@ export class AccountsService {
   /**
    * Update account features
    */
-  async updateFeatures(accountId: string, features: Record<string, boolean>) {
+  async updateFeatures(accountId: string, dto: UpdateFeaturesDto) {
     const account = await this.prisma.account.findUnique({
       where: { id: accountId },
     });
@@ -374,6 +375,15 @@ export class AccountsService {
     if (!account) {
       throw new NotFoundException(`Account ${accountId} not found`);
     }
+
+    // Convert DTO to features object, filtering out undefined values
+    const features: Record<string, boolean> = {};
+    if (dto.inbox !== undefined) features.inbox = dto.inbox;
+    if (dto.crm !== undefined) features.crm = dto.crm;
+    if (dto.analytics !== undefined) features.analytics = dto.analytics;
+    if (dto.alerts !== undefined) features.alerts = dto.alerts;
+    if (dto.settings !== undefined) features.settings = dto.settings;
+    if (dto.orders !== undefined) features.orders = dto.orders;
 
     const currentFeatures = (account.features as Record<string, boolean>) || {};
     const updatedFeatures = { ...currentFeatures, ...features };

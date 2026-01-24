@@ -383,7 +383,7 @@ async function main() {
     await prisma.userPreference.create({
       data: {
         userAccountId: userAccount.id,
-        theme: 'DARK',
+        theme: 'DEFAULT',
         language: config.language === 'fr' ? 'FR' : config.language === 'es' ? 'ES' : 'EN',
         timezone: config.timezone || 'UTC',
       },

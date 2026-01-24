@@ -1,10 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { UpdatePreferencesDto, Theme, Language } from './dto/update-preferences.dto';
-import {
-  Theme as PrismaTheme,
-  Language as PrismaLanguage,
-} from '@prisma/client';
+import { UpdatePreferencesDto } from './dto/update-preferences.dto';
+import { Theme, Language } from '@prisma/client';
 
 export interface UserPreferences {
   id: string;
@@ -19,8 +16,8 @@ export interface UserPreferences {
 }
 
 const DEFAULT_PREFERENCES = {
-  theme: Theme.DARK,
-  language: Language.EN,
+  theme: 'DEFAULT' as Theme,
+  language: 'EN' as Language,
   timezone: 'UTC',
   dateFormat: 'YYYY-MM-DD',
   timeFormat: '24h',
@@ -74,8 +71,8 @@ export class UserPreferencesService {
         const prefs = await this.prisma.userPreference.create({
           data: {
             userAccountId: userId,
-            theme: (dto.theme || DEFAULT_PREFERENCES.theme) as PrismaTheme,
-            language: (dto.language || DEFAULT_PREFERENCES.language) as PrismaLanguage,
+            theme: dto.theme || DEFAULT_PREFERENCES.theme,
+            language: dto.language || DEFAULT_PREFERENCES.language,
             timezone: dto.timezone || DEFAULT_PREFERENCES.timezone,
             dateFormat: dto.dateFormat || DEFAULT_PREFERENCES.dateFormat,
             timeFormat: dto.timeFormat || DEFAULT_PREFERENCES.timeFormat,
@@ -89,8 +86,8 @@ export class UserPreferencesService {
       const prefs = await this.prisma.userPreference.update({
         where: { userAccountId: userId },
         data: {
-          ...(dto.theme !== undefined && { theme: dto.theme as PrismaTheme }),
-          ...(dto.language !== undefined && { language: dto.language as PrismaLanguage }),
+          ...(dto.theme !== undefined && { theme: dto.theme }),
+          ...(dto.language !== undefined && { language: dto.language }),
           ...(dto.timezone !== undefined && { timezone: dto.timezone }),
           ...(dto.dateFormat !== undefined && { dateFormat: dto.dateFormat }),
           ...(dto.timeFormat !== undefined && { timeFormat: dto.timeFormat }),
