@@ -1,24 +1,94 @@
+"use client";
+
+import React from 'react';
+import { useTranslations } from 'next-intl';
+import { useUserPreferences } from '@/hooks/use-user-preferences';
+import { Monitor, Moon, Sun, Palette } from 'lucide-react';
+import { Theme, themes } from '@/lib/themes';
+import { useTheme } from '@/components/theme-provider';
+
+const THEME_NAMES: Theme[] = [
+  "DEFAULT", "NORD", "GOLD", "NATURE", "NETFLIX", "LARACON", "DRACULA"
+];
+
 export default function AppearancePage() {
+  const t = useTranslations('settings');
+  const { preferences, updatePreferences } = useUserPreferences();
+  const { mode, setMode } = useTheme();
+
   return (
-    <div className="space-y-6">
-       <div>
-          <h2 className="text-2xl font-bold mb-1">Appearance</h2>
-          <p className="text-sm text-muted-foreground">Customize the look and feel.</p>
-       </div>
-       
-       <div className="ui-card p-6">
-          <h3 className="text-sm font-semibold mb-3">Theme</h3>
-          <div className="flex gap-4">
-             <div className="border border-primary rounded-lg p-4 w-32 text-center cursor-pointer bg-muted/20">
-                <div className="h-20 bg-gray-900 rounded mb-2 border border-border/50"></div>
-                <span className="text-xs font-medium">Dark</span>
+    <div className="space-y-8">
+      <div>
+        <h2 className="ui-pageTitle">{t('theme')}</h2>
+        <p className="ui-pageSubtitle">Customize the look and feel of your workspace.</p>
+      </div>
+
+      <div className="ui-card">
+        <div className="ui-card__header">
+           <div className="flex items-center gap-2">
+              <Palette size={18} />
+              <span className="font-semibold">{t('selectTheme')}</span>
+           </div>
+        </div>
+        <div className="ui-card__body space-y-6">
+           
+           {/* Mode Toggle */}
+           <div className="flex flex-col gap-2">
+             <label className="text-sm font-medium text-foreground">Mode</label>
+             <div className="flex items-center gap-2 bg-muted p-1 rounded-lg w-fit">
+                <button 
+                  onClick={() => setMode('light')}
+                  className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-all ${mode === 'light' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                   <Sun size={16} /> Light
+                </button>
+                <button 
+                  onClick={() => setMode('system')}
+                  className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-all ${mode === 'system' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                   <Monitor size={16} /> Auto
+                </button>
+                <button 
+                  onClick={() => setMode('dark')}
+                  className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-all ${mode === 'dark' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                   <Moon size={16} /> Dark
+                </button>
              </div>
-             <div className="border border-border/30 rounded-lg p-4 w-32 text-center cursor-pointer hover:bg-muted/10 opacity-60">
-                <div className="h-20 bg-white rounded mb-2 border border-border/50"></div>
-                <span className="text-xs font-medium">Light</span>
-             </div>
-          </div>
-       </div>
+           </div>
+
+           {/* Theme Select */}
+           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              {THEME_NAMES.map(themeName => {
+                 const isActive = preferences.theme === themeName;
+                 // Get preview colors
+                 // Always use light mode variables for the preview swatch to be consistent visually regardless of current mode?
+                 // Actually better to use the mode corresponding variables if we want true preview, but 'light' is safe choice for catalog.
+                 const vars = themes[themeName].light; 
+                 const bg = `hsl(${vars['--background']})`;
+                 const primary = `hsl(${vars['--primary']})`;
+
+                 return (
+                   <button
+                     key={themeName}
+                     onClick={() => updatePreferences({ theme: themeName })}
+                     className={`relative border rounded-xl overflow-hidden text-left hover:ring-2 hover:ring-primary/50 transition-all ${isActive ? 'ring-2 ring-primary border-primary' : 'border-border'}`}
+                   >
+                      <div className="h-12 w-full flex" style={{ background: bg }}>
+                         <div className="h-full w-1/4" style={{ background: `hsl(${vars['--muted']})` }}></div>
+                         <div className="mt-2 ml-2 h-4 w-4 rounded-full" style={{ background: primary }}></div>
+                      </div>
+                      <div className="p-2.5 bg-card">
+                         <div className="text-xs font-semibold">{themeName}</div>
+                      </div>
+                      {isActive && <div className="absolute top-1 right-1 h-2 w-2 bg-primary rounded-full" />}
+                   </button>
+                 );
+              })}
+           </div>
+
+        </div>
+      </div>
     </div>
   );
 }

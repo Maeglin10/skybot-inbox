@@ -13,8 +13,7 @@ import {
   Calendar,
   User
 } from 'lucide-react';
-import { ThemeSwitcher } from './theme-switcher';
-import { LanguageSwitcher } from './language-switcher';
+// ThemeSwitcher removed from Sidebar footer
 
 const NAV_ITEMS = [
   // { href: '/dashboard', key: 'dashboard', icon: LayoutDashboard }, 
@@ -73,10 +72,7 @@ export function Sidebar() {
           <div className="ui-sidebar__footerTitle">Nexxa Agent System</div>
           <div className="ui-sidebar__footerVersion">V1</div>
         </div>
-        <div className="flex flex-col gap-2">
-          <ThemeSwitcher />
-          <LanguageSwitcher />
-        </div>
+        {/* ThemeSwitcher moved to Settings -> Appearance */}
       </div>
     </aside>
   );

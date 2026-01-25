@@ -1,11 +1,19 @@
 'use client';
 
 import * as React from 'react';
-import { Camera } from 'lucide-react';
+import { Camera, Mail, User, Shield, Activity, UserCircle } from 'lucide-react';
 
 export default function ProfilePage() {
   const [loading, setLoading] = React.useState(false);
   const [saved, setSaved] = React.useState(false);
+
+  // Mock initial data
+  const [formData, setFormData] = React.useState({
+    name: "Valentin Milliand",
+    email: "valentin.milliand@nexa.com",
+    role: "Administrator",
+    status: "Active"
+  });
 
   const handleSave = async () => {
     setLoading(true);
@@ -17,50 +25,95 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="space-y-8">
-       <div className="flex items-end justify-between border-b border-border/20 pb-4">
-          <div>
-             <h2 className="text-2xl font-bold mb-1">Profile</h2>
-             <p className="text-sm text-muted-foreground">Manage your personal information and avatar.</p>
-          </div>
+    <div className="space-y-6">
+       <div>
+          <h2 className="ui-pageTitle">Profile</h2>
+          <p className="ui-pageSubtitle">Manage your personal information.</p>
        </div>
 
-       <div className="grid gap-8">
-          <section className="ui-card p-6 flex flex-col sm:flex-row gap-6 items-start">
-             <div className="relative group cursor-pointer">
-                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-3xl font-bold text-primary border-4 border-background shadow-lg">
-                  JD
-                </div>
-                <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                   <Camera className="text-white" size={24} />
+       <div className="grid gap-6">
+          <section className="ui-card">
+             <div className="ui-card__header">
+                <div className="flex items-center gap-2">
+                   <UserCircle size={18} />
+                   <span className="font-semibold">Public Profile</span>
                 </div>
              </div>
-             <div className="flex-1 space-y-4 max-w-md w-full">
-                <div className="grid gap-1.5">
-                   <label className="text-xs font-semibold uppercase text-muted-foreground">Display Name</label>
-                   <input className="ui-input bg-background/50" defaultValue="John Doe" />
+             
+             <div className="ui-card__body flex flex-col sm:flex-row gap-8 items-start">
+                {/* Avatar Section */}
+                <div className="flex flex-col items-center gap-3">
+                   <div className="relative group cursor-pointer">
+                      <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-3xl font-bold text-primary border-4 border-background shadow-sm">
+                        {formData.name.split(' ').map(n => n[0]).join('')}
+                      </div>
+                      <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                         <Camera className="text-white" size={20} />
+                      </div>
+                   </div>
+                   <button className="text-xs text-primary hover:underline font-medium">Change Avatar</button>
                 </div>
-                <div className="grid gap-1.5">
-                   <label className="text-xs font-semibold uppercase text-muted-foreground">Email Address</label>
-                   <input className="ui-input bg-background/50" defaultValue="john.doe@example.com" />
+
+                {/* Form Section */}
+                <div className="flex-1 grid gap-4 max-w-lg w-full">
+                   
+                   <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                         <User size={12} /> Full Name
+                      </label>
+                      <input 
+                        className="ui-input w-full" 
+                        value={formData.name}
+                        onChange={(e) => setFormData({...formData, name: e.target.value})} 
+                      />
+                   </div>
+
+                   <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                         <Mail size={12} /> Email Address
+                      </label>
+                      <input 
+                        className="ui-input w-full bg-muted/30" 
+                        value={formData.email}
+                        disabled // Email usually locked or requires specific flow
+                        title="Email cannot be changed directly"
+                      />
+                   </div>
+
+                   <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                         <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                            <Shield size={12} /> Role
+                         </label>
+                         <div className="flex items-center px-3 h-[2.25rem] bg-muted/30 border border-border rounded-lg text-sm text-muted-foreground cursor-not-allowed">
+                            {formData.role}
+                         </div>
+                      </div>
+                      <div className="space-y-1.5">
+                         <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                            <Activity size={12} /> Status
+                         </label>
+                         <div className="flex items-center px-3 h-[2.25rem] bg-green-500/10 border border-green-500/20 rounded-lg text-sm text-green-600 font-medium">
+                            <div className="w-1.5 h-1.5 rounded-full bg-green-500 mr-2" />
+                            {formData.status}
+                         </div>
+                      </div>
+                   </div>
+
                 </div>
-                <div className="grid gap-1.5">
-                   <label className="text-xs font-semibold uppercase text-muted-foreground">Role</label>
-                   <input className="ui-input bg-muted/50 text-muted-foreground cursor-not-allowed" disabled defaultValue="Administrator" />
-                </div>
+             </div>
+
+             <div className="p-4 border-t border-border flex justify-end items-center gap-4 bg-muted/30">
+                {saved && <span className="text-xs font-medium text-green-600 animate-in fade-in">Saved successfully!</span>}
+                <button 
+                   onClick={handleSave} 
+                   disabled={loading}
+                   className="ui-btn ui-btn--primary min-w-[100px]"
+                >
+                   {loading ? 'Saving...' : 'Save Changes'}
+                </button>
              </div>
           </section>
-       </div>
-
-       <div className="flex items-center justify-end gap-3 pt-4">
-          {saved && <span className="text-xs font-medium text-green-500 animate-in fade-in">Changes saved successfully!</span>}
-          <button 
-             onClick={handleSave} 
-             disabled={loading}
-             className="ui-btn ui-btn--primary min-w-[100px]"
-          >
-             {loading ? 'Saving...' : 'Save Changes'}
-          </button>
        </div>
     </div>
   );
