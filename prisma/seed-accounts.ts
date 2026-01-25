@@ -14,6 +14,7 @@ const prisma = new PrismaClient({ adapter });
 // Secure credentials for new accounts
 const ACCOUNTS_CREDENTIALS = {
   valentin: {
+    username: 'valentin',
     email: 'valentin.milliand@nexxa',
     password: '4gs75062a6rOnOKy3j09ireEPWAB5Td',
     name: 'Valentin Milliand',
@@ -21,6 +22,7 @@ const ACCOUNTS_CREDENTIALS = {
     accountName: 'Nexxa'
   },
   nexxaAdmin: {
+    username: 'nexa.admin',
     email: 'Nexxa@admin',
     password: '2J748mbMBcOrJv41K5FmAIaOlMGMw3H',
     name: 'Nexxa Admin',
@@ -28,6 +30,7 @@ const ACCOUNTS_CREDENTIALS = {
     accountName: 'Nexxa'
   },
   nexxaDemo: {
+    username: 'nexa.demo',
     email: 'Nexxa@demo',
     password: 'OfIPAbn9j6Gy0x9VqOW0KY06UqzPo7',
     name: 'Nexxa Demo Account',
@@ -35,6 +38,7 @@ const ACCOUNTS_CREDENTIALS = {
     accountName: 'Nexxa Demo'
   },
   goodlife: {
+    username: 'goodlife.agents',
     email: 'goodlife.agents',
     password: '4qFEZPjc8f',
     name: 'GoodLife Agents',
@@ -153,7 +157,8 @@ async function main() {
 
   for (const [key, creds] of Object.entries(ACCOUNTS_CREDENTIALS)) {
     console.log(`\n${creds.name}:`);
-    console.log(`  Email: ${creds.email}`);
+    console.log(`  Username: ${creds.username}`);
+    console.log(`  Email: ${creds.email || 'N/A'}`);
     console.log(`  Password: ${creds.password}`);
     console.log(`  Role: ${creds.role}`);
   }
@@ -164,7 +169,8 @@ async function main() {
 
 async function createUserAccount(
   credentials: {
-    email: string;
+    username: string;
+    email?: string;
     password: string;
     name: string;
     role: UserRole;
@@ -172,11 +178,14 @@ async function createUserAccount(
   accountId: string
 ) {
   const existing = await prisma.userAccount.findFirst({
-    where: { email: credentials.email }
+    where: {
+      accountId,
+      username: credentials.username
+    }
   });
 
   if (existing) {
-    console.log(`ℹ️  User ${credentials.email} already exists`);
+    console.log(`ℹ️  User ${credentials.username} already exists`);
     return existing;
   }
 
@@ -185,6 +194,7 @@ async function createUserAccount(
   const user = await prisma.userAccount.create({
     data: {
       accountId,
+      username: credentials.username,
       email: credentials.email,
       passwordHash,
       name: credentials.name,
@@ -203,7 +213,7 @@ async function createUserAccount(
     }
   });
 
-  console.log(`✅ Created user: ${credentials.email} (${credentials.role})`);
+  console.log(`✅ Created user: ${credentials.username} (${credentials.role})`);
   return user;
 }
 

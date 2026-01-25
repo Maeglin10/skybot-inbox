@@ -40,7 +40,7 @@ export class AdminService {
 
   async create(accountId: string, dto: CreateUserDto) {
     const existing = await this.prisma.userAccount.findFirst({
-      where: { accountId, email: dto.email },
+      where: { accountId, username: dto.username },
     });
     if (existing) {
       throw new ConflictException('User already exists');
@@ -53,6 +53,7 @@ export class AdminService {
     const user = await this.prisma.userAccount.create({
       data: {
         accountId,
+        username: dto.username,
         email: dto.email,
         passwordHash,
         name: dto.name,
