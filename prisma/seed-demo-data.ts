@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { PrismaClient, MessageDirection, AlertType, AlertPriority, LeadStatus, Temperature, FeedbackType, FeedbackStatus } from '@prisma/client';
+import { PrismaClient, MessageDirection, AlertType, AlertPriority, LeadStatus, Temperature, FeedbackType, FeedbackStatus, Channel } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 
@@ -14,7 +14,7 @@ const prisma = new PrismaClient({ adapter });
 const FIRST_NAMES = ['Sophie', 'Thomas', 'Marie', 'Lucas', 'Emma', 'Antoine', 'Julie', 'Nicolas', 'Camille', 'Pierre'];
 const LAST_NAMES = ['Martin', 'Bernard', 'Dubois', 'Thomas', 'Robert', 'Richard', 'Petit', 'Durand', 'Leroy', 'Moreau'];
 const COMPANIES = ['TechCorp', 'InnoSolutions', 'DigitalPro', 'CloudMasters', 'DataSystems', 'WebExperts'];
-const CHANNELS = ['INSTAGRAM', 'FACEBOOK', 'WHATSAPP'];
+const CHANNELS: Channel[] = ['INSTAGRAM', 'FACEBOOK', 'WHATSAPP'];
 const TAGS = ['hot', 'qualified', 'new', 'pending', 'follow-up', 'demo-requested'];
 
 function getRandomElement<T>(array: T[]): T {
@@ -41,8 +41,8 @@ async function main() {
     throw new Error('Accounts not found. Run seed-accounts.ts first.');
   }
 
-  const valentinUser = await prisma.userAccount.findFirst({ where: { email: 'valentin.milliand@nexxa' } });
-  const demoUser = await prisma.userAccount.findFirst({ where: { email: 'Nexxa@demo' } });
+  const valentinUser = await prisma.userAccount.findFirst({ where: { username: 'valentin' } });
+  const demoUser = await prisma.userAccount.findFirst({ where: { username: 'nexa.demo' } });
 
   if (!valentinUser || !demoUser) {
     throw new Error('Users not found. Run seed-accounts.ts first.');
