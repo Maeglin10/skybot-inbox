@@ -14,7 +14,7 @@ const prisma = new PrismaClient({ adapter });
 // Secure credentials for new accounts
 const ACCOUNTS_CREDENTIALS = {
   valentin: {
-    username: 'valentin',
+    username: 'valentinmilliand.nexxa',
     email: 'valentin.milliand@nexxa',
     password: '4gs75062a6rOnOKy3j09ireEPWAB5Td',
     name: 'Valentin Milliand',
@@ -22,7 +22,7 @@ const ACCOUNTS_CREDENTIALS = {
     accountName: 'Nexxa'
   },
   nexxaAdmin: {
-    username: 'nexa.admin',
+    username: 'nexxa.admin',
     email: 'Nexxa@admin',
     password: '2J748mbMBcOrJv41K5FmAIaOlMGMw3H',
     name: 'Nexxa Admin',
@@ -30,7 +30,7 @@ const ACCOUNTS_CREDENTIALS = {
     accountName: 'Nexxa'
   },
   nexxaDemo: {
-    username: 'nexa.demo',
+    username: 'nexxa.demo',
     email: 'Nexxa@demo',
     password: 'OfIPAbn9j6Gy0x9VqOW0KY06UqzPo7',
     name: 'Nexxa Demo Account',
@@ -38,7 +38,7 @@ const ACCOUNTS_CREDENTIALS = {
     accountName: 'Nexxa Demo'
   },
   goodlife: {
-    username: 'goodlife.agents',
+    username: 'goodlife.nexxaagents',
     email: 'goodlife.agents',
     password: '***REMOVED***',
     name: 'GoodLife Agents',
