@@ -57,3 +57,4 @@ scripts/archive/
 
 # Allow env examples
 !.env.production.example
+PRODUCTION_CREDENTIALS.md
