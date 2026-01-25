@@ -130,9 +130,13 @@ export class AccountsService {
         throw new ConflictException(`Account with email ${dto.email} already exists`);
       }
 
+      // Generate username from email (part before @)
+      const username = dto.email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+
       const user = await this.prisma.userAccount.create({
         data: {
           accountId,
+          username,
           name: dto.name,
           email: dto.email,
           phone: dto.phone,

@@ -14,7 +14,8 @@ import { randomBytes } from 'crypto';
 
 export interface JwtPayload {
   sub: string; // userAccountId
-  email: string;
+  username: string;
+  email?: string; // Optional - for OAuth/magic links
   accountId: string;
   role: string;
 }
@@ -24,7 +25,8 @@ export interface AuthResponse {
   refreshToken: string;
   user: {
     id: string;
-    email: string;
+    username: string;
+    email?: string | null;
     name: string | null;
     role: string;
     accountId: string;
@@ -42,16 +44,16 @@ export class AuthService {
    * Register a new user
    */
   async register(dto: RegisterDto): Promise<AuthResponse> {
-    // Check if user already exists
+    // Check if user already exists by username
     const existing = await this.prisma.userAccount.findFirst({
       where: {
-        email: dto.email,
+        username: dto.username,
         accountId: dto.accountId,
       },
     });
 
     if (existing) {
-      throw new ConflictException('User with this email already exists');
+      throw new ConflictException('User with this username already exists');
     }
 
     // Hash password
@@ -60,6 +62,7 @@ export class AuthService {
     // Create user
     const user = await this.prisma.userAccount.create({
       data: {
+        username: dto.username,
         email: dto.email,
         passwordHash: hashedPassword,
         name: dto.name || 'User',
@@ -88,6 +91,7 @@ export class AuthService {
       ...tokens,
       user: {
         id: user.id,
+        username: user.username,
         email: user.email,
         name: user.name,
         role: user.role,
@@ -97,12 +101,12 @@ export class AuthService {
   }
 
   /**
-   * Login with email and password
+   * Login with username and password
    */
   async login(dto: LoginDto): Promise<AuthResponse> {
-    // Find user
+    // Find user by username
     const user = await this.prisma.userAccount.findFirst({
-      where: { email: dto.email },
+      where: { username: dto.username },
     });
 
     if (!user || !user.passwordHash) {
@@ -128,6 +132,7 @@ export class AuthService {
       ...tokens,
       user: {
         id: user.id,
+        username: user.username,
         email: user.email,
         name: user.name,
         role: user.role,
@@ -156,6 +161,7 @@ export class AuthService {
       const accessToken = this.jwtService.sign(
         {
           sub: user.id,
+          username: user.username,
           email: user.email,
           accountId: user.accountId,
           role: user.role,
@@ -180,7 +186,7 @@ export class AuthService {
       where: { email: dto.email },
     });
 
-    if (!user) {
+    if (!user || !user.email) {
       // Don't reveal if user exists or not (security)
       return {
         message: 'If an account exists, a magic link has been sent to your email',
@@ -257,6 +263,7 @@ export class AuthService {
       ...tokens,
       user: {
         id: user.id,
+        username: user.username,
         email: user.email,
         name: user.name,
         role: user.role,
@@ -266,7 +273,22 @@ export class AuthService {
   }
 
   /**
-   * Validate user (for Google OAuth and JWT strategy)
+   * Validate user by ID (for JWT strategy)
+   */
+  async validateUserById(id: string): Promise<any> {
+    const user = await this.prisma.userAccount.findUnique({
+      where: { id },
+    });
+
+    if (!user || user.status !== 'ACTIVE') {
+      return null;
+    }
+
+    return user;
+  }
+
+  /**
+   * Validate user by email (for Google OAuth and Magic Links)
    */
   async validateUser(email: string): Promise<any> {
     const user = await this.prisma.userAccount.findFirst({
@@ -301,8 +323,22 @@ export class AuthService {
         throw new BadRequestException('No default account found');
       }
 
+      // Generate username from email (part before @)
+      const baseUsername = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+      let username = baseUsername;
+      let suffix = 1;
+
+      // Ensure username is unique within account
+      while (await this.prisma.userAccount.findFirst({
+        where: { accountId: demoAccount.id, username }
+      })) {
+        username = `${baseUsername}${suffix}`;
+        suffix++;
+      }
+
       user = await this.prisma.userAccount.create({
         data: {
+          username,
           email,
           name: name || 'User',
           accountId: demoAccount.id,
@@ -332,6 +368,7 @@ export class AuthService {
       ...tokens,
       user: {
         id: user.id,
+        username: user.username,
         email: user.email,
         name: user.name,
         role: user.role,
@@ -349,6 +386,7 @@ export class AuthService {
   }> {
     const payload: JwtPayload = {
       sub: user.id,
+      username: user.username,
       email: user.email,
       accountId: user.accountId,
       role: user.role,

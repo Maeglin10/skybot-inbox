@@ -315,7 +315,8 @@ model UserAccount {
   id        String @id @default(cuid())
   accountId String // Links to business Account
 
-  email        String
+  username     String  // Primary login identifier
+  email        String? // Optional - for recovery/notifications only
   passwordHash String?
   name         String
   phone        String?
@@ -330,9 +331,9 @@ model UserAccount {
   account     Account          @relation(fields: [accountId], references: [id], onDelete: Cascade)
   preferences UserPreference?
 
-  @@unique([accountId, email], name: "accountId_email")
+  @@unique([accountId, username], name: "accountId_username")
   @@index([accountId])
-  @@index([email])
+  @@index([username])
   @@index([role])
   @@index([status])
 }
