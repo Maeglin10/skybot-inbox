@@ -41,8 +41,8 @@ async function main() {
     throw new Error('Accounts not found. Run seed-accounts.ts first.');
   }
 
-  const valentinUser = await prisma.userAccount.findFirst({ where: { username: 'valentin' } });
-  const demoUser = await prisma.userAccount.findFirst({ where: { username: 'nexa.demo' } });
+  const valentinUser = await prisma.userAccount.findFirst({ where: { username: 'valentinmilliand.nexxa' } });
+  const demoUser = await prisma.userAccount.findFirst({ where: { username: 'nexxa.demo' } });
 
   if (!valentinUser || !demoUser) {
     throw new Error('Users not found. Run seed-accounts.ts first.');
