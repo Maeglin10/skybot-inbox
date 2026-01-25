@@ -26,10 +26,11 @@ model Account {
   contacts Contact[]
 
   // New relations
-  userAccounts UserAccount[]
-  leads        Lead[]
-  feedbacks    Feedback[]
-  alerts       Alert[]
+  userAccounts       UserAccount[]
+  leads              Lead[]
+  feedbacks          Feedback[]
+  alerts             Alert[]
+  channelConnections ChannelConnection[]
 
   @@index([createdAt])
   @@index([isDemo])
@@ -54,6 +55,60 @@ model ExternalAccount {
   @@index([accountId])
   @@index([clientKey])
   @@index([channel])
+}
+
+// =========================
+// CHANNEL CONNECTIONS (Multi-Channel OAuth)
+// =========================
+
+model ChannelConnection {
+  id                String   @id @default(cuid())
+  accountId         String
+  channelType       Channel  // WHATSAPP, INSTAGRAM, FACEBOOK, etc.
+  channelIdentifier String   // phone number, page ID, IG account ID
+
+  // Encrypted token storage (AES-256-GCM)
+  encryptedToken    String   @db.Text
+  iv                String   // Initialization vector
+  authTag           String   // Authentication tag for GCM
+
+  // Metadata (page name, IG username, token expiry, etc.)
+  metadata          Json?
+
+  status            ChannelConnectionStatus @default(ACTIVE)
+  lastSync          DateTime?
+  lastError         String?
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  account           Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, channelType, channelIdentifier])
+  @@index([accountId])
+  @@index([channelType])
+  @@index([status])
+}
+
+// =========================
+// AUDIT LOGS (Security & Compliance)
+// =========================
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  accountId String?
+  action    String   // login_success, user_created, channel_connected, etc.
+  metadata  Json?
+  ipAddress String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([accountId])
+  @@index([action])
+  @@index([createdAt])
 }
 
 // =========================
@@ -496,4 +551,11 @@ enum AlertPriority {
   HIGH
   MEDIUM
   LOW
+}
+
+enum ChannelConnectionStatus {
+  ACTIVE
+  INACTIVE
+  ERROR
+  PENDING
 }
