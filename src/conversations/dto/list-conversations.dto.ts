@@ -7,7 +7,7 @@ import {
   IsString,
   Min,
 } from 'class-validator';
-import { Channel, ConversationStatus } from '@prisma/client';
+import { Channel, ConversationStatus } from '../../prisma';
 
 export class ListConversationsDto {
   @IsOptional()

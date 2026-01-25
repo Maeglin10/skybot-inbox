@@ -1,6 +1,6 @@
 import { Controller, Get, Param, Patch, Body, Query } from '@nestjs/common';
 import { ConversationsService } from './conversations.service';
-import type { ConversationStatus } from '@prisma/client';
+import type { ConversationStatus } from '../prisma';
 
 function asString(v: unknown): string | undefined {
   if (typeof v !== 'string') return undefined;

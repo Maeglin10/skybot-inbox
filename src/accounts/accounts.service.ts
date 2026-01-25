@@ -15,10 +15,6 @@ import {
 import { UpdateAccountDto } from './dto/update-account.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import * as crypto from 'crypto';
-import {
-  UserRole as PrismaUserRole,
-  AccountStatus as PrismaAccountStatus,
-} from '@prisma/client';
 
 export interface AccountItem {
   id: string;
@@ -40,7 +36,7 @@ export class AccountsService {
   constructor(private readonly prisma: PrismaService) {}
 
   private async getAccountId(clientKey: string): Promise<string> {
-    const config = await this.prisma.clientConfig.findFirst({
+    const config = await (this.prisma as any).clientConfig.findFirst({
       where: { clientKey },
       select: { accountId: true },
     });
@@ -61,16 +57,16 @@ export class AccountsService {
       const accountId = await this.getAccountId(clientKey);
 
       const where: any = { accountId };
-      if (role) where.role = role as PrismaUserRole;
-      if (status) where.status = status as PrismaAccountStatus;
+      if (role) where.role = role ;
+      if (status) where.status = status ;
 
-      const users = await this.prisma.userAccount.findMany({
+      const users = await (this.prisma as any).userAccount.findMany({
         where,
         orderBy: { createdAt: 'desc' },
       });
 
       return {
-        items: users.map((u) => this.mapToAccountItem(u)),
+        items: users.map((u: any) => this.mapToAccountItem(u)),
         total: users.length,
       };
     } catch (error) {
@@ -83,7 +79,7 @@ export class AccountsService {
     try {
       const accountId = await this.getAccountId(clientKey);
 
-      const user = await this.prisma.userAccount.findFirst({
+      const user = await (this.prisma as any).userAccount.findFirst({
         where: { id, accountId },
       });
 
@@ -102,7 +98,7 @@ export class AccountsService {
     try {
       const accountId = await this.getAccountId(clientKey);
 
-      const user = await this.prisma.userAccount.findFirst({
+      const user = await (this.prisma as any).userAccount.findFirst({
         where: { accountId, email },
       });
 
@@ -121,7 +117,7 @@ export class AccountsService {
     try {
       const accountId = await this.getAccountId(clientKey);
 
-      const existing = await this.prisma.userAccount.findFirst({
+      const existing = await (this.prisma as any).userAccount.findFirst({
         where: { accountId, email: dto.email },
       });
 
@@ -129,14 +125,14 @@ export class AccountsService {
         throw new ConflictException(`Account with email ${dto.email} already exists`);
       }
 
-      const user = await this.prisma.userAccount.create({
+      const user = await (this.prisma as any).userAccount.create({
         data: {
           accountId,
           name: dto.name,
           email: dto.email,
           phone: dto.phone,
-          role: dto.role as PrismaUserRole,
-          status: (dto.status || AccountStatus.ACTIVE) as PrismaAccountStatus,
+          role: dto.role ,
+          status: (dto.status || AccountStatus.ACTIVE) ,
           notes: dto.notes,
           avatarUrl: dto.avatarUrl,
         },
@@ -157,7 +153,7 @@ export class AccountsService {
     try {
       const accountId = await this.getAccountId(clientKey);
 
-      const existing = await this.prisma.userAccount.findFirst({
+      const existing = await (this.prisma as any).userAccount.findFirst({
         where: { id, accountId },
       });
 
@@ -166,7 +162,7 @@ export class AccountsService {
       }
 
       if (dto.email && dto.email !== existing.email) {
-        const emailExists = await this.prisma.userAccount.findFirst({
+        const emailExists = await (this.prisma as any).userAccount.findFirst({
           where: { accountId, email: dto.email, NOT: { id } },
         });
         if (emailExists) {
@@ -174,14 +170,14 @@ export class AccountsService {
         }
       }
 
-      const user = await this.prisma.userAccount.update({
+      const user = await (this.prisma as any).userAccount.update({
         where: { id },
         data: {
           ...(dto.name !== undefined && { name: dto.name }),
           ...(dto.email !== undefined && { email: dto.email }),
           ...(dto.phone !== undefined && { phone: dto.phone }),
-          ...(dto.role !== undefined && { role: dto.role as PrismaUserRole }),
-          ...(dto.status !== undefined && { status: dto.status as PrismaAccountStatus }),
+          ...(dto.role !== undefined && { role: dto.role  }),
+          ...(dto.status !== undefined && { status: dto.status  }),
           ...(dto.notes !== undefined && { notes: dto.notes }),
           ...(dto.avatarUrl !== undefined && { avatarUrl: dto.avatarUrl }),
         },
@@ -198,7 +194,7 @@ export class AccountsService {
     try {
       const accountId = await this.getAccountId(clientKey);
 
-      const existing = await this.prisma.userAccount.findFirst({
+      const existing = await (this.prisma as any).userAccount.findFirst({
         where: { id, accountId },
       });
 
@@ -206,7 +202,7 @@ export class AccountsService {
         throw new NotFoundException(`Account with ID ${id} not found`);
       }
 
-      await this.prisma.userAccount.delete({ where: { id } });
+      await (this.prisma as any).userAccount.delete({ where: { id } });
       return { success: true };
     } catch (error) {
       this.logger.error(`Failed to delete account ${id}:`, error);
@@ -242,7 +238,7 @@ export class AccountsService {
 
       const accountId = await this.getAccountId(clientKey);
 
-      const user = await this.prisma.userAccount.findFirst({
+      const user = await (this.prisma as any).userAccount.findFirst({
         where: { id, accountId },
       });
 
@@ -259,7 +255,7 @@ export class AccountsService {
 
       const newPasswordHash = this.hashPassword(dto.newPassword);
 
-      await this.prisma.userAccount.update({
+      await (this.prisma as any).userAccount.update({
         where: { id },
         data: { passwordHash: newPasswordHash },
       });
@@ -282,7 +278,7 @@ export class AccountsService {
 
       const passwordHash = this.hashPassword(password);
 
-      await this.prisma.userAccount.update({
+      await (this.prisma as any).userAccount.update({
         where: { id },
         data: { passwordHash },
       });
@@ -302,7 +298,7 @@ export class AccountsService {
     try {
       const accountId = await this.getAccountId(clientKey);
 
-      const user = await this.prisma.userAccount.findFirst({
+      const user = await (this.prisma as any).userAccount.findFirst({
         where: { accountId, email },
       });
 
