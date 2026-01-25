@@ -7,11 +7,13 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { ApiKeyGuard } from './api-key.guard';
 import { APP_GUARD } from '@nestjs/core';
 
 const providers: any[] = [
   AuthService,
   JwtStrategy,
+  ApiKeyGuard,
   {
     provide: APP_GUARD,
     useClass: JwtAuthGuard,
@@ -34,6 +36,6 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   ],
   controllers: [AuthController],
   providers,
-  exports: [AuthService],
+  exports: [AuthService, ApiKeyGuard],
 })
 export class AuthModule {}
