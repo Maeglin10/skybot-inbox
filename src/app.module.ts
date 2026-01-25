@@ -20,6 +20,8 @@ import { AlertsModule } from './alerts/alerts.module';
 import { SettingsModule } from './settings/settings.module';
 import { UserPreferencesModule } from './user-preferences/user-preferences.module';
 import { PreferencesModule } from './preferences/preferences.module';
+import { ChannelsModule } from './channels/channels.module';
+import { EncryptionModule } from './common/encryption/encryption.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -31,6 +33,7 @@ import { AppController } from './app.controller';
     }),
 
     PrismaModule,
+    EncryptionModule,
     AgentsModule,
     AuthModule,
     AirtableModule,
@@ -40,6 +43,7 @@ import { AppController } from './app.controller';
     SettingsModule,
     UserPreferencesModule,
     PreferencesModule,
+    ChannelsModule,
     AccountsModule,
     InboxesModule,
     ContactsModule,
