@@ -8,9 +8,6 @@ const nextConfig = {
     // Temporarily ignore build errors
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  }
 };
 
 export default withNextIntl(nextConfig);

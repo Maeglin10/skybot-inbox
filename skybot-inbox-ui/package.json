@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
+    "@next/swc-linux-x64-gnu": "^16.0.10",
     "@parcel/watcher": "2.5.6",
     "@parcel/watcher-linux-x64-glibc": "^2.5.6",
     "@radix-ui/react-avatar": "^1.1.11",
