@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { Channel } from '@prisma/client';
+import { Channel } from '../../prisma';
 import * as crypto from 'crypto';
 import axios from 'axios';
 

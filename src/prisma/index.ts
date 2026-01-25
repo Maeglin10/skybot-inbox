@@ -10,7 +10,7 @@ export type RoutingStatus = 'RECEIVED' | 'FORWARDED' | 'FAILED';
 export type UserRole = 'ADMIN' | 'USER';
 export type AccountStatus = 'ACTIVE' | 'SUSPENDED' | 'PENDING';
 export type Theme = 'LIGHT' | 'DARK' | 'SYSTEM';
-export type Language = 'EN' | 'FR' | 'ES';
+export type Language = 'EN' | 'FR' | 'ES' | 'PT';
 export type LeadStatus = 'NEW' | 'CONTACTED' | 'QUALIFIED' | 'LOST' | 'WON';
 export type Temperature = 'HOT' | 'WARM' | 'COLD';
 export type FeedbackType = 'COMPLAINT' | 'SUGGESTION' | 'PRAISE' | 'QUESTION' | 'GENERAL';
@@ -48,4 +48,22 @@ export const RoutingStatus = {
   RECEIVED: 'RECEIVED' as const,
   FORWARDED: 'FORWARDED' as const,
   FAILED: 'FAILED' as const,
+};
+
+export const UserRole = {
+  ADMIN: 'ADMIN' as const,
+  USER: 'USER' as const,
+};
+
+export const Theme = {
+  LIGHT: 'LIGHT' as const,
+  DARK: 'DARK' as const,
+  SYSTEM: 'SYSTEM' as const,
+};
+
+export const Language = {
+  EN: 'EN' as const,
+  FR: 'FR' as const,
+  ES: 'ES' as const,
+  PT: 'PT' as const,
 };

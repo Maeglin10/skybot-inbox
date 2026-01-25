@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Channel } from '@prisma/client';
+import { Channel } from '../prisma';
 import { PrismaService } from '../prisma/prisma.service';
 import { MetaConnector } from './connectors/meta.connector';
 import { ChannelConnector, UnifiedMessage } from './interfaces';

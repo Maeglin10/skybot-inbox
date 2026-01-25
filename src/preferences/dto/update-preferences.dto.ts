@@ -1,5 +1,5 @@
 import { IsEnum, IsOptional, IsString } from 'class-validator';
-import { Theme, Language } from '@prisma/client';
+import { Theme, Language } from '../../prisma';
 
 export class UpdatePreferencesDto {
   @IsOptional()

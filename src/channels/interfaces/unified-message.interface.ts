@@ -1,4 +1,4 @@
-import { Channel } from '@prisma/client';
+import { Channel } from '../../prisma';
 
 /**
  * Unified message format across all channels (WhatsApp, Instagram, Facebook, Webchat)
