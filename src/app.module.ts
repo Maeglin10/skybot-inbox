@@ -22,6 +22,7 @@ import { UserPreferencesModule } from './user-preferences/user-preferences.modul
 import { PreferencesModule } from './preferences/preferences.module';
 import { ChannelsModule } from './channels/channels.module';
 import { EncryptionModule } from './common/encryption/encryption.module';
+import { LegalModule } from './legal/legal.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -34,6 +35,7 @@ import { AppController } from './app.controller';
 
     PrismaModule,
     EncryptionModule,
+    LegalModule,
     AgentsModule,
     AuthModule,
     AirtableModule,
