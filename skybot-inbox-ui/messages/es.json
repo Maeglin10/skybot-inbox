@@ -1,0 +1,29 @@
+{
+    "common": {
+        "welcome": "Bienvenido",
+        "loading": "Cargando...",
+        "save": "Guardar",
+        "cancel": "Cancelar",
+        "error": "Error",
+        "success": "Éxito"
+    },
+    "navigation": {
+        "inbox": "Bandeja de entrada",
+        "crm": "CRM",
+        "analytics": "Analítica",
+        "alerts": "Alertas",
+        "settings": "Configuración",
+        "calendar": "Calendario",
+        "account": "Cuenta"
+    },
+    "settings": {
+        "preferences": "Preferencias",
+        "theme": "Tema",
+        "language": "Idioma",
+        "timezone": "Zona horaria",
+        "dateFormat": "Formato de fecha",
+        "timeFormat": "Formato de hora",
+        "selectTheme": "Seleccionar tema",
+        "selectLanguage": "Seleccionar idioma"
+    }
+}

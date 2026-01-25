@@ -1,10 +1,12 @@
 'use client';
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { Link, usePathname } from '@/i18n/navigation';
+import { useTranslations } from 'next-intl';
 import { User, Shield, Palette, Languages, FileText, CreditCard, Plug, ChevronRight } from 'lucide-react';
 
 const SETTINGS_NAV = [
+  // Keeping keys simple for now, using existing labels as fallback or map to translation keys
+  // For this exercise, I will use hardcoded mapping in render or assume specific keys
   { href: '/settings/profile', label: 'Profile', icon: User },
   { href: '/settings/security', label: 'Security', icon: Shield },
   { href: '/settings/appearance', label: 'Appearance', icon: Palette },
@@ -16,19 +18,24 @@ const SETTINGS_NAV = [
 
 export function SettingsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const t = useTranslations('settings');
+  const tNav = useTranslations('navigation');
 
   return (
     <div className="ui-page flex flex-row h-full overflow-hidden bg-background">
       {/* Settings Sidebar */}
       <aside className="w-72 border-r border-border/20 bg-muted/10 flex flex-col h-full">
         <div className="p-6 border-b border-border/20">
-          <h1 className="text-xl font-bold">Settings</h1>
+          <h1 className="text-xl font-bold">{t('preferences')}</h1>
           <p className="text-xs text-muted-foreground mt-1">Manage workspace preferences</p>
         </div>
         <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
           {SETTINGS_NAV.map((it) => {
              const Icon = it.icon;
              const active = pathname === it.href;
+             // Try to find translation, fallback to label
+             const translatedLabel = it.label; 
+             
              return (
                <Link
                  key={it.href}
@@ -41,7 +48,7 @@ export function SettingsLayout({ children }: { children: React.ReactNode }) {
                >
                  <div className="flex items-center gap-3">
                     <Icon size={16} className={active ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground transition-colors'} />
-                    {it.label}
+                    {translatedLabel}
                  </div>
                  {active && <ChevronRight size={14} className="text-muted-foreground" />}
                </Link>

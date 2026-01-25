@@ -1,8 +1,8 @@
 'use client';
 
 import Image from 'next/image';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { Link, usePathname } from '@/i18n/navigation';
+import { useTranslations } from 'next-intl';
 import { 
   Inbox, 
   Bell, 
@@ -14,24 +14,27 @@ import {
   User
 } from 'lucide-react';
 import { ThemeSwitcher } from './theme-switcher';
+import { LanguageSwitcher } from './language-switcher';
 
 const NAV_ITEMS = [
-  // { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }, // Future?
-  { href: '/inbox', label: 'Inbox', icon: Inbox },
-  { href: '/alerts', label: 'Alerts', icon: Bell },
-  { href: '/crm', label: 'CRM', icon: Users },         // Was Leads
-  { href: '/calendar', label: 'Calendar', icon: Calendar },
-  { href: '/analytics', label: 'Analytics', icon: BarChart3 },
-  { href: '/account/login', label: 'Account', icon: User },
-  { href: '/settings', label: 'Settings', icon: Settings },
+  // { href: '/dashboard', key: 'dashboard', icon: LayoutDashboard }, 
+  { href: '/inbox', key: 'inbox', icon: Inbox },
+  { href: '/alerts', key: 'alerts', icon: Bell },
+  { href: '/crm', key: 'crm', icon: Users },
+  { href: '/calendar', key: 'calendar', icon: Calendar },
+  { href: '/analytics', key: 'analytics', icon: BarChart3 },
+  { href: '/account/login', key: 'account', icon: User },
+  { href: '/settings', key: 'settings', icon: Settings },
 ];
 
 function isActive(pathname: string, href: string) {
+  // next-intl usePathname returns path without locale, so strict check or startsWith works
   return pathname === href || pathname.startsWith(href + '/');
 }
 
 export function Sidebar() {
   const pathname = usePathname();
+  const t = useTranslations('navigation');
 
   return (
     <aside className="ui-sidebar">
@@ -59,7 +62,7 @@ export function Sidebar() {
               className={`ui-sidebar__link flex items-center gap-3 ${active ? 'is-active' : ''}`}
             >
               <Icon size={18} strokeWidth={2} className={active ? 'text-foreground' : 'text-muted-foreground'} />
-              <span>{it.label}</span>
+              <span>{t(it.key)}</span>
             </Link>
           );
         })}
@@ -70,10 +73,9 @@ export function Sidebar() {
           <div className="ui-sidebar__footerTitle">Nexxa Agent System</div>
           <div className="ui-sidebar__footerVersion">V1</div>
         </div>
-        <div className="w-full">
-          <div className="w-full flex justify-center">
-             <ThemeSwitcher />
-          </div>
+        <div className="flex flex-col gap-2">
+          <ThemeSwitcher />
+          <LanguageSwitcher />
         </div>
       </div>
     </aside>
