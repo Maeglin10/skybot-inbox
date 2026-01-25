@@ -155,7 +155,7 @@ export function LeadsTable({
                    </div>
                 </td>
                 <td className="p-4 text-xs text-muted-foreground text-left font-mono">
-                   {new Date(lead.lastInteraction).toLocaleDateString()}
+                   {new Date(lead.lastInteractionAt).toLocaleDateString()}
                 </td>
                 <td className="p-4">
                   <div className="flex gap-1 flex-wrap">
