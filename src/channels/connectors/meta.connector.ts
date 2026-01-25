@@ -233,7 +233,8 @@ export class MetaConnector implements ChannelConnector {
       await axios.get(url);
       isTokenValid = true;
     } catch (error) {
-      this.logger.error(`Token validation failed: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Token validation failed: ${errorMessage}`);
     }
 
     return {
@@ -241,8 +242,8 @@ export class MetaConnector implements ChannelConnector {
       channelType: connection.channelType,
       status: connection.status.toLowerCase() as any,
       isTokenValid,
-      lastSync: connection.lastSync,
-      lastError: connection.lastError,
+      lastSync: connection.lastSync || undefined,
+      lastError: connection.lastError || undefined,
       metadata: connection.metadata as any,
     };
   }
@@ -422,6 +423,10 @@ export class MetaConnector implements ChannelConnector {
   private verifyWebhookSignature(payload: any, signature: string): void {
     if (!signature) {
       throw new Error('Missing x-hub-signature-256 header');
+    }
+
+    if (!this.META_APP_SECRET) {
+      throw new Error('META_APP_SECRET not configured');
     }
 
     const expectedSignature = 'sha256=' +
