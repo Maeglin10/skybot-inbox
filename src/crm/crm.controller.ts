@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { CrmService } from './crm.service';
 import { ApiKeyGuard } from '../auth/api-key.guard';
+import { Public } from '../auth/decorators/public.decorator';
 import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
 import { ListLeadsDto } from './dto/list-leads.dto';
@@ -20,6 +21,7 @@ import { CreateFeedbackDto } from './dto/create-feedback.dto';
 import { UpdateFeedbackDto } from './dto/update-feedback.dto';
 
 @Controller('crm')
+@Public()
 @UseGuards(ApiKeyGuard)
 export class CrmController {
   private readonly logger = new Logger(CrmController.name);
