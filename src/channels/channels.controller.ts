@@ -55,15 +55,21 @@ export class ChannelsController {
   @Public()
   async handleCallback(
     @Param('channelType') channelType: string,
-    @Query('code') code: string,
-    @Query('state') state: string,
+    @Res() res: Response,
+    @Query('code') code?: string,
+    @Query('state') state?: string,
     @Query('error') error?: string,
     @Query('error_description') errorDescription?: string,
-    @Res() res?: Response,
   ) {
     if (error) {
       return res.redirect(
         `/settings/channels?error=${encodeURIComponent(error)}&description=${encodeURIComponent(errorDescription || '')}`
+      );
+    }
+
+    if (!code || !state) {
+      return res.redirect(
+        `/settings/channels?error=missing_params&description=Missing code or state parameter`
       );
     }
 
@@ -79,8 +85,9 @@ export class ChannelsController {
         `/settings/channels?success=true&connectionId=${connectionId}`
       );
     } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       return res.redirect(
-        `/settings/channels?error=callback_failed&description=${encodeURIComponent(err.message)}`
+        `/settings/channels?error=callback_failed&description=${encodeURIComponent(errorMessage)}`
       );
     }
   }
@@ -186,8 +193,9 @@ export class WebhooksController {
 
       return { success: true, received: messages.length };
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('Meta webhook error:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: errorMessage };
     }
   }
 }

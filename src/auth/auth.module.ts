@@ -9,6 +9,20 @@ import { GoogleStrategy } from './strategies/google.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { APP_GUARD } from '@nestjs/core';
 
+const providers: any[] = [
+  AuthService,
+  JwtStrategy,
+  {
+    provide: APP_GUARD,
+    useClass: JwtAuthGuard,
+  },
+];
+
+// Only add GoogleStrategy if credentials are configured
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  providers.push(GoogleStrategy);
+}
+
 @Module({
   imports: [
     PrismaModule,
@@ -19,15 +33,7 @@ import { APP_GUARD } from '@nestjs/core';
     }),
   ],
   controllers: [AuthController],
-  providers: [
-    AuthService,
-    JwtStrategy,
-    GoogleStrategy,
-    {
-      provide: APP_GUARD,
-      useClass: JwtAuthGuard,
-    },
-  ],
+  providers,
   exports: [AuthService],
 })
 export class AuthModule {}
