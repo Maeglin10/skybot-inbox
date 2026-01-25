@@ -1,23 +1,23 @@
 /* ==========================================================================
   Nexxa UI — ui.css (Themed)
-  Glossaire (classes principales)
-  - Layout:        .ui-app .ui-main .ui-page
-  - Sidebar:       .ui-sidebar + __header/__logoWrap/__nav/__link/__footer
-  - Inbox shell:   (dans inbox-shell.tsx) -> à styler via classes dédiées plus tard
-  - Thread:        .ui-thread + __header/__list/__older
-  - Messages:      .ui-msgrow (.is-out) + .ui-bubble (.is-out) + __text/__meta
-  - Composer:      .ui-composer + .ui-input + .ui-btn + .ui-btn--primary
-  - Conv list:     .ui-conv + __header/__title/__meta/__list + .ui-convCard etc.
 ========================================================================== */
 
+/* 
+   RESTORATION NOTE:
+   We have restored the original brand colors:
+   Primary: hsl(310 48% 42%) -> #9E398D
+   Secondary/Deep: hsl(310 46% 22%) -> #521E49
+   Neutral: hsl(210 7% 55%) -> #939AA1
+*/
+
 /* ==========================================================================
-   1) APP FRAME (anti double-scroll / parents stables)
+   1) APP FRAME
 ========================================================================== */
 .ui-app {
   height: 100vh;
   width: 100%;
   display: flex;
-  overflow: hidden; /* évite le double scroll */
+  overflow: hidden; 
   background: hsl(var(--background));
   color: hsl(var(--foreground));
 }
@@ -26,7 +26,7 @@
   flex: 1;
   min-width: 0;
   height: 100%;
-  overflow: hidden; /* le scroll doit vivre dans les sous-blocs */
+  overflow: hidden;
   display: flex;
 }
 
@@ -40,7 +40,7 @@
 }
 
 /* ==========================================================================
-   2) SIDEBAR (sticky + logo top + footer Nexxa Agent System + V1)
+   2) SIDEBAR
 ========================================================================== */
 .ui-sidebar {
   width: 15rem;
@@ -62,12 +62,12 @@
 .ui-sidebar__logoWrap {
   position: relative;
   width: 100%;
-  height: 95px; /* ajuste */
+  height: 95px;
   border-radius: hsl(var(--radius));
 }
 
 .ui-sidebar__nav {
-  padding: 1.75rem 0.75rem 0.75rem; /* aération */
+  padding: 1.75rem 0.75rem 0.75rem; 
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
@@ -88,8 +88,9 @@
 }
 
 .ui-sidebar__link.is-active {
+  /* Restored: Subtle highlighted background, strong text */
   background: hsl(var(--secondary));
-  color: hsl(var(--secondary-foreground));
+  color: hsl(var(--secondary-foreground)); 
   font-weight: 700;
 }
 
@@ -121,7 +122,6 @@
 /* ==========================================================================
    3) INBOX SHELL
 ========================================================================== */
-
 .ui-inboxHeader {
   position: sticky;
   top: 0;
@@ -129,11 +129,11 @@
   border-bottom: 1px solid hsl(var(--border));
   background: color-mix(in oklab, hsl(var(--background)) 88%, transparent);
   backdrop-filter: blur(10px);
-  padding: 0 1rem 1rem; /* left/right + bottom */
+  padding: 0 1rem 1rem; 
 }
 
 .ui-inboxHeader__top {
-  padding-top: 1.15rem; /* + padding uniquement ici */
+  padding-top: 1.15rem; 
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -165,9 +165,8 @@
 }
 
 /* ==========================================================================
-   4) THREAD (header/list/composer)
+   4) THREAD
 ========================================================================== */
-
 .ui-thread {
   height: 100%;
   min-width: 0;
@@ -202,7 +201,7 @@
 }
 
 /* ==========================================================================
-   5) MESSAGES (bulles)
+   5) MESSAGES
 ========================================================================== */
 .ui-msgrow {
   display: flex;
@@ -218,14 +217,12 @@
   border: 1px solid hsl(var(--border));
   border-radius: 1rem;
   padding: 0.95rem 1.05rem;
-  
-  /* Initial default: secondary (replaces gray #939aa1) */
   background: hsl(var(--muted)); 
   color: hsl(var(--foreground));
 }
 
 .ui-bubble.is-out {
-  /* Outgoing: primary (replaces #521e49/violet) */
+  /* Restored: Uses Primary color (Violet) */
   background: hsl(var(--primary));
   border-color: hsl(var(--primary));
   color: hsl(var(--primary-foreground));
@@ -254,7 +251,7 @@
 .ui-pill.is-open {
   border-color: color-mix(in oklab, #22c55e 55%, transparent);
   background: color-mix(in oklab, #22c55e 18%, transparent);
-  color: #fff; /* May need to adjust based on theme? Keeping forcing white for status pills */
+  color: #fff;
 }
 .ui-pill.is-pending {
   border-color: color-mix(in oklab, #f59e0b 55%, transparent);
@@ -284,7 +281,7 @@
 }
 
 /* ==========================================================================
-   6) COMPOSER (input + send)
+   6) COMPOSER
 ========================================================================== */
 .ui-composer {
   position: sticky;
@@ -302,19 +299,16 @@
   flex: 1;
   height: 2.25rem;
   border-radius: hsl(var(--radius));
-  border: 1px solid hsl(var(--input));
-  background: hsl(var(--input)); /* or background with opacity? */
-  background: hsl(var(--background)); /* Usually inputs are background colored but strictly bordered */
+  border: 1px solid hsl(var(--border)); /* Use Border instead of Input var for consistency with old UI */
+  background: hsl(var(--background));
   padding: 0 0.9rem;
   color: hsl(var(--foreground));
   transition: border-color 0.2s;
 }
 .ui-input:focus {
-  border-color: hsl(var(--ring));
+  border-color: hsl(var(--ring)); /* Ring usually primary */
   outline: none;
 }
-
-/* placeholder */
 .ui-input::placeholder {
   color: hsl(var(--muted-foreground));
   opacity: 1;
@@ -346,7 +340,6 @@
 }
 
 .ui-btn--primary:hover {
-  /* Darken slightly */
   filter: brightness(0.9) !important;
 }
 
@@ -367,7 +360,7 @@
 }
 
 /* ==========================================================================
-   7) CONVERSATIONS LIST (OK à partir de “Conversations”)
+   7) CONVERSATIONS LIST
 ========================================================================== */
 .ui-conv {
   height: 100%;
@@ -411,7 +404,7 @@
 
 .ui-convCard.is-active {
   background: hsl(var(--muted));
-  border-color: hsl(var(--border)); /* or strictly primary? */
+  border-color: hsl(var(--border)); 
 }
 
 .ui-convBtn {
@@ -492,10 +485,9 @@
 }
 
 /* ==========================================================================
-   8) SHARED DASHBOARD UTILITIES (Polish)
+   8) SHARED DASHBOARD UTILITIES
 ========================================================================== */
 
-/* Page Titles */
 .ui-pageTitle {
   font-size: 1.5rem;
   font-weight: 700;
@@ -510,7 +502,6 @@
   margin-bottom: 1.5rem;
 }
 
-/* Card Container */
 .ui-card {
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
@@ -541,7 +532,6 @@
   flex: 1;
 }
 
-/* Table Standard */
 .ui-table {
   width: 100%;
   border-collapse: separate;
@@ -575,7 +565,6 @@
   background: hsl(var(--muted));
 }
 
-/* Badge / Pills */
 .ui-badge {
   display: inline-flex;
   align-items: center;

@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic"; // Ensure proxy is not cached
+
 import { NextRequest, NextResponse } from "next/server";
 
 const API_BASE = process.env.API_URL || "http://127.0.0.1:3001";
@@ -25,15 +27,30 @@ async function forward(
     init.body = await req.text();
   }
 
-  const upstream = await fetch(url, init);
-  const text = await upstream.text();
+  try {
+    const upstream = await fetch(url, init);
+    
+    // Pass-through even if error, let client handle it
+    const bodyBuffer = await upstream.arrayBuffer(); 
+    
+    // Copy headers from upstream response to pass back to client
+    const responseHeaders = new Headers();
+    if (upstream.headers.has("content-type")) {
+      responseHeaders.set("content-type", upstream.headers.get("content-type")!);
+    }
+    // We can forward other headers if needed, but usually content-type is sufficient
 
-  return new NextResponse(text, {
-    status: upstream.status,
-    headers: {
-      "content-type": upstream.headers.get("content-type") || "application/json",
-    },
-  });
+    return new NextResponse(bodyBuffer, {
+      status: upstream.status,
+      headers: responseHeaders,
+    });
+  } catch (error) {
+     console.error("Proxy error:", error);
+     return new NextResponse(JSON.stringify({ error: "Upstream unavailable" }), {
+       status: 502,
+       headers: { "content-type": "application/json" }
+     });
+  }
 }
 
 export const GET = forward;
