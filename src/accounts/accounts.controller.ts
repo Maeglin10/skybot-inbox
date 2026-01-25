@@ -12,6 +12,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiKeyGuard } from '../auth/api-key.guard';
+import { Public } from '../auth/decorators/public.decorator';
 import { AccountsService } from './accounts.service';
 import { CreateAccountDto, AccountRole, AccountStatus } from './dto/create-account.dto';
 import { UpdateAccountDto } from './dto/update-account.dto';
@@ -20,6 +21,7 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateFeaturesDto } from './dto/update-features.dto';
 
 @Controller('accounts')
+@Public()
 @UseGuards(ApiKeyGuard)
 export class AccountsController {
   private readonly logger = new Logger(AccountsController.name);

@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { AnalyticsService } from './analytics.service';
 import { ApiKeyGuard } from '../auth/api-key.guard';
+import { Public } from '../auth/decorators/public.decorator';
 import {
   AnalyticsQueryDto,
   BreakdownQueryDto,
@@ -16,6 +17,7 @@ import {
 } from './dto/analytics-query.dto';
 
 @Controller('analytics')
+@Public()
 @UseGuards(ApiKeyGuard)
 export class AnalyticsController {
   private readonly logger = new Logger(AnalyticsController.name);
