@@ -1,0 +1,1006 @@
+// ═════════════════════════════════════════════════════════════════════════════
+// SKYBOT INBOX - WHATSAPP INTEGRATION - CODE COMPLET
+// ═════════════════════════════════════════════════════════════════════════════
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 1. DTOs - src/webhooks/dto/whatsapp-incoming.dto.ts
+// ═════════════════════════════════════════════════════════════════════════════
+
+import { IsString, IsNotEmpty, IsNumber, IsObject, IsOptional } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+
+/**
+ * DTO pour le payload entrant depuis n8n (WhatsApp)
+ * Format standardisé : n8n formatte les messages WABA dans ce format
+ */
+export class WhatsAppIncomingDto {
+  @ApiProperty({
+    description: 'Identifiant externe de l\'inbox (configuré dans InboxChannelConfig.configJson)',
+    example: 'whatsapp-main-shop'
+  })
+  @IsString()
+  @IsNotEmpty()
+  inboxExternalId: string;
+
+  @ApiProperty({
+    description: 'Numéro WhatsApp du contact (format E.164)',
+    example: '+573001234567'
+  })
+  @IsString()
+  @IsNotEmpty()
+  from: string;
+
+  @ApiProperty({
+    description: 'ID unique du message WhatsApp (wamid)',
+    example: 'wamid.HBgLNTczMDA...'
+  })
+  @IsString()
+  @IsNotEmpty()
+  messageId: string;
+
+  @ApiProperty({
+    description: 'Timestamp Unix du message',
+    example: 1733920000
+  })
+  @IsNumber()
+  timestamp: number;
+
+  @ApiProperty({
+    description: 'Contenu texte du message',
+    example: 'Bonjour, je veux commander'
+  })
+  @IsString()
+  @IsNotEmpty()
+  text: string;
+
+  @ApiProperty({
+    description: 'Payload brut complet de WABA (pour debug/traçabilité)',
+    example: { type: 'text', id: 'wamid...', from: '573001234567' }
+  })
+  @IsObject()
+  @IsOptional()
+  raw?: Record<string, any>;
+}
+
+/**
+ * Structure typée pour la config JSON de l'inbox WhatsApp
+ */
+export interface WhatsAppInboxConfig {
+  inboxExternalId: string;
+  outgoingWebhookUrl: string;
+  phoneNumberId?: string;
+  businessAccountId?: string;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 2. Service - src/webhooks/webhooks.service.ts
+// ═════════════════════════════════════════════════════════════════════════════
+
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { WhatsAppIncomingDto } from './dto/whatsapp-incoming.dto';
+import { Prisma } from '@prisma/client';
+
+@Injectable()
+export class WebhooksService {
+  private readonly logger = new Logger(WebhooksService.name);
+
+  constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Traite un message WhatsApp entrant depuis n8n
+   * 
+   * Logique complète :
+   * 1. Résoudre Inbox via inboxExternalId
+   * 2. Résoudre Account via Inbox
+   * 3. Résoudre/Créer Contact via numéro WhatsApp
+   * 4. Résoudre/Créer Conversation OPEN
+   * 5. Créer Message INCOMING
+   * 6. Mettre à jour conversation.lastMessageAt
+   */
+  async handleWhatsAppIncoming(payload: WhatsAppIncomingDto) {
+    this.logger.log(`Processing WhatsApp message from ${payload.from}`);
+
+    try {
+      // 1. Résoudre l'Inbox via inboxExternalId dans configJson
+      const inbox = await this.findInboxByExternalId(payload.inboxExternalId);
+      if (!inbox) {
+        throw new NotFoundException(
+          `Inbox not found for externalId: ${payload.inboxExternalId}`
+        );
+      }
+
+      const accountId = inbox.accountId;
+
+      // 2. Résoudre ou créer le Contact
+      const contact = await this.findOrCreateContact(
+        accountId,
+        payload.from,
+        payload.raw
+      );
+
+      // 3. Résoudre ou créer une Conversation OPEN
+      const conversation = await this.findOrCreateOpenConversation(
+        accountId,
+        inbox.id,
+        contact.id
+      );
+
+      // 4. Créer le Message
+      const message = await this.createIncomingMessage(
+        conversation.id,
+        contact.id,
+        payload
+      );
+
+      // 5. Mettre à jour lastMessageAt sur la conversation
+      await this.updateConversationLastMessage(conversation.id);
+
+      this.logger.log(
+        `Message created: ${message.id} for conversation: ${conversation.id}`
+      );
+
+      return {
+        success: true,
+        messageId: message.id,
+        conversationId: conversation.id,
+        contactId: contact.id
+      };
+    } catch (error) {
+      this.logger.error(
+        `Error processing WhatsApp message: ${error.message}`,
+        error.stack
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Trouve l'Inbox en cherchant inboxExternalId dans InboxChannelConfig.configJson
+   */
+  private async findInboxByExternalId(externalId: string) {
+    // On cherche dans InboxChannelConfig où configJson contient inboxExternalId
+    const config = await this.prisma.inboxChannelConfig.findFirst({
+      where: {
+        configJson: {
+          path: ['inboxExternalId'],
+          equals: externalId
+        }
+      },
+      include: {
+        inbox: true
+      }
+    });
+
+    return config?.inbox || null;
+  }
+
+  /**
+   * Trouve ou crée un Contact via son identifiant WhatsApp
+   */
+  private async findOrCreateContact(
+    accountId: string,
+    phoneNumber: string,
+    rawPayload?: Record<string, any>
+  ) {
+    // 1. Chercher un ContactIdentifier existant
+    const identifier = await this.prisma.contactIdentifier.findFirst({
+      where: {
+        type: 'WHATSAPP',
+        value: phoneNumber,
+        contact: {
+          accountId: accountId
+        }
+      },
+      include: {
+        contact: true
+      }
+    });
+
+    if (identifier) {
+      return identifier.contact;
+    }
+
+    // 2. Créer Contact + ContactIdentifier dans une transaction
+    return await this.prisma.$transaction(async (tx) => {
+      const contact = await tx.contact.create({
+        data: {
+          accountId,
+          name: phoneNumber, // On utilise le numéro comme nom par défaut
+          customAttributes: {
+            phoneNumber,
+            source: 'whatsapp',
+            firstSeenAt: new Date().toISOString()
+          }
+        }
+      });
+
+      await tx.contactIdentifier.create({
+        data: {
+          contactId: contact.id,
+          type: 'WHATSAPP',
+          value: phoneNumber
+        }
+      });
+
+      return contact;
+    });
+  }
+
+  /**
+   * Trouve ou crée une Conversation OPEN pour ce contact/inbox
+   * 
+   * Logique : une seule conversation OPEN à la fois par contact/inbox
+   */
+  private async findOrCreateOpenConversation(
+    accountId: string,
+    inboxId: string,
+    contactId: string
+  ) {
+    // Chercher une conversation OPEN existante
+    let conversation = await this.prisma.conversation.findFirst({
+      where: {
+        accountId,
+        inboxId,
+        contactId,
+        status: 'OPEN'
+      }
+    });
+
+    if (conversation) {
+      return conversation;
+    }
+
+    // Créer une nouvelle conversation
+    conversation = await this.prisma.conversation.create({
+      data: {
+        accountId,
+        inboxId,
+        contactId,
+        status: 'OPEN',
+        channel: 'WHATSAPP'
+      }
+    });
+
+    return conversation;
+  }
+
+  /**
+   * Crée un Message INCOMING de type CONTACT
+   */
+  private async createIncomingMessage(
+    conversationId: string,
+    contactId: string,
+    payload: WhatsAppIncomingDto
+  ) {
+    return await this.prisma.message.create({
+      data: {
+        conversationId,
+        senderId: contactId,
+        senderType: 'CONTACT',
+        direction: 'INCOMING',
+        content: payload.text,
+        externalId: payload.messageId, // wamid de WhatsApp
+        rawPayload: payload.raw as Prisma.JsonValue,
+        sentAt: new Date(payload.timestamp * 1000)
+      }
+    });
+  }
+
+  /**
+   * Met à jour le timestamp de dernier message sur la conversation
+   */
+  private async updateConversationLastMessage(conversationId: string) {
+    await this.prisma.conversation.update({
+      where: { id: conversationId },
+      data: { lastMessageAt: new Date() }
+    });
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 3. Controller - src/webhooks/webhooks.controller.ts
+// ═════════════════════════════════════════════════════════════════════════════
+
+import { Controller, Post, Body, HttpCode, HttpStatus, Logger } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { WebhooksService } from './webhooks.service';
+import { WhatsAppIncomingDto } from './dto/whatsapp-incoming.dto';
+
+@ApiTags('webhooks')
+@Controller('webhooks')
+export class WebhooksController {
+  private readonly logger = new Logger(WebhooksController.name);
+
+  constructor(private readonly webhooksService: WebhooksService) {}
+
+  /**
+   * Endpoint appelé par n8n pour envoyer les messages WhatsApp entrants
+   * 
+   * Sécurité :
+   * - Pas d'auth JWT ici (webhook externe)
+   * - À sécuriser avec un secret partagé ou signature HMAC en production
+   */
+  @Post('n8n/whatsapp-incoming')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ 
+    summary: 'Reçoit les messages WhatsApp depuis n8n',
+    description: 'Endpoint webhook pour les messages entrants formatés par n8n'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Message traité avec succès',
+    schema: {
+      example: {
+        success: true,
+        messageId: 'uuid-message',
+        conversationId: 'uuid-conversation',
+        contactId: 'uuid-contact'
+      }
+    }
+  })
+  @ApiResponse({ 
+    status: 404, 
+    description: 'Inbox non trouvée' 
+  })
+  @ApiResponse({ 
+    status: 400, 
+    description: 'Payload invalide' 
+  })
+  async handleWhatsAppIncoming(@Body() payload: WhatsAppIncomingDto) {
+    this.logger.log(
+      `Received WhatsApp message for inbox: ${payload.inboxExternalId}`
+    );
+
+    return await this.webhooksService.handleWhatsAppIncoming(payload);
+  }
+
+  // TODO: Ajouter d'autres endpoints pour les webhooks de statut
+  // - /n8n/whatsapp-status (delivered, read, failed)
+  // - /n8n/instagram-incoming
+  // - /n8n/facebook-incoming
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 4. Module - src/webhooks/webhooks.module.ts
+// ═════════════════════════════════════════════════════════════════════════════
+
+import { Module } from '@nestjs/common';
+import { WebhooksController } from './webhooks.controller';
+import { WebhooksService } from './webhooks.service';
+import { PrismaModule } from '../prisma/prisma.module';
+
+@Module({
+  imports: [PrismaModule],
+  controllers: [WebhooksController],
+  providers: [WebhooksService],
+  exports: [WebhooksService]
+})
+export class WebhooksModule {}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 5. DTOs Messages - src/messages/dto/create-message.dto.ts
+// ═════════════════════════════════════════════════════════════════════════════
+
+import { IsString, IsNotEmpty, MinLength } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+
+/**
+ * DTO pour créer un message sortant depuis l'UI agent
+ */
+export class CreateMessageDto {
+  @ApiProperty({
+    description: 'Contenu du message',
+    example: 'Bonjour, voici les infos sur votre commande.',
+    minLength: 1
+  })
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(1)
+  content: string;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 6. DTOs Messages - src/messages/dto/outbound-message.dto.ts
+// ═════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Payload envoyé vers n8n pour l'envoi sortant
+ */
+export interface OutboundMessagePayload {
+  inboxExternalId: string;
+  to: string; // Numéro WhatsApp du destinataire
+  content: string;
+  conversationId: string; // UUID interne
+  messageId: string; // UUID interne
+}
+
+/**
+ * Réponse attendue de n8n après envoi
+ */
+export interface N8nSendResponse {
+  success: boolean;
+  externalId?: string; // wamid retourné par WABA
+  error?: string;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 7. Service - src/messages/outbound-messaging.service.ts
+// ═════════════════════════════════════════════════════════════════════════════
+
+import { Injectable, Logger, BadGatewayException } from '@nestjs/common';
+import { HttpService } from '@nestjs/axios';
+import { firstValueFrom } from 'rxjs';
+import { OutboundMessagePayload, N8nSendResponse } from './dto/outbound-message.dto';
+
+/**
+ * Service dédié à l'envoi de messages sortants vers n8n
+ * 
+ * Responsabilités :
+ * - Formater le payload pour n8n
+ * - Faire l'appel HTTP
+ * - Gérer les erreurs réseau
+ * - Logger les tentatives
+ */
+@Injectable()
+export class OutboundMessagingService {
+  private readonly logger = new Logger(OutboundMessagingService.name);
+
+  constructor(private readonly httpService: HttpService) {}
+
+  /**
+   * Envoie un message vers n8n pour transmission via WhatsApp
+   * 
+   * @param webhookUrl URL du webhook n8n (depuis InboxChannelConfig)
+   * @param payload Données formatées pour n8n
+   * @returns Réponse de n8n avec externalId (wamid)
+   */
+  async sendToN8n(
+    webhookUrl: string,
+    payload: OutboundMessagePayload
+  ): Promise<N8nSendResponse> {
+    this.logger.log(
+      `Sending message to n8n: ${payload.messageId} → ${payload.to}`
+    );
+
+    try {
+      // Timeout de 10 secondes pour l'envoi
+      const response = await firstValueFrom(
+        this.httpService.post<N8nSendResponse>(webhookUrl, payload, {
+          timeout: 10000,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        })
+      );
+
+      if (!response.data.success) {
+        throw new Error(response.data.error || 'Unknown n8n error');
+      }
+
+      this.logger.log(
+        `Message sent successfully: ${payload.messageId} → externalId: ${response.data.externalId}`
+      );
+
+      return response.data;
+    } catch (error) {
+      this.logger.error(
+        `Failed to send message to n8n: ${error.message}`,
+        error.stack
+      );
+
+      // On lance une exception custom pour que le controller puisse gérer
+      throw new BadGatewayException(
+        `Failed to send message via n8n: ${error.message}`
+      );
+    }
+  }
+
+  /**
+   * Validation basique du webhook URL
+   */
+  validateWebhookUrl(url: string): boolean {
+    try {
+      const parsed = new URL(url);
+      return ['http:', 'https:'].includes(parsed.protocol);
+    } catch {
+      return false;
+    }
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 8. Service - src/messages/messages.service.ts
+// ═════════════════════════════════════════════════════════════════════════════
+
+import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { OutboundMessagingService } from './outbound-messaging.service';
+import { CreateMessageDto } from './dto/create-message.dto';
+import { WhatsAppInboxConfig } from '../webhooks/dto/whatsapp-incoming.dto';
+
+@Injectable()
+export class MessagesService {
+  private readonly logger = new Logger(MessagesService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly outboundService: OutboundMessagingService
+  ) {}
+
+  /**
+   * Crée et envoie un message agent → client
+   * 
+   * Flow complet :
+   * 1. Vérifier que la conversation existe et appartient au bon account
+   * 2. Créer le message en DB (OUTGOING, AGENT)
+   * 3. Récupérer la config de l'inbox WhatsApp
+   * 4. Trouver l'identifiant WhatsApp du contact
+   * 5. Envoyer vers n8n
+   * 6. Mettre à jour le message avec externalId
+   */
+  async createAndSendMessage(
+    conversationId: string,
+    userId: string,
+    accountId: string, // Depuis JWT
+    dto: CreateMessageDto
+  ) {
+    this.logger.log(
+      `Agent ${userId} sending message to conversation ${conversationId}`
+    );
+
+    // 1. Vérifier la conversation + droits multi-tenant
+    const conversation = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      include: {
+        contact: {
+          include: {
+            identifiers: true
+          }
+        },
+        inbox: {
+          include: {
+            channelConfig: true
+          }
+        }
+      }
+    });
+
+    if (!conversation) {
+      throw new NotFoundException('Conversation not found');
+    }
+
+    if (conversation.accountId !== accountId) {
+      throw new ForbiddenException(
+        'You do not have access to this conversation'
+      );
+    }
+
+    // 2. Créer le message en DB
+    const message = await this.prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        senderId: userId,
+        senderType: 'AGENT',
+        direction: 'OUTGOING',
+        content: dto.content,
+        sentAt: new Date()
+      }
+    });
+
+    // 3. Récupérer la config WhatsApp de l'inbox
+    const config = conversation.inbox.channelConfig;
+    if (!config) {
+      throw new NotFoundException(
+        'Inbox channel config not found'
+      );
+    }
+
+    const whatsappConfig = config.configJson as WhatsAppInboxConfig;
+    
+    if (!whatsappConfig.outgoingWebhookUrl) {
+      throw new NotFoundException(
+        'Outgoing webhook URL not configured for this inbox'
+      );
+    }
+
+    // 4. Trouver l'identifiant WhatsApp du contact
+    const whatsappIdentifier = conversation.contact.identifiers.find(
+      (id) => id.type === 'WHATSAPP'
+    );
+
+    if (!whatsappIdentifier) {
+      throw new NotFoundException(
+        'WhatsApp identifier not found for this contact'
+      );
+    }
+
+    // 5. Envoyer vers n8n
+    try {
+      const response = await this.outboundService.sendToN8n(
+        whatsappConfig.outgoingWebhookUrl,
+        {
+          inboxExternalId: whatsappConfig.inboxExternalId,
+          to: whatsappIdentifier.value,
+          content: dto.content,
+          conversationId: conversation.id,
+          messageId: message.id
+        }
+      );
+
+      // 6. Mettre à jour le message avec l'externalId (wamid)
+      await this.prisma.message.update({
+        where: { id: message.id },
+        data: {
+          externalId: response.externalId,
+          status: 'SENT'
+        }
+      });
+
+      // 7. Mettre à jour lastMessageAt sur la conversation
+      await this.prisma.conversation.update({
+        where: { id: conversation.id },
+        data: { lastMessageAt: new Date() }
+      });
+
+      this.logger.log(
+        `Message sent successfully: ${message.id} → ${response.externalId}`
+      );
+
+      return {
+        ...message,
+        externalId: response.externalId,
+        status: 'SENT'
+      };
+    } catch (error) {
+      // En cas d'échec, on marque le message comme failed
+      await this.prisma.message.update({
+        where: { id: message.id },
+        data: { status: 'FAILED' }
+      });
+
+      throw error;
+    }
+  }
+
+  /**
+   * Récupère les messages d'une conversation (avec pagination)
+   */
+  async getConversationMessages(
+    conversationId: string,
+    accountId: string,
+    page = 1,
+    limit = 50
+  ) {
+    // Vérifier les droits
+    const conversation = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      select: { accountId: true }
+    });
+
+    if (!conversation) {
+      throw new NotFoundException('Conversation not found');
+    }
+
+    if (conversation.accountId !== accountId) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [messages, total] = await Promise.all([
+      this.prisma.message.findMany({
+        where: { conversationId },
+        orderBy: { sentAt: 'desc' },
+        skip,
+        take: limit,
+        include: {
+          sender: {
+            select: {
+              id: true,
+              name: true,
+              email: true
+            }
+          }
+        }
+      }),
+      this.prisma.message.count({
+        where: { conversationId }
+      })
+    ]);
+
+    return {
+      data: messages,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      }
+    };
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 9. Controller - src/messages/messages.controller.ts
+// ═════════════════════════════════════════════════════════════════════════════
+
+import { 
+  Controller, 
+  Post, 
+  Get, 
+  Body, 
+  Param, 
+  Query,
+  UseGuards,
+  Request,
+  HttpCode,
+  HttpStatus
+} from '@nestjs/common';
+import { 
+  ApiTags, 
+  ApiOperation, 
+  ApiResponse, 
+  ApiBearerAuth,
+  ApiParam,
+  ApiQuery
+} from '@nestjs/swagger';
+import { MessagesService } from './messages.service';
+import { CreateMessageDto } from './dto/create-message.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+
+/**
+ * Controller pour la gestion des messages
+ * 
+ * Routes :
+ * - POST /conversations/:id/messages → Envoyer un message
+ * - GET /conversations/:id/messages → Liste des messages
+ */
+@ApiTags('messages')
+@Controller('conversations/:conversationId/messages')
+@UseGuards(JwtAuthGuard)
+@ApiBearerAuth()
+export class MessagesController {
+  constructor(private readonly messagesService: MessagesService) {}
+
+  /**
+   * Endpoint pour qu'un agent envoie un message
+   */
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ 
+    summary: 'Envoyer un message dans une conversation',
+    description: 'Crée un message OUTGOING et le transmet via n8n → WhatsApp'
+  })
+  @ApiParam({
+    name: 'conversationId',
+    description: 'UUID de la conversation',
+    example: '550e8400-e29b-41d4-a716-446655440000'
+  })
+  @ApiResponse({ 
+    status: 201, 
+    description: 'Message créé et envoyé avec succès',
+    schema: {
+      example: {
+        id: 'uuid-message',
+        conversationId: 'uuid-conversation',
+        senderId: 'uuid-user',
+        senderType: 'AGENT',
+        direction: 'OUTGOING',
+        content: 'Bonjour, voici les infos...',
+        externalId: 'wamid.HBgL...',
+        status: 'SENT',
+        sentAt: '2024-12-11T10:30:00Z'
+      }
+    }
+  })
+  @ApiResponse({ 
+    status: 404, 
+    description: 'Conversation non trouvée' 
+  })
+  @ApiResponse({ 
+    status: 403, 
+    description: 'Accès refusé (mauvais account)' 
+  })
+  @ApiResponse({ 
+    status: 502, 
+    description: 'Erreur d\'envoi vers n8n' 
+  })
+  async sendMessage(
+    @Param('conversationId') conversationId: string,
+    @Body() dto: CreateMessageDto,
+    @Request() req
+  ) {
+    const userId = req.user.sub; // Depuis JWT
+    const accountId = req.user.accountId; // Depuis JWT
+
+    return await this.messagesService.createAndSendMessage(
+      conversationId,
+      userId,
+      accountId,
+      dto
+    );
+  }
+
+  /**
+   * Récupère les messages d'une conversation
+   */
+  @Get()
+  @ApiOperation({ 
+    summary: 'Liste les messages d\'une conversation',
+    description: 'Retourne les messages avec pagination (50 par défaut)'
+  })
+  @ApiParam({
+    name: 'conversationId',
+    description: 'UUID de la conversation'
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    description: 'Numéro de page',
+    example: 1
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Nombre de résultats par page',
+    example: 50
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Liste des messages',
+    schema: {
+      example: {
+        data: [
+          {
+            id: 'uuid',
+            content: 'Hello',
+            senderType: 'CONTACT',
+            direction: 'INCOMING',
+            sentAt: '2024-12-11T10:00:00Z'
+          }
+        ],
+        meta: {
+          total: 125,
+          page: 1,
+          limit: 50,
+          totalPages: 3
+        }
+      }
+    }
+  })
+  async getMessages(
+    @Param('conversationId') conversationId: string,
+    @Query('page') page = 1,
+    @Query('limit') limit = 50,
+    @Request() req
+  ) {
+    const accountId = req.user.accountId;
+
+    return await this.messagesService.getConversationMessages(
+      conversationId,
+      accountId,
+      Number(page),
+      Number(limit)
+    );
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 10. Module - src/messages/messages.module.ts
+// ═════════════════════════════════════════════════════════════════════════════
+
+import { Module } from '@nestjs/common';
+import { HttpModule } from '@nestjs/axios';
+import { MessagesController } from './messages.controller';
+import { MessagesService } from './messages.service';
+import { OutboundMessagingService } from './outbound-messaging.service';
+import { PrismaModule } from '../prisma/prisma.module';
+
+@Module({
+  imports: [
+    PrismaModule,
+    HttpModule.register({
+      timeout: 10000, // Timeout global de 10s
+      maxRedirects: 3
+    })
+  ],
+  controllers: [MessagesController],
+  providers: [MessagesService, OutboundMessagingService],
+  exports: [MessagesService]
+})
+export class MessagesModule {}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 11. Schéma Prisma - schema.prisma (AJOUTS NÉCESSAIRES)
+// ═════════════════════════════════════════════════════════════════════════════
+
+/*
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  senderId       String       // UUID du User ou du Contact
+  senderType     SenderType   // AGENT, CONTACT, BOT
+  direction      Direction    // INCOMING, OUTGOING
+  content        String       @db.Text
+  
+  // Nouveau : pour tracking WhatsApp
+  externalId     String?      // wamid de WhatsApp
+  status         MessageStatus @default(PENDING)
+  
+  rawPayload     Json?        // Payload brut WABA (pour debug)
+  sentAt         DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  @@index([conversationId, sent<function_results>OK</function_results>
+
+
+  <function_results>OK</function_results>
+
+Voilà ! **Tout le code est maintenant dans UN SEUL artifact** que tu peux copier d'un coup. 🎉
+
+## 📋 Instructions :
+
+1. **Clique sur l'artifact** à droite (titre : "Code complet Skybot Inbox - WhatsApp Integration")
+2. **Clique sur l'icône copier** 📋 en haut à droite
+3. **Colle dans ton éditeur** (VS Code, etc.)
+
+---
+
+## 🗂️ Structure des fichiers
+
+Le code contient **tout** avec des séparateurs clairs :
+
+```
+// ═════ 1. DTOs - src/webhooks/dto/whatsapp-incoming.dto.ts ═════
+// ═════ 2. Service - src/webhooks/webhooks.service.ts ═════
+// ═════ 3. Controller - src/webhooks/webhooks.controller.ts ═════
+// etc...
+```
+
+Tu peux facilement :
+- Copier tout d'un coup
+- Chercher un fichier spécifique avec Ctrl+F
+- Reconstruire l'arborescence manuellement
+
+---
+
+## ⚠️ Note importante
+
+Le schéma Prisma à la fin est **tronqué** (limite de taille de l'artifact). Voici la suite complète du schéma :
+
+```prisma
+  @@index([conversationId, sentAt])
+  @@index([externalId])
+  @@map("messages")
+}
+
+enum SenderType {
+  AGENT
+  CONTACT
+  BOT
+}
+
+enum Direction {
+  INCOMING
+  OUTGOING
+}
+
+enum MessageStatus {
+  PENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+```
+
+Veux-tu que je te donne aussi :
+- ✅ Le schéma Prisma complet dans un artifact séparé ?
+- ✅ Les tests unitaires ?
+- ✅ Le guide d'intégration ?
+
+Dis-moi ! 🚀

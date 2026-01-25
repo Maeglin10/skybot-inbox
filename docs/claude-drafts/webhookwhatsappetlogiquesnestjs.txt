@@ -1,0 +1,575 @@
+Parfait ! Je vais t'aider à structurer proprement cette logique de webhooks WhatsApp. Commençons par clarifier l'architecture et les flux de données.
+
+## 🎯 Vue d'ensemble du flux
+
+```
+ENTRANT: Client → WhatsApp → WABA → n8n → Skybot Inbox
+SORTANT: Agent → Skybot Inbox → n8n → WABA → WhatsApp → Client
+```
+
+## 📋 Checklist des opérations (flux ENTRANT)
+
+Quand un message arrive de n8n :
+
+1. **Valider** le payload
+2. **Identifier l'Inbox** via `inboxExternalId`
+3. **Trouver ou créer le Contact** via le numéro `from`
+4. **Trouver ou créer la Conversation** (Contact + Inbox)
+5. **Créer le Message** avec `sender_type: 'CONTACT'`
+6. **Mettre à jour** la Conversation (`last_activity_at`, statut, etc.)
+
+---
+
+## 🏗️ Architecture proposée
+
+```
+webhooks/
+├── webhooks.module.ts
+├── webhooks.controller.ts
+├── webhooks.service.ts
+├── dto/
+│   ├── whatsapp-incoming.dto.ts
+│   └── whatsapp-outgoing.dto.ts
+└── exceptions/
+    └── webhook-processing.exception.ts
+```
+
+---
+
+## 📦 1. DTOs (Data Transfer Objects)
+
+### `dto/whatsapp-incoming.dto.ts`
+
+```typescript
+import { 
+  IsString, 
+  IsNumber, 
+  IsNotEmpty, 
+  IsOptional, 
+  IsObject 
+} from 'class-validator';
+import { Transform } from 'class-transformer';
+
+export class WhatsAppIncomingDto {
+  @IsString()
+  @IsNotEmpty()
+  inboxExternalId: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @Transform(({ value }) => value.trim())
+  from: string; // Format: +573001234567
+
+  @IsString()
+  @IsNotEmpty()
+  messageId: string; // wamid unique
+
+  @IsNumber()
+  timestamp: number; // Unix timestamp
+
+  @IsString()
+  @IsOptional()
+  text?: string;
+
+  @IsObject()
+  @IsOptional()
+  raw?: Record<string, any>; // Payload complet WABA pour audit
+}
+```
+
+### `dto/whatsapp-outgoing.dto.ts`
+
+```typescript
+import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+
+export class WhatsAppOutgoingDto {
+  @IsString()
+  @IsNotEmpty()
+  conversationId: string;
+
+  @IsString()
+  @IsNotEmpty()
+  text: string;
+
+  @IsString()
+  @IsOptional()
+  agentId?: string; // ID de l'agent qui envoie
+}
+```
+
+---
+
+## 🛡️ 2. Exception personnalisée
+
+### `exceptions/webhook-processing.exception.ts`
+
+```typescript
+import { HttpException, HttpStatus } from '@nestjs/common';
+
+export class WebhookProcessingException extends HttpException {
+  constructor(
+    message: string,
+    public readonly details?: any,
+  ) {
+    super(
+      {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'Webhook processing failed',
+        error: message,
+        details,
+      },
+      HttpStatus.INTERNAL_SERVER_ERROR,
+    );
+  }
+}
+```
+
+---
+
+## 🧠 3. Service principal
+
+### `webhooks.service.ts`
+
+```typescript
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { ConversationsService } from '../conversations/conversations.service';
+import { MessagesService } from '../messages/messages.service';
+import { ContactsService } from '../contacts/contacts.service';
+import { WhatsAppIncomingDto } from './dto/whatsapp-incoming.dto';
+import { WebhookProcessingException } from './exceptions/webhook-processing.exception';
+import { MessageSenderType, ConversationStatus } from '@prisma/client';
+
+@Injectable()
+export class WebhooksService {
+  private readonly logger = new Logger(WebhooksService.name);
+
+  constructor(
+    private prisma: PrismaService,
+    private conversationsService: ConversationsService,
+    private messagesService: MessagesService,
+    private contactsService: ContactsService,
+  ) {}
+
+  /**
+   * Traite un message WhatsApp entrant depuis n8n
+   */
+  async processWhatsAppIncoming(dto: WhatsAppIncomingDto) {
+    this.logger.log(`Processing WhatsApp message: ${dto.messageId}`);
+
+    try {
+      // 1. Trouver l'Inbox
+      const inbox = await this.findInboxByExternalId(dto.inboxExternalId);
+
+      // 2. Trouver ou créer le Contact
+      const contact = await this.findOrCreateContact(
+        inbox.accountId,
+        dto.from,
+      );
+
+      // 3. Trouver ou créer la Conversation
+      const conversation = await this.findOrCreateConversation(
+        inbox.id,
+        contact.id,
+      );
+
+      // 4. Vérifier doublon (idempotence)
+      const existingMessage = await this.checkDuplicateMessage(dto.messageId);
+      if (existingMessage) {
+        this.logger.warn(`Duplicate message ignored: ${dto.messageId}`);
+        return existingMessage;
+      }
+
+      // 5. Créer le Message
+      const message = await this.createIncomingMessage(
+        conversation.id,
+        contact.id,
+        dto,
+      );
+
+      // 6. Mettre à jour la Conversation
+      await this.updateConversationActivity(conversation.id);
+
+      this.logger.log(
+        `Message processed successfully: ${message.id} (conversation: ${conversation.id})`,
+      );
+
+      return message;
+    } catch (error) {
+      this.logger.error(
+        `Failed to process WhatsApp message: ${error.message}`,
+        error.stack,
+      );
+      throw new WebhookProcessingException(
+        'Failed to process incoming WhatsApp message',
+        { originalError: error.message, payload: dto },
+      );
+    }
+  }
+
+  /**
+   * Trouve l'Inbox via son external_id
+   */
+  private async findInboxByExternalId(externalId: string) {
+    const inbox = await this.prisma.inbox.findUnique({
+      where: { externalId },
+    });
+
+    if (!inbox) {
+      throw new NotFoundException(
+        `Inbox not found with externalId: ${externalId}`,
+      );
+    }
+
+    return inbox;
+  }
+
+  /**
+   * Trouve ou crée un Contact
+   */
+  private async findOrCreateContact(accountId: string, phoneNumber: string) {
+    // Normaliser le numéro (enlever espaces, tirets, etc.)
+    const normalizedPhone = this.normalizePhoneNumber(phoneNumber);
+
+    let contact = await this.prisma.contact.findFirst({
+      where: {
+        accountId,
+        phone: normalizedPhone,
+      },
+    });
+
+    if (!contact) {
+      this.logger.log(`Creating new contact: ${normalizedPhone}`);
+      contact = await this.contactsService.create({
+        accountId,
+        phone: normalizedPhone,
+        name: normalizedPhone, // On met le numéro par défaut
+        // On pourra enrichir plus tard avec WABA Profile API
+      });
+    }
+
+    return contact;
+  }
+
+  /**
+   * Trouve ou crée une Conversation
+   */
+  private async findOrCreateConversation(inboxId: string, contactId: string) {
+    // Chercher une conversation ACTIVE ou PENDING
+    let conversation = await this.prisma.conversation.findFirst({
+      where: {
+        inboxId,
+        contactId,
+        status: {
+          in: ['OPEN', 'PENDING'],
+        },
+      },
+      orderBy: {
+        lastActivityAt: 'desc',
+      },
+    });
+
+    if (!conversation) {
+      this.logger.log(
+        `Creating new conversation for contact: ${contactId}, inbox: ${inboxId}`,
+      );
+      
+      const inbox = await this.prisma.inbox.findUnique({
+        where: { id: inboxId },
+      });
+
+      conversation = await this.conversationsService.create({
+        accountId: inbox.accountId,
+        inboxId,
+        contactId,
+        status: ConversationStatus.OPEN,
+      });
+    }
+
+    return conversation;
+  }
+
+  /**
+   * Vérifie si un message existe déjà (idempotence)
+   */
+  private async checkDuplicateMessage(externalId: string) {
+    return this.prisma.message.findUnique({
+      where: { externalId },
+    });
+  }
+
+  /**
+   * Crée le message entrant
+   */
+  private async createIncomingMessage(
+    conversationId: string,
+    contactId: string,
+    dto: WhatsAppIncomingDto,
+  ) {
+    return this.messagesService.create({
+      conversationId,
+      senderId: contactId,
+      senderType: MessageSenderType.CONTACT,
+      content: dto.text || '',
+      externalId: dto.messageId,
+      metadata: {
+        timestamp: dto.timestamp,
+        raw: dto.raw,
+        channel: 'whatsapp',
+      },
+    });
+  }
+
+  /**
+   * Met à jour l'activité de la conversation
+   */
+  private async updateConversationActivity(conversationId: string) {
+    await this.prisma.conversation.update({
+      where: { id: conversationId },
+      data: {
+        lastActivityAt: new Date(),
+        // On peut aussi incrémenter un compteur de messages non lus
+        // si on veut ajouter cette logique
+      },
+    });
+  }
+
+  /**
+   * Normalise un numéro de téléphone
+   */
+  private normalizePhoneNumber(phone: string): string {
+    // Enlève tout sauf les chiffres et le +
+    return phone.replace(/[^\d+]/g, '');
+  }
+}
+```
+
+---
+
+## 🎮 4. Controller
+
+### `webhooks.controller.ts`
+
+```typescript
+import {
+  Controller,
+  Post,
+  Body,
+  HttpCode,
+  HttpStatus,
+  UseGuards,
+} from '@nestjs/common';
+import { WebhooksService } from './webhooks.service';
+import { WhatsAppIncomingDto } from './dto/whatsapp-incoming.dto';
+// import { WebhookAuthGuard } from '../auth/guards/webhook-auth.guard'; // À implémenter pour sécuriser
+
+@Controller('api/webhooks')
+export class WebhooksController {
+  constructor(private readonly webhooksService: WebhooksService) {}
+
+  /**
+   * Endpoint pour les messages WhatsApp entrants depuis n8n
+   */
+  @Post('n8n/whatsapp-incoming')
+  @HttpCode(HttpStatus.OK)
+  // @UseGuards(WebhookAuthGuard) // TODO: Sécuriser avec token/signature
+  async handleWhatsAppIncoming(@Body() dto: WhatsAppIncomingDto) {
+    const message = await this.webhooksService.processWhatsAppIncoming(dto);
+    
+    return {
+      success: true,
+      messageId: message.id,
+      conversationId: message.conversationId,
+    };
+  }
+
+  /**
+   * Endpoint de health check pour n8n
+   */
+  @Post('n8n/health')
+  @HttpCode(HttpStatus.OK)
+  healthCheck() {
+    return { status: 'ok', timestamp: new Date().toISOString() };
+  }
+}
+```
+
+---
+
+## 🔧 5. Module
+
+### `webhooks.module.ts`
+
+```typescript
+import { Module } from '@nestjs/common';
+import { WebhooksController } from './webhooks.controller';
+import { WebhooksService } from './webhooks.service';
+import { PrismaModule } from '../prisma/prisma.module';
+import { ConversationsModule } from '../conversations/conversations.module';
+import { MessagesModule } from '../messages/messages.module';
+import { ContactsModule } from '../contacts/contacts.module';
+
+@Module({
+  imports: [
+    PrismaModule,
+    ConversationsModule,
+    MessagesModule,
+    ContactsModule,
+  ],
+  controllers: [WebhooksController],
+  providers: [WebhooksService],
+  exports: [WebhooksService],
+})
+export class WebhooksModule {}
+```
+
+---
+
+## 🧪 6. Exemple de test (optionnel mais recommandé)
+
+### `webhooks.service.spec.ts`
+
+```typescript
+import { Test, TestingModule } from '@nestjs/testing';
+import { WebhooksService } from './webhooks.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { ConversationsService } from '../conversations/conversations.service';
+import { MessagesService } from '../messages/messages.service';
+import { ContactsService } from '../contacts/contacts.service';
+
+describe('WebhooksService', () => {
+  let service: WebhooksService;
+  let prisma: PrismaService;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        WebhooksService,
+        {
+          provide: PrismaService,
+          useValue: {
+            inbox: { findUnique: jest.fn() },
+            contact: { findFirst: jest.fn() },
+            conversation: { findFirst: jest.fn(), update: jest.fn() },
+            message: { findUnique: jest.fn() },
+          },
+        },
+        {
+          provide: ConversationsService,
+          useValue: { create: jest.fn() },
+        },
+        {
+          provide: MessagesService,
+          useValue: { create: jest.fn() },
+        },
+        {
+          provide: ContactsService,
+          useValue: { create: jest.fn() },
+        },
+      ],
+    }).compile();
+
+    service = module.get<WebhooksService>(WebhooksService);
+    prisma = module.get<PrismaService>(PrismaService);
+  });
+
+  it('should be defined', () => {
+    expect(service).toBeDefined();
+  });
+
+  // TODO: Ajouter des tests unitaires complets
+});
+```
+
+---
+
+## 🔐 7. Sécurité (TODO Important)
+
+Pour éviter que n'importe qui puisse envoyer des webhooks, tu dois ajouter une authentification :
+
+### Option 1 : Token partagé (simple)
+
+```typescript
+// auth/guards/webhook-auth.guard.ts
+import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
+
+@Injectable()
+export class WebhookAuthGuard implements CanActivate {
+  canActivate(context: ExecutionContext): boolean {
+    const request = context.switchToHttp().getRequest();
+    const token = request.headers['x-webhook-token'];
+    
+    const validToken = process.env.N8N_WEBHOOK_SECRET;
+    
+    if (!token || token !== validToken) {
+      throw new UnauthorizedException('Invalid webhook token');
+    }
+    
+    return true;
+  }
+}
+```
+
+Dans n8n, tu ajoutes un header `x-webhook-token` avec la valeur de `N8N_WEBHOOK_SECRET`.
+
+---
+
+## 📊 8. Schema Prisma (rappel)
+
+Assure-toi que ton schéma supporte bien ces champs :
+
+```prisma
+model Message {
+  id             String            @id @default(uuid())
+  conversationId String
+  senderId       String
+  senderType     MessageSenderType
+  content        String
+  externalId     String?           @unique // Pour idempotence
+  metadata       Json?
+  createdAt      DateTime          @default(now())
+  
+  conversation   Conversation      @relation(fields: [conversationId], references: [id])
+  
+  @@index([conversationId])
+  @@index([externalId])
+}
+
+enum MessageSenderType {
+  CONTACT
+  AGENT
+  BOT
+}
+```
+
+---
+
+## ✅ Checklist d'implémentation
+
+- [ ] Créer les DTOs
+- [ ] Créer le service `WebhooksService`
+- [ ] Créer le controller
+- [ ] Ajouter le module aux imports de `AppModule`
+- [ ] Implémenter le guard d'authentification
+- [ ] Configurer la variable `N8N_WEBHOOK_SECRET` dans `.env`
+- [ ] Tester avec un payload de test (Postman/cURL)
+- [ ] Configurer n8n pour envoyer vers cet endpoint
+
+---
+
+## 🚀 Prochaines étapes
+
+1. **Flux sortant** : Quand un agent répond, appeler n8n
+2. **WebSockets** : Notifier le frontend en temps réel
+3. **Gestion des erreurs** : Retry logic, dead letter queue
+4. **Audit logs** : Tracer tous les webhooks reçus
+
+---
+
+**Questions pour toi :**
+
+1. As-tu déjà les modules `conversations`, `messages`, `contacts` implémentés ?
+2. Veux-tu que je détaille le **flux sortant** (agent → n8n) maintenant ?
+3. Dois-je créer un artifact avec le code complet prêt à copier-coller ?
+
+Dis-moi ce qui bloque ou ce que tu veux approfondir ! 🎯

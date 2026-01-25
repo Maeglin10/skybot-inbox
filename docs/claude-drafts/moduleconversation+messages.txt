@@ -1,0 +1,996 @@
+# Skybot Inbox - Module Conversations + Messages (MVP Complet)
+
+## 📋 Table des matières
+1. [Architecture & Concepts](#architecture)
+2. [Backend - Schéma Prisma](#prisma-schema)
+3. [Backend - Services](#backend-services)
+4. [Backend - DTOs](#backend-dtos)
+5. [Backend - Controllers](#backend-controllers)
+6. [Backend - Modules](#backend-modules)
+7. [Frontend - Hooks](#frontend-hooks)
+8. [Frontend - Composants](#frontend-components)
+9. [Frontend - Page Dashboard](#frontend-page)
+10. [Guide d'installation](#installation)
+11. [Tests manuels](#tests)
+12. [Points clés pédagogiques](#pedagogie)
+
+---
+
+## <a name="architecture"></a>🏗️ Architecture & Concepts
+
+### Pourquoi ce module est crucial ?
+
+Dans une inbox omnicanale, **la Conversation est le pivot métier** :
+- Elle représente **l'historique complet** d'échanges avec un Contact sur un canal donné
+- Elle a un **cycle de vie** (OPEN → PENDING → CLOSED) qui reflète l'état du traitement
+- Elle peut être **assignée** à un agent humain
+
+**Erreur classique de débutant** : considérer les Messages comme entité principale. Non ! La Conversation **agrège** les Messages et porte la logique métier (statut, assignation, dernière activité).
+
+### Les 3 règles d'or implémentées
+
+1. **Atomicité** : `lastMessageAt` se met à jour **automatiquement** à chaque nouveau message
+2. **Réactivation** : Un message entrant sur une conversation CLOSED la rouvre (le client revient, on doit réagir)
+3. **Isolation multi-tenant** : Toutes les opérations vérifient `accountId` (sécurité fondamentale)
+
+### Flux de données
+
+```
+WhatsApp → n8n Webhook → POST /api/webhooks/whatsapp
+                              ↓
+                    MessagesService.createMessage()
+                              ↓
+                    ┌─────────┴─────────┐
+                    ↓                   ↓
+        Update lastMessageAt    Si CLOSED → OPEN
+                    ↓
+            Conversation mise à jour
+                    ↓
+            Frontend rafraîchi
+```
+
+---
+
+## <a name="prisma-schema"></a>📊 Backend - Schéma Prisma
+
+```prisma
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== ENUMS ====================
+
+enum ConversationStatus {
+  OPEN
+  PENDING
+  CLOSED
+}
+
+enum MessageType {
+  INCOMING
+  OUTGOING
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+// ==================== MODELS ====================
+
+model Account {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users         User[]
+  inboxes       Inbox[]
+  contacts      Contact[]
+  conversations Conversation[]
+}
+
+model User {
+  id        String   @id @default(uuid())
+  accountId String
+  email     String   @unique
+  name      String
+  role      String   @default("AGENT") // ADMIN, AGENT
+  password  String   // Hash bcrypt
+  createdAt DateTime @default(now())
+
+  account               Account        @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  assignedConversations Conversation[] @relation("ConversationAssignee")
+  sentMessages          Message[]      @relation("MessageSender")
+
+  @@index([accountId])
+}
+
+model Inbox {
+  id           String   @id @default(uuid())
+  accountId    String
+  name         String
+  channelType  String   // WHATSAPP, FACEBOOK, INSTAGRAM, EMAIL
+  channelId    String?  // ID externe (WABA phone number ID, FB page ID, etc.)
+  webhookUrl   String?  // URL n8n pour envoi sortant
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  account       Account        @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+
+  @@unique([accountId, channelType, channelId])
+  @@index([accountId])
+}
+
+model Contact {
+  id          String   @id @default(uuid())
+  accountId   String
+  name        String
+  phone       String?
+  email       String?
+  externalId  String?  // ID WhatsApp/externe
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  account       Account        @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+
+  @@unique([accountId, externalId])
+  @@index([accountId])
+  @@index([phone])
+}
+
+model Conversation {
+  id            String              @id @default(uuid())
+  accountId     String
+  inboxId       String
+  contactId     String
+  assigneeId    String?             // Agent assigné (nullable)
+  status        ConversationStatus  @default(OPEN)
+  lastMessageAt DateTime            @default(now())
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  account  Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  inbox    Inbox    @relation(fields: [inboxId], references: [id], onDelete: Cascade)
+  contact  Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  assignee User?    @relation("ConversationAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  messages Message[]
+
+  // Index unique : une seule conversation par (account, inbox, contact)
+  @@unique([accountId, inboxId, contactId])
+  @@index([accountId, status])
+  @@index([assigneeId])
+  @@index([lastMessageAt])
+}
+
+model Message {
+  id             String        @id @default(uuid())
+  conversationId String
+  content        String        @db.Text
+  messageType    MessageType   // INCOMING ou OUTGOING
+  senderType     String        // "CONTACT", "AGENT", "BOT"
+  senderId       String?       // ID du User si AGENT, null sinon
+  externalId     String?       @unique // ID WhatsApp/externe pour déduplication
+  status         MessageStatus @default(SENT)
+  metadata       Json?         // Données additionnelles (médias, etc.)
+  createdAt      DateTime      @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User?        @relation("MessageSender", fields: [senderId], references: [id], onDelete: SetNull)
+
+  @@index([conversationId, createdAt])
+  @@index([externalId])
+}
+```
+
+**Commandes à exécuter** :
+```bash
+npx prisma migrate dev --name add-conversation-management
+npx prisma generate
+```
+
+---
+
+## <a name="backend-services"></a>⚙️ Backend - Services
+
+### ConversationsService
+
+```typescript
+// src/conversations/conversations.service.ts
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { ConversationStatus } from '@prisma/client';
+
+@Injectable()
+export class ConversationsService {
+  constructor(private prisma: PrismaService) {}
+
+  /**
+   * Upsert Conversation : trouve ou crée une conversation
+   * Logique : une conversation unique par (accountId, inboxId, contactId)
+   * Si elle existe déjà, on la retourne (sans changer son statut)
+   * Si elle n'existe pas, on la crée avec status = OPEN par défaut
+   */
+  async upsertConversation(params: {
+    accountId: string;
+    inboxId: string;
+    contactId: string;
+  }) {
+    const { accountId, inboxId, contactId } = params;
+
+    // Vérifier que l'Inbox appartient bien à cet Account (sécurité multi-tenant)
+    const inbox = await this.prisma.inbox.findFirst({
+      where: { id: inboxId, accountId },
+    });
+
+    if (!inbox) {
+      throw new ForbiddenException('Inbox does not belong to this account');
+    }
+
+    // Vérifier que le Contact appartient bien à cet Account
+    const contact = await this.prisma.contact.findFirst({
+      where: { id: contactId, accountId },
+    });
+
+    if (!contact) {
+      throw new ForbiddenException('Contact does not belong to this account');
+    }
+
+    // Upsert : crée ou retourne la conversation existante
+    const conversation = await this.prisma.conversation.upsert({
+      where: {
+        // Index unique composite (défini dans schema.prisma)
+        accountId_inboxId_contactId: {
+          accountId,
+          inboxId,
+          contactId,
+        },
+      },
+      update: {}, // Si elle existe, on ne change rien
+      create: {
+        accountId,
+        inboxId,
+        contactId,
+        status: ConversationStatus.OPEN,
+        lastMessageAt: new Date(),
+      },
+      include: {
+        contact: true,
+        inbox: true,
+        assignee: true,
+      },
+    });
+
+    return conversation;
+  }
+
+  /**
+   * Changer le statut d'une conversation
+   * Règle : seul le propriétaire de l'account peut changer le statut
+   */
+  async updateStatus(params: {
+    conversationId: string;
+    accountId: string; // Du JWT, pour la sécurité
+    status: ConversationStatus;
+  }) {
+    const { conversationId, accountId, status } = params;
+
+    // Vérifier que la conversation appartient à cet account
+    const conversation = await this.prisma.conversation.findFirst({
+      where: { id: conversationId, accountId },
+    });
+
+    if (!conversation) {
+      throw new NotFoundException('Conversation not found or access denied');
+    }
+
+    // Mettre à jour le statut
+    return this.prisma.conversation.update({
+      where: { id: conversationId },
+      data: { status },
+      include: {
+        contact: true,
+        inbox: true,
+        assignee: true,
+      },
+    });
+  }
+
+  /**
+   * Assigner ou désassigner un agent à une conversation
+   * assigneeId = null pour désassigner
+   */
+  async updateAssignee(params: {
+    conversationId: string;
+    accountId: string;
+    assigneeId: string | null;
+  }) {
+    const { conversationId, accountId, assigneeId } = params;
+
+    // Vérifier que la conversation appartient à cet account
+    const conversation = await this.prisma.conversation.findFirst({
+      where: { id: conversationId, accountId },
+    });
+
+    if (!conversation) {
+      throw new NotFoundException('Conversation not found or access denied');
+    }
+
+    // Si assigneeId fourni, vérifier que l'agent existe et appartient à l'account
+    if (assigneeId) {
+      const user = await this.prisma.user.findFirst({
+        where: { id: assigneeId, accountId },
+      });
+
+      if (!user) {
+        throw new ForbiddenException('User does not belong to this account');
+      }
+    }
+
+    // Mettre à jour l'assignation
+    return this.prisma.conversation.update({
+      where: { id: conversationId },
+      data: { assigneeId },
+      include: {
+        contact: true,
+        inbox: true,
+        assignee: true,
+      },
+    });
+  }
+
+  /**
+   * Lister les conversations d'un account avec filtres
+   */
+  async findAll(params: {
+    accountId: string;
+    status?: ConversationStatus;
+    assigneeId?: string;
+  }) {
+    const { accountId, status, assigneeId } = params;
+
+    return this.prisma.conversation.findMany({
+      where: {
+        accountId,
+        ...(status && { status }),
+        ...(assigneeId && { assigneeId }),
+      },
+      include: {
+        contact: true,
+        inbox: true,
+        assignee: true,
+        messages: {
+          take: 1, // Dernier message seulement pour l'aperçu
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+      orderBy: { lastMessageAt: 'desc' },
+    });
+  }
+
+  /**
+   * Récupérer une conversation spécifique (avec tous ses messages)
+   */
+  async findOne(conversationId: string, accountId: string) {
+    const conversation = await this.prisma.conversation.findFirst({
+      where: { id: conversationId, accountId },
+      include: {
+        contact: true,
+        inbox: true,
+        assignee: true,
+        messages: {
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
+
+    if (!conversation) {
+      throw new NotFoundException('Conversation not found');
+    }
+
+    return conversation;
+  }
+}
+```
+
+### MessagesService
+
+```typescript
+// src/messages/messages.service.ts
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { MessageType, MessageStatus, ConversationStatus } from '@prisma/client';
+
+interface CreateMessageParams {
+  conversationId: string;
+  accountId: string; // Pour sécurité multi-tenant
+  content: string;
+  messageType: MessageType; // INCOMING, OUTGOING
+  senderType: 'CONTACT' | 'AGENT' | 'BOT';
+  senderId?: string; // ID du User si AGENT, sinon null
+  externalId?: string; // ID WhatsApp/externe pour déduplication
+  metadata?: any;
+}
+
+@Injectable()
+export class MessagesService {
+  constructor(private prisma: PrismaService) {}
+
+  /**
+   * Créer un message ET mettre à jour la conversation
+   * Logique métier intégrée :
+   * 1. Créer le message
+   * 2. Mettre à jour lastMessageAt de la conversation
+   * 3. Si INCOMING et conversation CLOSED → rouvrir en OPEN
+   */
+  async createMessage(params: CreateMessageParams) {
+    const {
+      conversationId,
+      accountId,
+      content,
+      messageType,
+      senderType,
+      senderId,
+      externalId,
+      metadata,
+    } = params;
+
+    // Vérifier que la conversation existe et appartient à l'account
+    const conversation = await this.prisma.conversation.findFirst({
+      where: { id: conversationId, accountId },
+    });
+
+    if (!conversation) {
+      throw new NotFoundException('Conversation not found or access denied');
+    }
+
+    // Si externalId fourni, vérifier la déduplication
+    if (externalId) {
+      const existing = await this.prisma.message.findUnique({
+        where: { externalId },
+      });
+      if (existing) {
+        return existing; // Message déjà reçu, on retourne l'existant
+      }
+    }
+
+    // Créer le message
+    const message = await this.prisma.message.create({
+      data: {
+        conversationId,
+        content,
+        messageType,
+        senderType,
+        senderId,
+        externalId,
+        status: MessageStatus.SENT,
+        metadata,
+      },
+    });
+
+    // Mise à jour de la conversation : lastMessageAt + réouverture si nécessaire
+    const updateData: any = {
+      lastMessageAt: message.createdAt,
+    };
+
+    // Règle métier : message INCOMING sur conversation CLOSED → rouvrir
+    if (
+      messageType === MessageType.INCOMING &&
+      conversation.status === ConversationStatus.CLOSED
+    ) {
+      updateData.status = ConversationStatus.OPEN;
+    }
+
+    await this.prisma.conversation.update({
+      where: { id: conversationId },
+      data: updateData,
+    });
+
+    return message;
+  }
+
+  /**
+   * Récupérer tous les messages d'une conversation (avec pagination)
+   */
+  async findByConversation(params: {
+    conversationId: string;
+    accountId: string;
+    limit?: number;
+    cursor?: string;
+  }) {
+    const { conversationId, accountId, limit = 50, cursor } = params;
+
+    // Vérifier que la conversation appartient à l'account
+    const conversation = await this.prisma.conversation.findFirst({
+      where: { id: conversationId, accountId },
+    });
+
+    if (!conversation) {
+      throw new NotFoundException('Conversation not found or access denied');
+    }
+
+    const messages = await this.prisma.message.findMany({
+      where: { conversationId },
+      take: limit,
+      ...(cursor && {
+        skip: 1,
+        cursor: { id: cursor },
+      }),
+      orderBy: { createdAt: 'asc' },
+      include: {
+        sender: true,
+      },
+    });
+
+    return messages;
+  }
+
+  /**
+   * Mettre à jour le statut d'un message (ex: SENT → DELIVERED → READ)
+   */
+  async updateStatus(params: {
+    messageId: string;
+    accountId: string;
+    status: MessageStatus;
+  }) {
+    const { messageId, accountId, status } = params;
+
+    const message = await this.prisma.message.findFirst({
+      where: {
+        id: messageId,
+        conversation: { accountId },
+      },
+    });
+
+    if (!message) {
+      throw new NotFoundException('Message not found or access denied');
+    }
+
+    return this.prisma.message.update({
+      where: { id: messageId },
+      data: { status },
+    });
+  }
+}
+```
+
+---
+
+## <a name="backend-dtos"></a>📝 Backend - DTOs
+
+```typescript
+// src/conversations/dto/conversation.dto.ts
+import { IsEnum, IsOptional, IsUUID } from 'class-validator';
+import { ConversationStatus } from '@prisma/client';
+
+export class UpdateConversationStatusDto {
+  @IsEnum(ConversationStatus)
+  status: ConversationStatus;
+}
+
+export class UpdateConversationAssigneeDto {
+  @IsOptional()
+  @IsUUID()
+  assigneeId?: string | null;
+}
+
+export class ListConversationsDto {
+  @IsOptional()
+  @IsEnum(ConversationStatus)
+  status?: ConversationStatus;
+
+  @IsOptional()
+  @IsUUID()
+  assigneeId?: string;
+}
+```
+
+---
+
+## <a name="backend-controllers"></a>🎮 Backend - Controllers
+
+```typescript
+// src/conversations/conversations.controller.ts
+import {
+  Controller,
+  Get,
+  Patch,
+  Param,
+  Body,
+  UseGuards,
+  Req,
+  Query,
+} from '@nestjs/common';
+import { ConversationsService } from './conversations.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import {
+  UpdateConversationStatusDto,
+  UpdateConversationAssigneeDto,
+  ListConversationsDto,
+} from './dto/conversation.dto';
+
+@Controller('conversations')
+@UseGuards(JwtAuthGuard)
+export class ConversationsController {
+  constructor(private readonly conversationsService: ConversationsService) {}
+
+  @Get()
+  async findAll(@Req() req, @Query() query: ListConversationsDto) {
+    const accountId = req.user.accountId;
+    return this.conversationsService.findAll({
+      accountId,
+      status: query.status,
+      assigneeId: query.assigneeId,
+    });
+  }
+
+  @Get(':id')
+  async findOne(@Param('id') id: string, @Req() req) {
+    const accountId = req.user.accountId;
+    return this.conversationsService.findOne(id, accountId);
+  }
+
+  @Patch(':id/status')
+  async updateStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateConversationStatusDto,
+    @Req() req,
+  ) {
+    const accountId = req.user.accountId;
+    return this.conversationsService.updateStatus({
+      conversationId: id,
+      accountId,
+      status: dto.status,
+    });
+  }
+
+  @Patch(':id/assignee')
+  async updateAssignee(
+    @Param('id') id: string,
+    @Body() dto: UpdateConversationAssigneeDto,
+    @Req() req,
+  ) {
+    const accountId = req.user.accountId;
+    return this.conversationsService.updateAssignee({
+      conversationId: id,
+      accountId,
+      assigneeId: dto.assigneeId,
+    });
+  }
+}
+```
+
+---
+
+## <a name="backend-modules"></a>📦 Backend - Modules
+
+```typescript
+// src/conversations/conversations.module.ts
+import { Module } from '@nestjs/common';
+import { ConversationsController } from './conversations.controller';
+import { ConversationsService } from './conversations.service';
+import { PrismaModule } from '../prisma/prisma.module';
+
+@Module({
+  imports: [PrismaModule],
+  controllers: [ConversationsController],
+  providers: [ConversationsService],
+  exports: [ConversationsService],
+})
+export class ConversationsModule {}
+```
+
+```typescript
+// src/messages/messages.module.ts
+import { Module } from '@nestjs/common';
+import { MessagesService } from './messages.service';
+import { PrismaModule } from '../prisma/prisma.module';
+
+@Module({
+  imports: [PrismaModule],
+  providers: [MessagesService],
+  exports: [MessagesService],
+})
+export class MessagesModule {}
+```
+
+```typescript
+// src/app.module.ts
+import { Module } from '@nestjs/common';
+import { PrismaModule } from './prisma/prisma.module';
+import { AuthModule } from './auth/auth.module';
+import { ConversationsModule } from './conversations/conversations.module';
+import { MessagesModule } from './messages/messages.module';
+
+@Module({
+  imports: [
+    PrismaModule,
+    AuthModule,
+    ConversationsModule,
+    MessagesModule,
+  ],
+})
+export class AppModule {}
+```
+
+---
+
+## <a name="frontend-hooks"></a>🪝 Frontend - Hooks
+
+```typescript
+// src/hooks/useConversations.ts
+import { useState } from 'react';
+
+interface Conversation {
+  id: string;
+  status: 'OPEN' | 'PENDING' | 'CLOSED';
+  assigneeId?: string | null;
+  contact: {
+    id: string;
+    name: string;
+    phone?: string;
+  };
+  inbox: {
+    id: string;
+    name: string;
+  };
+  assignee?: {
+    id: string;
+    name: string;
+  } | null;
+  lastMessageAt: string;
+  messages?: Array<{
+    id: string;
+    content: string;
+    messageType: string;
+    senderType: string;
+    createdAt: string;
+  }>;
+}
+
+export function useConversations() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchConversations = async (filters?: {
+    status?: string;
+    assigneeId?: string;
+  }): Promise<Conversation[]> => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const params = new URLSearchParams();
+      if (filters?.status) params.append('status', filters.status);
+      if (filters?.assigneeId) params.append('assigneeId', filters.assigneeId);
+
+      const res = await fetch(`/api/conversations?${params.toString()}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+      });
+
+      if (!res.ok) throw new Error('Failed to fetch conversations');
+
+      const data = await res.json();
+      return data;
+    } catch (err: any) {
+      setError(err.message);
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchConversation = async (id: string): Promise<Conversation | null> => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/conversations/${id}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+      });
+
+      if (!res.ok) throw new Error('Failed to fetch conversation');
+
+      return await res.json();
+    } catch (err: any) {
+      setError(err.message);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateStatus = async (
+    conversationId: string,
+    status: 'OPEN' | 'PENDING' | 'CLOSED'
+  ): Promise<Conversation | null> => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/conversations/${conversationId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({ status }),
+      });
+
+      if (!res.ok) throw new Error('Failed to update status');
+
+      return await res.json();
+    } catch (err: any) {
+      setError(err.message);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateAssignee = async (
+    conversationId: string,
+    assigneeId: string | null
+  ): Promise<Conversation | null> => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/conversations/${conversationId}/assignee`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({ assigneeId }),
+      });
+
+      if (!res.ok) throw new Error('Failed to update assignee');
+
+      return await res.json();
+    } catch (err: any) {
+      setError(err.message);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return {
+    loading,
+    error,
+    fetchConversations,
+    fetchConversation,
+    updateStatus,
+    updateAssignee,
+  };
+}
+```
+
+---
+
+## <a name="frontend-components"></a>🧩 Frontend - Composants
+
+```typescript
+// src/components/ConversationActions.tsx
+'use client';
+
+import { useState } from 'react';
+import { useConversations } from '@/hooks/useConversations';
+
+interface ConversationActionsProps {
+  conversationId: string;
+  currentStatus: 'OPEN' | 'PENDING' | 'CLOSED';
+  currentAssigneeId?: string | null;
+  currentUserId: string;
+  onUpdate?: () => void;
+}
+
+export function ConversationActions({
+  conversationId,
+  currentStatus,
+  currentAssigneeId,
+  currentUserId,
+  onUpdate,
+}: ConversationActionsProps) {
+  const { updateStatus, updateAssignee, loading } = useConversations();
+  const [localStatus, setLocalStatus] = useState(currentStatus);
+  const [localAssigneeId, setLocalAssigneeId] = useState(currentAssigneeId);
+
+  const handleStatusChange = async (newStatus: 'OPEN' | 'PENDING' | 'CLOSED') => {
+    const result = await updateStatus(conversationId, newStatus);
+    if (result) {
+      setLocalStatus(newStatus);
+      onUpdate?.();
+    }
+  };
+
+  const handleAssignToMe = async () => {
+    const result = await updateAssignee(conversationId, currentUserId);
+    if (result) {
+      setLocalAssigneeId(currentUserId);
+      onUpdate?.();
+    }
+  };
+
+  const handleUnassign = async () => {
+    const result = await updateAssignee(conversationId, null);
+    if (result) {
+      setLocalAssigneeId(null);
+      onUpdate?.();
+    }
+  };
+
+  const statusColors = {
+    OPEN: 'bg-green-100 text-green-800 border-green-300',
+    PENDING: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+    CLOSED: 'bg-gray-100 text-gray-800 border-gray-300',
+  };
+
+  return (
+    <div className="flex items-center gap-2 p-3 bg-white border-b">
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-gray-600">Statut :</span>
+        <span
+          className={`px-2 py-1 text-xs font-medium rounded-full border ${statusColors[localStatus]}`}
+        >
+          {localStatus}
+        </span>
+      </div>
+
+      <div className="flex gap-1">
+        {localStatus !== 'OPEN' && (
+          <button
+            onClick={() => handleStatusChange('OPEN')}
+            disabled={loading}
+            className="px-3 py-1 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded hover:bg-green-100 disabled:opacity-50"
+          >
+            Rouvrir
+          </button>
+        )}
+        {localStatus !== 'PENDING' && (
+          <button
+            onClick={() => handleStatusChange('PENDING')}
+            disabled={loading}
+            className="px-3 py-1 text-xs font-medium text-yellow-700 bg-yellow-50 border border-yellow-200 rounded hover:bg-yellow-100 disabled:opacity-50"
+          >
+            En attente
+          </button>
+        )}
+        {localStatus !== 'CLOSED' && (
+          <button
+            onClick={() => handleStatusChange('CLOSED')}
+            disabled={loading}
+            className="px-3 py-1 text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded hover:bg-gray-100 disabled:opacity-50"
+          >
+            Clôturer
+          </button>
+        )}
+      </div>
+
+      <div className="h-6 w-px bg-gray-300 mx-2" />
+
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-gray-600">Assignation :</span>
+        {localAssigneeId === currentUserId ? (
+          <button
+            onClick={handleUnassign}
+            disabled={loading}
+            className="px-3 py-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 disabled:opacity-50"
+          >

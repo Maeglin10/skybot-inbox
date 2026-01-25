@@ -1,0 +1,2115 @@
+# Skybot Inbox - Backend Architecture NestJS + Prisma
+
+Je vais te construire un backend NestJS solide, multi-tenant, prêt pour la production. On va procéder méthodiquement.
+
+## 1. Schema Prisma complet
+
+```prisma
+// backend/prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// CORE ENTITIES
+// ============================================
+
+model Account {
+  id            String         @id @default(uuid())
+  name          String
+  slug          String         @unique
+  isActive      Boolean        @default(true)
+  
+  // Relations
+  users         AccountUser[]
+  inboxes       Inbox[]
+  contacts      Contact[]
+  conversations Conversation[]
+  messages      Message[]
+  
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  @@index([slug])
+  @@map("accounts")
+}
+
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  passwordHash String
+  displayName  String
+  isActive     Boolean       @default(true)
+  
+  // Relations
+  accounts     AccountUser[]
+  assignedConversations Conversation[] @relation("AssignedAgent")
+  
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  
+  @@index([email])
+  @@map("users")
+}
+
+model AccountUser {
+  id        String          @id @default(uuid())
+  accountId String
+  userId    String
+  role      AccountUserRole
+  
+  account   Account         @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  
+  @@unique([accountId, userId])
+  @@index([userId])
+  @@map("account_users")
+}
+
+enum AccountUserRole {
+  OWNER
+  ADMIN
+  AGENT
+}
+
+// ============================================
+// INBOX & CHANNELS
+// ============================================
+
+model Inbox {
+  id        String       @id @default(uuid())
+  accountId String
+  name      String
+  channel   ChannelType
+  isActive  Boolean      @default(true)
+  
+  account   Account      @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  config    InboxChannelConfig?
+  conversations Conversation[]
+  
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  
+  @@index([accountId])
+  @@index([accountId, channel])
+  @@map("inboxes")
+}
+
+enum ChannelType {
+  WHATSAPP
+  FACEBOOK
+  INSTAGRAM
+  EMAIL
+}
+
+model InboxChannelConfig {
+  id         String            @id @default(uuid())
+  inboxId    String            @unique
+  type       ChannelConfigType
+  configJson Json              // Stocke les configs spécifiques (webhook URL, tokens, etc.)
+  
+  inbox      Inbox             @relation(fields: [inboxId], references: [id], onDelete: Cascade)
+  
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  
+  @@map("inbox_channel_configs")
+}
+
+enum ChannelConfigType {
+  WHATSAPP_N8N_WEBHOOK
+  WHATSAPP_WABA
+  FACEBOOK_MESSENGER
+  INSTAGRAM_DIRECT
+  EMAIL_SMTP
+}
+
+// ============================================
+// CONTACTS
+// ============================================
+
+model Contact {
+  id          String              @id @default(uuid())
+  accountId   String
+  name        String?
+  avatarUrl   String?
+  customAttributes Json?           // Champs custom flexibles
+  
+  account     Account             @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  identifiers ContactIdentifier[]
+  conversations Conversation[]
+  
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  
+  @@index([accountId])
+  @@map("contacts")
+}
+
+model ContactIdentifier {
+  id        String        @id @default(uuid())
+  contactId String
+  type      ContactIdType
+  value     String        // Numéro WhatsApp, FB user ID, email, etc.
+  
+  contact   Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime      @default(now())
+  
+  @@unique([type, value])
+  @@index([contactId])
+  @@map("contact_identifiers")
+}
+
+enum ContactIdType {
+  WHATSAPP
+  FACEBOOK
+  INSTAGRAM
+  EMAIL
+}
+
+// ============================================
+// CONVERSATIONS & MESSAGES
+// ============================================
+
+model Conversation {
+  id            String             @id @default(uuid())
+  accountId     String
+  inboxId       String
+  contactId     String
+  status        ConversationStatus @default(OPEN)
+  assigneeId    String?
+  
+  // Metadata
+  lastMessageAt DateTime?
+  unreadCount   Int                @default(0)
+  customAttributes Json?
+  
+  account       Account            @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  inbox         Inbox              @relation(fields: [inboxId], references: [id], onDelete: Cascade)
+  contact       Contact            @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  assignee      User?              @relation("AssignedAgent", fields: [assigneeId], references: [id], onDelete: SetNull)
+  messages      Message[]
+  
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  
+  @@index([accountId, status])
+  @@index([inboxId, status])
+  @@index([contactId])
+  @@index([assigneeId])
+  @@index([lastMessageAt])
+  @@map("conversations")
+}
+
+enum ConversationStatus {
+  OPEN
+  PENDING
+  CLOSED
+  SNOOZED
+}
+
+model Message {
+  id             String             @id @default(uuid())
+  accountId      String
+  conversationId String
+  
+  // Sender info
+  senderType     MessageSenderType
+  senderId       String?            // User ID si AGENT, null si CONTACT ou BOT
+  
+  // Message data
+  direction      MessageDirection
+  content        String             @db.Text
+  contentType    MessageContentType @default(TEXT)
+  
+  // Metadata
+  rawPayload     Json?              // Payload original du canal (WhatsApp, FB, etc.)
+  externalId     String?            // ID du message chez le provider (WhatsApp message ID, etc.)
+  
+  // Relations
+  account        Account            @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  conversation   Conversation       @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  createdAt      DateTime           @default(now())
+  
+  @@index([accountId])
+  @@index([conversationId, createdAt])
+  @@index([externalId])
+  @@map("messages")
+}
+
+enum MessageSenderType {
+  CONTACT
+  AGENT
+  BOT
+}
+
+enum MessageDirection {
+  INCOMING
+  OUTGOING
+}
+
+enum MessageContentType {
+  TEXT
+  IMAGE
+  VIDEO
+  AUDIO
+  FILE
+  LOCATION
+}
+```
+
+## 2. Structure du projet NestJS
+
+Voici l'arborescence complète :
+
+```
+backend/
+├── prisma/
+│   └── schema.prisma
+├── src/
+│   ├── main.ts
+│   ├── app.module.ts
+│   ├── common/
+│   │   ├── decorators/
+│   │   │   ├── current-user.decorator.ts
+│   │   │   └── current-account.decorator.ts
+│   │   ├── guards/
+│   │   │   └── jwt-auth.guard.ts
+│   │   ├── filters/
+│   │   │   └── http-exception.filter.ts
+│   │   └── interfaces/
+│   │       └── jwt-payload.interface.ts
+│   ├── prisma/
+│   │   ├── prisma.module.ts
+│   │   └── prisma.service.ts
+│   ├── auth/
+│   │   ├── auth.module.ts
+│   │   ├── auth.controller.ts
+│   │   ├── auth.service.ts
+│   │   ├── dto/
+│   │   │   ├── register.dto.ts
+│   │   │   ├── login.dto.ts
+│   │   │   └── auth-response.dto.ts
+│   │   └── strategies/
+│   │       └── jwt.strategy.ts
+│   ├── users/
+│   │   ├── users.module.ts
+│   │   ├── users.controller.ts
+│   │   ├── users.service.ts
+│   │   └── dto/
+│   │       └── create-user.dto.ts
+│   ├── accounts/
+│   │   ├── accounts.module.ts
+│   │   ├── accounts.controller.ts
+│   │   ├── accounts.service.ts
+│   │   └── dto/
+│   │       └── create-account.dto.ts
+│   ├── inboxes/
+│   │   ├── inboxes.module.ts
+│   │   ├── inboxes.controller.ts
+│   │   ├── inboxes.service.ts
+│   │   └── dto/
+│   │       ├── create-inbox.dto.ts
+│   │       └── update-inbox.dto.ts
+│   ├── contacts/
+│   │   ├── contacts.module.ts
+│   │   ├── contacts.controller.ts
+│   │   ├── contacts.service.ts
+│   │   └── dto/
+│   │       ├── create-contact.dto.ts
+│   │       └── upsert-contact.dto.ts
+│   ├── conversations/
+│   │   ├── conversations.module.ts
+│   │   ├── conversations.controller.ts
+│   │   ├── conversations.service.ts
+│   │   └── dto/
+│   │       ├── create-conversation.dto.ts
+│   │       └── update-conversation.dto.ts
+│   ├── messages/
+│   │   ├── messages.module.ts
+│   │   ├── messages.controller.ts
+│   │   ├── messages.service.ts
+│   │   └── dto/
+│   │       ├── create-message.dto.ts
+│   │       └── send-message.dto.ts
+│   └── webhooks/
+│       ├── webhooks.module.ts
+│       ├── webhooks.controller.ts
+│       ├── webhooks.service.ts
+│       └── dto/
+│           └── whatsapp-incoming.dto.ts
+├── .env
+├── .env.example
+├── package.json
+└── tsconfig.json
+```
+
+## 3. Fichiers de configuration essentiels
+
+### `.env.example`
+
+```env
+# Database
+DATABASE_URL="postgresql://skybot:skybot@localhost:5432/skybot_inbox?schema=public"
+
+# JWT
+JWT_SECRET="your-super-secret-jwt-key-change-in-production"
+JWT_EXPIRES_IN="7d"
+
+# App
+PORT=3000
+NODE_ENV="development"
+
+# N8N Integration
+N8N_WEBHOOK_SECRET="your-n8n-webhook-secret"
+N8N_API_URL="http://localhost:5678"
+```
+
+### `package.json`
+
+```json
+{
+  "name": "skybot-inbox-backend",
+  "version": "1.0.0",
+  "description": "Skybot Inbox Backend - Multi-tenant omnichannel inbox",
+  "scripts": {
+    "build": "nest build",
+    "start": "nest start",
+    "start:dev": "nest start --watch",
+    "start:prod": "node dist/main",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio",
+    "prisma:seed": "ts-node prisma/seed.ts"
+  },
+  "dependencies": {
+    "@nestjs/common": "^10.3.0",
+    "@nestjs/core": "^10.3.0",
+    "@nestjs/jwt": "^10.2.0",
+    "@nestjs/passport": "^10.0.3",
+    "@nestjs/platform-express": "^10.3.0",
+    "@prisma/client": "^5.8.0",
+    "bcrypt": "^5.1.1",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
+    "passport": "^0.7.0",
+    "passport-jwt": "^4.0.1",
+    "reflect-metadata": "^0.2.1",
+    "rxjs": "^7.8.1"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^10.3.0",
+    "@nestjs/schematics": "^10.1.0",
+    "@types/bcrypt": "^5.0.2",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.11.0",
+    "@types/passport-jwt": "^4.0.0",
+    "prisma": "^5.8.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}
+```
+
+## 4. Code du Backend
+
+Je vais maintenant te fournir tous les fichiers essentiels. Étant donné la longueur, je vais créer un artifact avec le code complet structuré.
+
+// ============================================
+// INBOXES MODULE (suite)
+// ============================================
+
+// src/inboxes/inboxes.controller.ts
+import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { CurrentAccount } from '../common/decorators/current-account.decorator';
+import { InboxesService } from './inboxes.service';
+import { CreateInboxDto } from './dto/create-inbox.dto';
+
+@Controller('inboxes')
+@UseGuards(JwtAuthGuard)
+export class InboxesController {
+  constructor(private inboxesService: InboxesService) {}
+
+  @Get()
+  findAll(@CurrentAccount() accountId: string) {
+    return this.inboxesService.findAll(accountId);
+  }
+
+  @Post()
+  create(@CurrentAccount() accountId: string, @Body() dto: CreateInboxDto) {
+    return this.inboxesService.create(accountId, dto);
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string, @CurrentAccount() accountId: string) {
+    return this.inboxesService.findOne(id, accountId);
+  }
+}
+
+// src/inboxes/inboxes.module.ts
+import { Module } from '@nestjs/common';
+import { InboxesController } from './inboxes.controller';
+import { InboxesService } from './inboxes.service';
+
+@Module({
+  controllers: [InboxesController],
+  providers: [InboxesService],
+  exports: [InboxesService],
+})
+export class InboxesModule {}
+
+// ============================================
+// CONTACTS MODULE
+// ============================================
+
+// src/contacts/dto/upsert-contact.dto.ts
+import { IsString, IsOptional, IsEnum, IsNotEmpty } from 'class-validator';
+
+export class UpsertContactDto {
+  @IsString()
+  @IsNotEmpty()
+  identifierValue: string;
+
+  @IsEnum(['WHATSAPP', 'FACEBOOK', 'INSTAGRAM', 'EMAIL'])
+  identifierType: string;
+
+  @IsString()
+  @IsOptional()
+  name?: string;
+}
+
+// src/contacts/contacts.service.ts
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { UpsertContactDto } from './dto/upsert-contact.dto';
+
+@Injectable()
+export class ContactsService {
+  constructor(private prisma: PrismaService) {}
+
+  async upsertContact(accountId: string, dto: UpsertContactDto) {
+    // Find existing contact by identifier
+    const existingIdentifier = await this.prisma.contactIdentifier.findUnique({
+      where: {
+        type_value: {
+          type: dto.identifierType as any,
+          value: dto.identifierValue,
+        },
+      },
+      include: { contact: true },
+    });
+
+    if (existingIdentifier) {
+      // Update existing contact if name provided
+      if (dto.name) {
+        const updatedContact = await this.prisma.contact.update({
+          where: { id: existingIdentifier.contactId },
+          data: { name: dto.name },
+          include: { identifiers: true },
+        });
+        return updatedContact;
+      }
+      return existingIdentifier.contact;
+    }
+
+    // Create new contact with identifier
+    const contact = await this.prisma.contact.create({
+      data: {
+        accountId,
+        name: dto.name,
+        identifiers: {
+          create: {
+            type: dto.identifierType as any,
+            value: dto.identifierValue,
+          },
+        },
+      },
+      include: { identifiers: true },
+    });
+
+    return contact;
+  }
+
+  async findAll(accountId: string) {
+    return this.prisma.contact.findMany({
+      where: { accountId },
+      include: {
+        identifiers: true,
+        _count: {
+          select: { conversations: true },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 100,
+    });
+  }
+
+  async findOne(id: string, accountId: string) {
+    return this.prisma.contact.findFirst({
+      where: { id, accountId },
+      include: {
+        identifiers: true,
+        conversations: {
+          include: {
+            inbox: true,
+            messages: {
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+            },
+          },
+        },
+      },
+    });
+  }
+}
+
+// src/contacts/contacts.controller.ts
+import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { CurrentAccount } from '../common/decorators/current-account.decorator';
+import { ContactsService } from './contacts.service';
+import { UpsertContactDto } from './dto/upsert-contact.dto';
+
+@Controller('contacts')
+@UseGuards(JwtAuthGuard)
+export class ContactsController {
+  constructor(private contactsService: ContactsService) {}
+
+  @Get()
+  findAll(@CurrentAccount() accountId: string) {
+    return this.contactsService.findAll(accountId);
+  }
+
+  @Post()
+  upsert(@CurrentAccount() accountId: string, @Body() dto: UpsertContactDto) {
+    return this.contactsService.upsertContact(accountId, dto);
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string, @CurrentAccount() accountId: string) {
+    return this.contactsService.findOne(id, accountId);
+  }
+}
+
+// src/contacts/contacts.module.ts
+import { Module } from '@nestjs/common';
+import { ContactsController } from './contacts.controller';
+import { ContactsService } from './contacts.service';
+
+@Module({
+  controllers: [ContactsController],
+  providers: [ContactsService],
+  exports: [ContactsService],
+})
+export class ContactsModule {}
+
+// ============================================
+// CONVERSATIONS MODULE
+// ============================================
+
+// src/conversations/dto/update-conversation.dto.ts
+import { IsEnum, IsOptional, IsString } from 'class-validator';
+
+export class UpdateConversationDto {
+  @IsEnum(['OPEN', 'PENDING', 'CLOSED', 'SNOOZED'])
+  @IsOptional()
+  status?: string;
+
+  @IsString()
+  @IsOptional()
+  assigneeId?: string;
+}
+
+// src/conversations/conversations.service.ts
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { UpdateConversationDto } from './dto/update-conversation.dto';
+
+@Injectable()
+export class ConversationsService {
+  constructor(private prisma: PrismaService) {}
+
+  async findAll(accountId: string, status?: string) {
+    return this.prisma.conversation.findMany({
+      where: {
+        accountId,
+        ...(status && { status: status as any }),
+      },
+      include: {
+        contact: {
+          include: { identifiers: true },
+        },
+        inbox: true,
+        assignee: {
+          select: { id: true, displayName: true, email: true },
+        },
+        messages: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+      },
+      orderBy: { lastMessageAt: 'desc' },
+    });
+  }
+
+  async findOne(id: string, accountId: string) {
+    const conversation = await this.prisma.conversation.findFirst({
+      where: { id, accountId },
+      include: {
+        contact: {
+          include: { identifiers: true },
+        },
+        inbox: true,
+        assignee: {
+          select: { id: true, displayName: true, email: true },
+        },
+      },
+    });
+
+    if (!conversation) {
+      throw new NotFoundException('Conversation not found');
+    }
+
+    return conversation;
+  }
+
+  async update(id: string, accountId: string, dto: UpdateConversationDto) {
+    const conversation = await this.findOne(id, accountId);
+
+    return this.prisma.conversation.update({
+      where: { id: conversation.id },
+      data: {
+        ...(dto.status && { status: dto.status as any }),
+        ...(dto.assigneeId && { assigneeId: dto.assigneeId }),
+      },
+      include: {
+        contact: true,
+        inbox: true,
+        assignee: true,
+      },
+    });
+  }
+
+  async getOrCreateConversation(
+    accountId: string,
+    inboxId: string,
+    contactId: string,
+  ) {
+    // Find existing open conversation
+    const existing = await this.prisma.conversation.findFirst({
+      where: {
+        accountId,
+        inboxId,
+        contactId,
+        status: { in: ['OPEN', 'PENDING'] },
+      },
+    });
+
+    if (existing) {
+      return existing;
+    }
+
+    // Create new conversation
+    return this.prisma.conversation.create({
+      data: {
+        accountId,
+        inboxId,
+        contactId,
+        status: 'OPEN',
+      },
+    });
+  }
+}
+
+// src/conversations/conversations.controller.ts
+import {
+  Controller,
+  Get,
+  Patch,
+  Param,
+  Body,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { CurrentAccount } from '../common/decorators/current-account.decorator';
+import { ConversationsService } from './conversations.service';
+import { UpdateConversationDto } from './dto/update-conversation.dto';
+import { MessagesService } from '../messages/messages.service';
+
+@Controller('conversations')
+@UseGuards(JwtAuthGuard)
+export class ConversationsController {
+  constructor(
+    private conversationsService: ConversationsService,
+    private messagesService: MessagesService,
+  ) {}
+
+  @Get()
+  findAll(
+    @CurrentAccount() accountId: string,
+    @Query('status') status?: string,
+  ) {
+    return this.conversationsService.findAll(accountId, status);
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string, @CurrentAccount() accountId: string) {
+    return this.conversationsService.findOne(id, accountId);
+  }
+
+  @Patch(':id')
+  update(
+    @Param('id') id: string,
+    @CurrentAccount() accountId: string,
+    @Body() dto: UpdateConversationDto,
+  ) {
+    return this.conversationsService.update(id, accountId, dto);
+  }
+
+  @Get(':id/messages')
+  getMessages(@Param('id') id: string, @CurrentAccount() accountId: string) {
+    return this.messagesService.findByConversation(id, accountId);
+  }
+}
+
+// src/conversations/conversations.module.ts
+import { Module } from '@nestjs/common';
+import { ConversationsController } from './conversations.controller';
+import { ConversationsService } from './conversations.service';
+import { MessagesModule } from '../messages/messages.module';
+
+@Module({
+  imports: [MessagesModule],
+  controllers: [ConversationsController],
+  providers: [ConversationsService],
+  exports: [ConversationsService],
+})
+export class ConversationsModule {}
+
+// ============================================
+// MESSAGES MODULE
+// ============================================
+
+// src/messages/dto/send-message.dto.ts
+import { IsString, IsNotEmpty, IsEnum, IsOptional } from 'class-validator';
+
+export class SendMessageDto {
+  @IsString()
+  @IsNotEmpty()
+  content: string;
+
+  @IsEnum(['TEXT', 'IMAGE', 'VIDEO', 'AUDIO', 'FILE'])
+  @IsOptional()
+  contentType?: string;
+}
+
+// src/messages/dto/create-message.dto.ts
+export class CreateMessageDto {
+  conversationId: string;
+  senderType: 'CONTACT' | 'AGENT' | 'BOT';
+  senderId?: string;
+  direction: 'INCOMING' | 'OUTGOING';
+  content: string;
+  contentType?: string;
+  rawPayload?: any;
+  externalId?: string;
+}
+
+// src/messages/messages.service.ts
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { CreateMessageDto } from './dto/create-message.dto';
+
+@Injectable()
+export class MessagesService {
+  constructor(private prisma: PrismaService) {}
+
+  async create(accountId: string, dto: CreateMessageDto) {
+    const conversation = await this.prisma.conversation.findFirst({
+      where: { id: dto.conversationId, accountId },
+    });
+
+    if (!conversation) {
+      throw new NotFoundException('Conversation not found');
+    }
+
+    const message = await this.prisma.message.create({
+      data: {
+        accountId,
+        conversationId: dto.conversationId,
+        senderType: dto.senderType as any,
+        senderId: dto.senderId,
+        direction: dto.direction as any,
+        content: dto.content,
+        contentType: (dto.contentType || 'TEXT') as any,
+        rawPayload: dto.rawPayload,
+        externalId: dto.externalId,
+      },
+    });
+
+    // Update conversation lastMessageAt
+    await this.prisma.conversation.update({
+      where: { id: dto.conversationId },
+      data: {
+        lastMessageAt: new Date(),
+        ...(dto.direction === 'INCOMING' && {
+          unreadCount: { increment: 1 },
+        }),
+      },
+    });
+
+    return message;
+  }
+
+  async findByConversation(conversationId: string, accountId: string) {
+    const conversation = await this.prisma.conversation.findFirst({
+      where: { id: conversationId, accountId },
+    });
+
+    if (!conversation) {
+      throw new NotFoundException('Conversation not found');
+    }
+
+    return this.prisma.message.findMany({
+      where: { conversationId },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async sendMessage(
+    conversationId: string,
+    accountId: string,
+    userId: string,
+    content: string,
+  ) {
+    // Create outgoing message
+    const message = await this.create(accountId, {
+      conversationId,
+      senderType: 'AGENT',
+      senderId: userId,
+      direction: 'OUTGOING',
+      content,
+    });
+
+    // TODO: Call n8n webhook to actually send the message
+    // await this.callN8nSendWebhook(message);
+
+    return message;
+  }
+}
+
+// src/messages/messages.controller.ts
+import { Controller, Post, Param, Body, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { CurrentAccount } from '../common/decorators/current-account.decorator';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { MessagesService } from './messages.service';
+import { SendMessageDto } from './dto/send-message.dto';
+
+@Controller('conversations/:conversationId/messages')
+@UseGuards(JwtAuthGuard)
+export class MessagesController {
+  constructor(private messagesService: MessagesService) {}
+
+  @Post()
+  sendMessage(
+    @Param('conversationId') conversationId: string,
+    @CurrentAccount() accountId: string,
+    @CurrentUser('userId') userId: string,
+    @Body() dto: SendMessageDto,
+  ) {
+    return this.messagesService.sendMessage(
+      conversationId,
+      accountId,
+      userId,
+      dto.content,
+    );
+  }
+}
+
+// src/messages/messages.module.ts
+import { Module } from '@nestjs/common';
+import { MessagesController } from './messages.controller';
+import { MessagesService } from './messages.service';
+
+@Module({
+  controllers: [MessagesController],
+  providers: [MessagesService],
+  exports: [MessagesService],
+})
+export class MessagesModule {}
+
+// ============================================
+// WEBHOOKS MODULE (n8n integration)
+// ============================================
+
+// src/webhooks/dto/whatsapp-incoming.dto.ts
+import { IsString, IsNotEmpty, IsObject, IsOptional } from 'class-validator';
+
+export class WhatsAppIncomingDto {
+  @IsString()
+  @IsNotEmpty()
+  from: string; // Phone number
+
+  @IsString()
+  @IsNotEmpty()
+  message: string;
+
+  @IsString()
+  @IsOptional()
+  name?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  inboxId: string;
+
+  @IsObject()
+  @IsOptional()
+  metadata?: any;
+}
+
+// src/webhooks/webhooks.service.ts
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { ContactsService } from '../contacts/contacts.service';
+import { ConversationsService } from '../conversations/conversations.service';
+import { MessagesService } from '../messages/messages.service';
+import { WhatsAppIncomingDto } from './dto/whatsapp-incoming.dto';
+
+@Injectable()
+export class WebhooksService {
+  constructor(
+    private prisma: PrismaService,
+    private contactsService: ContactsService,
+    private conversationsService: ConversationsService,
+    private messagesService: MessagesService,
+  ) {}
+
+  async handleWhatsAppIncoming(dto: WhatsAppIncomingDto) {
+    // 1. Verify inbox exists and get accountId
+    const inbox = await this.prisma.inbox.findUnique({
+      where: { id: dto.inboxId },
+    });
+
+    if (!inbox || inbox.channel !== 'WHATSAPP') {
+      throw new Error('Invalid inbox');
+    }
+
+    // 2. Upsert contact
+    const contact = await this.contactsService.upsertContact(inbox.accountId, {
+      identifierValue: dto.from,
+      identifierType: 'WHATSAPP',
+      name: dto.name,
+    });
+
+    // 3. Get or create conversation
+    const conversation = await this.conversationsService.getOrCreateConversation(
+      inbox.accountId,
+      inbox.id,
+      contact.id,
+    );
+
+    // 4. Create incoming message
+    const message = await this.messagesService.create(inbox.accountId, {
+      conversationId: conversation.id,
+      senderType: 'CONTACT',
+      direction: 'INCOMING',
+      content: dto.message,
+      rawPayload: dto.metadata,
+    });
+
+    return {
+      success: true,
+      conversationId: conversation.id,
+      messageId: message.id,
+    };
+  }
+}
+
+// src/webhooks/webhooks.controller.ts
+import { Controller, Post, Body } from '@nestjs/common';
+import { WebhooksService } from './webhooks.service';
+import { WhatsAppIncomingDto } from './dto/whatsapp-incoming.dto';
+
+@Controller('webhooks')
+export class WebhooksController {
+  constructor(private webhooksService: WebhooksService) {}
+
+  @Post('n8n/whatsapp-incoming')
+  async handleWhatsAppIncoming(@Body() dto: WhatsAppIncomingDto) {
+    return this.webhooksService.handleWhatsAppIncoming(dto);
+  }
+}
+
+// src/webhooks/webhooks.module.ts
+import { Module } from '@nestjs/common';
+import { WebhooksController } from './webhooks.controller';
+import { WebhooksService } from './webhooks.service';
+import { ContactsModule } from '../contacts/contacts.module';
+import { ConversationsModule } from '../conversations/conversations.module';
+import { MessagesModule } from '../messages/messages.module';
+
+@Module({
+  imports: [ContactsModule, ConversationsModule, MessagesModule],
+  controllers: [WebhooksController],
+  providers: [WebhooksService],
+})
+export class WebhooksModule {}
+
+// ============================================
+// USERS & ACCOUNTS MODULES (stubs)
+// ============================================
+
+// src/users/users.module.ts
+import { Module } from '@nestjs/common';
+
+@Module({})
+export class UsersModule {}
+
+// src/accounts/accounts.module.ts
+import { Module } from '@nestjs/common';
+
+@Module({})
+export class AccountsModule {}
+
+// ============================================
+// prisma/schema.prisma
+// ============================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id            String         @id @default(uuid())
+  name          String
+  slug          String         @unique
+  isActive      Boolean        @default(true)
+  users         AccountUser[]
+  inboxes       Inbox[]
+  contacts      Contact[]
+  conversations Conversation[]
+  messages      Message[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  @@index([slug])
+  @@map("accounts")
+}
+
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  passwordHash String
+  displayName  String
+  isActive     Boolean       @default(true)
+  accounts     AccountUser[]
+  assignedConversations Conversation[] @relation("AssignedAgent")
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  @@index([email])
+  @@map("users")
+}
+
+model AccountUser {
+  id        String          @id @default(uuid())
+  accountId String
+  userId    String
+  role      AccountUserRole
+  account   Account         @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  @@unique([accountId, userId])
+  @@index([userId])
+  @@map("account_users")
+}
+
+enum AccountUserRole {
+  OWNER
+  ADMIN
+  AGENT
+}
+
+model Inbox {
+  id        String       @id @default(uuid())
+  accountId String
+  name      String
+  channel   ChannelType
+  isActive  Boolean      @default(true)
+  account   Account      @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  config    InboxChannelConfig?
+  conversations Conversation[]
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  @@index([accountId])
+  @@index([accountId, channel])
+  @@map("inboxes")
+}
+
+enum ChannelType {
+  WHATSAPP
+  FACEBOOK
+  INSTAGRAM
+  EMAIL
+}
+
+model InboxChannelConfig {
+  id         String            @id @default(uuid())
+  inboxId    String            @unique
+  type       ChannelConfigType
+  configJson Json
+  inbox      Inbox             @relation(fields: [inboxId], references: [id], onDelete: Cascade)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  @@map("inbox_channel_configs")
+}
+
+enum ChannelConfigType {
+  WHATSAPP_N8N_WEBHOOK
+  WHATSAPP_WABA
+  FACEBOOK_MESSENGER
+  INSTAGRAM_DIRECT
+  EMAIL_SMTP
+}
+
+model Contact {
+  id          String              @id @default(uuid())
+  accountId   String
+  name        String?
+  avatarUrl   String?
+  customAttributes Json?
+  account     Account             @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  identifiers ContactIdentifier[]
+  conversations Conversation[]
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  @@index([accountId])
+  @@map("contacts")
+}
+
+model ContactIdentifier {
+  id        String        @id @default(uuid())
+  contactId String
+  type      ContactIdType
+  value     String
+  contact   Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  createdAt DateTime      @default(now())
+  @@unique([type, value])
+  @@index([contactId])
+  @@map("contact_identifiers")
+}
+
+enum ContactIdType {
+  WHATSAPP
+  FACEBOOK
+  INSTAGRAM
+  EMAIL
+}
+
+model Conversation {
+  id            String             @id @default(uuid())
+  accountId     String
+  inboxId       String
+  contactId     String
+  status        ConversationStatus @default(OPEN)
+  assigneeId    String?
+  lastMessageAt DateTime?
+  unreadCount   Int                @default(0)
+  customAttributes Json?
+  account       Account            @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  inbox         Inbox              @relation(fields: [inboxId], references: [id], onDelete: Cascade)
+  contact       Contact            @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  assignee      User?              @relation("AssignedAgent", fields: [assigneeId], references: [id], onDelete: SetNull)
+  messages      Message[]
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  @@index([accountId, status])
+  @@index([inboxId, status])
+  @@index([contactId])
+  @@index([assigneeId])
+  @@index([lastMessageAt])
+  @@map("conversations")
+}
+
+enum ConversationStatus {
+  OPEN
+  PENDING
+  CLOSED
+  SNOOZED
+}
+
+model Message {
+  id             String             @id @default(uuid())
+  accountId      String
+  conversationId String
+  senderType     MessageSenderType
+  senderId       String?
+  direction      MessageDirection
+  content        String             @db.Text
+  contentType    MessageContentType @default(TEXT)
+  rawPayload     Json?
+  externalId     String?
+  account        Account            @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  conversation   Conversation       @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime           @default(now())
+  @@index([accountId])
+  @@index([conversationId, createdAt])
+  @@index([externalId])
+  @@map("messages")
+}
+
+enum MessageSenderType {
+  CONTACT
+  AGENT
+  BOT
+}
+
+enum MessageDirection {
+  INCOMING
+  OUTGOING
+}
+
+enum MessageContentType {
+  TEXT
+  IMAGE
+  VIDEO
+  AUDIO
+  FILE
+  LOCATION
+}
+
+// ============================================
+// src/main.ts
+// ============================================
+
+import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
+import { AppModule } from './app.module';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  app.setGlobalPrefix('api');
+  app.enableCors({
+    origin: process.env.FRONTEND_URL || 'http://localhost:3001',
+    credentials: true,
+  });
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
+  app.useGlobalFilters(new HttpExceptionFilter());
+  const port = process.env.PORT || 3000;
+  await app.listen(port);
+  console.log(`🚀 Skybot Inbox Backend running on http://localhost:${port}/api`);
+}
+bootstrap();
+
+// ============================================
+// src/app.module.ts
+// ============================================
+
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { PrismaModule } from './prisma/prisma.module';
+import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './users/users.module';
+import { AccountsModule } from './accounts/accounts.module';
+import { InboxesModule } from './inboxes/inboxes.module';
+import { ContactsModule } from './contacts/contacts.module';
+import { ConversationsModule } from './conversations/conversations.module';
+import { MessagesModule } from './messages/messages.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    PrismaModule,
+    AuthModule,
+    UsersModule,
+    AccountsModule,
+    InboxesModule,
+    ContactsModule,
+    ConversationsModule,
+    MessagesModule,
+    WebhooksModule,
+  ],
+})
+export class AppModule {}
+
+// ============================================
+// src/prisma/prisma.module.ts
+// ============================================
+
+import { Global, Module } from '@nestjs/common';
+import { PrismaService } from './prisma.service';
+
+@Global()
+@Module({
+  providers: [PrismaService],
+  exports: [PrismaService],
+})
+export class PrismaModule {}
+
+// ============================================
+// src/prisma/prisma.service.ts
+// ============================================
+
+import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
+
+@Injectable()
+export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+  async onModuleInit() {
+    await this.$connect();
+    console.log('✅ Prisma connected to database');
+  }
+  async onModuleDestroy() {
+    await this.$disconnect();
+  }
+}
+
+// ============================================
+// src/common/interfaces/jwt-payload.interface.ts
+// ============================================
+
+export interface JwtPayload {
+  userId: string;
+  email: string;
+  accountId: string;
+  role: string;
+}
+
+// ============================================
+// src/common/decorators/current-user.decorator.ts
+// ============================================
+
+import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+import { JwtPayload } from '../interfaces/jwt-payload.interface';
+
+export const CurrentUser = createParamDecorator(
+  (data: keyof JwtPayload | undefined, ctx: ExecutionContext) => {
+    const request = ctx.switchToHttp().getRequest();
+    const user = request.user as JwtPayload;
+    return data ? user?.[data] : user;
+  },
+);
+
+// ============================================
+// src/common/decorators/current-account.decorator.ts
+// ============================================
+
+import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+
+export const CurrentAccount = createParamDecorator(
+  (data: unknown, ctx: ExecutionContext) => {
+    const request = ctx.switchToHttp().getRequest();
+    return request.user?.accountId;
+  },
+);
+
+// ============================================
+// src/common/guards/jwt-auth.guard.ts
+// ============================================
+
+import { Injectable, ExecutionContext } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
+import { Reflector } from '@nestjs/core';
+
+@Injectable()
+export class JwtAuthGuard extends AuthGuard('jwt') {
+  constructor(private reflector: Reflector) {
+    super();
+  }
+  canActivate(context: ExecutionContext) {
+    const isPublic = this.reflector.getAllAndOverride<boolean>('isPublic', [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (isPublic) {
+      return true;
+    }
+    return super.canActivate(context);
+  }
+}
+
+// ============================================
+// src/common/filters/http-exception.filter.ts
+// ============================================
+
+import { ExceptionFilter, Catch, ArgumentsHost, HttpException } from '@nestjs/common';
+import { Response } from 'express';
+
+@Catch(HttpException)
+export class HttpExceptionFilter implements ExceptionFilter {
+  catch(exception: HttpException, host: ArgumentsHost) {
+    const ctx = host.switchToHttp();
+    const response = ctx.getResponse<Response>();
+    const status = exception.getStatus();
+    const exceptionResponse = exception.getResponse();
+    const error =
+      typeof exceptionResponse === 'string'
+        ? { message: exceptionResponse }
+        : (exceptionResponse as object);
+    response.status(status).json({
+      statusCode: status,
+      timestamp: new Date().toISOString(),
+      ...error,
+    });
+  }
+}
+
+// ============================================
+// src/auth/strategies/jwt.strategy.ts
+// ============================================
+
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { PassportStrategy } from '@nestjs/passport';
+import { ExtractJwt, Strategy } from 'passport-jwt';
+import { JwtPayload } from '../../common/interfaces/jwt-payload.interface';
+import { PrismaService } from '../../prisma/prisma.service';
+
+@Injectable()
+export class JwtStrategy extends PassportStrategy(Strategy) {
+  constructor(private prisma: PrismaService) {
+    super({
+      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      ignoreExpiration: false,
+      secretOrKey: process.env.JWT_SECRET || 'default-secret',
+    });
+  }
+  async validate(payload: JwtPayload): Promise<JwtPayload> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.userId },
+    });
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException('User not found or inactive');
+    }
+    return payload;
+  }
+}
+
+// ============================================
+// src/auth/dto/register.dto.ts
+// ============================================
+
+import { IsEmail, IsString, MinLength, IsNotEmpty } from 'class-validator';
+
+export class RegisterDto {
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @IsString()
+  @MinLength(8)
+  password: string;
+
+  @IsString()
+  @IsNotEmpty()
+  displayName: string;
+
+  @IsString()
+  @IsNotEmpty()
+  accountName: string;
+}
+
+// ============================================
+// src/auth/dto/login.dto.ts
+// ============================================
+
+import { IsEmail, IsString, IsNotEmpty } from 'class-validator';
+
+export class LoginDto {
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @IsString()
+  @IsNotEmpty()
+  password: string;
+}
+
+// ============================================
+// src/auth/dto/auth-response.dto.ts
+// ============================================
+
+export class AuthResponseDto {
+  accessToken: string;
+  user: {
+    id: string;
+    email: string;
+    displayName: string;
+  };
+  account: {
+    id: string;
+    name: string;
+    role: string;
+  };
+}
+
+// ============================================
+// src/auth/auth.service.ts
+// ============================================
+
+import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcrypt';
+import { PrismaService } from '../prisma/prisma.service';
+import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
+import { AuthResponseDto } from './dto/auth-response.dto';
+import { JwtPayload } from '../common/interfaces/jwt-payload.interface';
+
+@Injectable()
+export class AuthService {
+  constructor(
+    private prisma: PrismaService,
+    private jwtService: JwtService,
+  ) {}
+
+  async register(dto: RegisterDto): Promise<AuthResponseDto> {
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
+    if (existingUser) {
+      throw new ConflictException('Email already registered');
+    }
+    const passwordHash = await bcrypt.hash(dto.password, 10);
+    const result = await this.prisma.$transaction(async (tx) => {
+      const account = await tx.account.create({
+        data: {
+          name: dto.accountName,
+          slug: this.generateSlug(dto.accountName),
+        },
+      });
+      const user = await tx.user.create({
+        data: {
+          email: dto.email,
+          passwordHash,
+          displayName: dto.displayName,
+        },
+      });
+      await tx.accountUser.create({
+        data: {
+          userId: user.id,
+          accountId: account.id,
+          role: 'OWNER',
+        },
+      });
+      return { user, account };
+    });
+    return this.generateAuthResponse(result.user, result.account, 'OWNER');
+  }
+
+  async login(dto: LoginDto): Promise<AuthResponseDto> {
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+      include: {
+        accounts: {
+          include: {
+            account: true,
+          },
+        },
+      },
+    });
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+    const isPasswordValid = await bcrypt.compare(dto.password, user.passwordHash);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+    const accountUser = user.accounts[0];
+    if (!accountUser) {
+      throw new UnauthorizedException('No account associated');
+    }
+    return this.generateAuthResponse(user, accountUser.account, accountUser.role);
+  }
+
+  async me(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        accounts: {
+          include: {
+            account: true,
+          },
+        },
+      },
+    });
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+    return user;
+  }
+
+  private generateAuthResponse(user: any, account: any, role: string): AuthResponseDto {
+    const payload: JwtPayload = {
+      userId: user.id,
+      email: user.email,
+      accountId: account.id,
+      role,
+    };
+    return {
+      accessToken: this.jwtService.sign(payload),
+      user: {
+        id: user.id,
+        email: user.email,
+        displayName: user.displayName,
+      },
+      account: {
+        id: account.id,
+        name: account.name,
+        role,
+      },
+    };
+  }
+
+  private generateSlug(name: string): string {
+    return name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '')
+      .substring(0, 50);
+  }
+}
+
+// ============================================
+// src/auth/auth.controller.ts
+// ============================================
+
+import { Controller, Post, Get, Body, UseGuards } from '@nestjs/common';
+import { AuthService } from './auth.service';
+import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+
+@Controller('auth')
+export class AuthController {
+  constructor(private authService: AuthService) {}
+
+  @Post('register')
+  register(@Body() dto: RegisterDto) {
+    return this.authService.register(dto);
+  }
+
+  @Post('login')
+  login(@Body() dto: LoginDto) {
+    return this.authService.login(dto);
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  me(@CurrentUser('userId') userId: string) {
+    return this.authService.me(userId);
+  }
+}
+
+// ============================================
+// src/auth/auth.module.ts
+// ============================================
+
+import { Module } from '@nestjs/common';
+import { JwtModule } from '@nestjs/jwt';
+import { PassportModule } from '@nestjs/passport';
+import { AuthService } from './auth.service';
+import { AuthController } from './auth.controller';
+import { JwtStrategy } from './strategies/jwt.strategy';
+
+@Module({
+  imports: [
+    PassportModule,
+    JwtModule.register({
+      secret: process.env.JWT_SECRET || 'default-secret',
+      signOptions: { expiresIn: process.env.JWT_EXPIRES_IN || '7d' },
+    }),
+  ],
+  controllers: [AuthController],
+  providers: [AuthService, JwtStrategy],
+  exports: [AuthService],
+})
+export class AuthModule {}
+
+// ============================================
+// src/inboxes/dto/create-inbox.dto.ts
+// ============================================
+
+import { IsString, IsNotEmpty, IsEnum, IsOptional, IsObject } from 'class-validator';
+
+export class CreateInboxDto {
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @IsEnum(['WHATSAPP', 'FACEBOOK', 'INSTAGRAM', 'EMAIL'])
+  channel: string;
+
+  @IsOptional()
+  @IsObject()
+  config?: Record<string, any>;
+}
+
+// ============================================
+// src/inboxes/inboxes.service.ts
+// ============================================
+
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { CreateInboxDto } from './dto/create-inbox.dto';
+
+@Injectable()
+export class InboxesService {
+  constructor(private prisma: PrismaService) {}
+
+  async create(accountId: string, dto: CreateInboxDto) {
+    const inbox = await this.prisma.inbox.create({
+      data: {
+        accountId,
+        name: dto.name,
+        channel: dto.channel as any,
+      },
+      include: {
+        config: true,
+      },
+    });
+    if (dto.config) {
+      await this.prisma.inboxChannelConfig.create({
+        data: {
+          inboxId: inbox.id,
+          type: 'WHATSAPP_N8N_WEBHOOK',
+          configJson: dto.config,
+        },
+      });
+    }
+    return inbox;
+  }
+
+  async findAll(accountId: string) {
+    return this.prisma.inbox.findMany({
+      where: { accountId },
+      include: {
+        config: true,
+        _count: {
+          select: { conversations: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async findOne(id: string, accountId: string) {
+    const inbox = await this.prisma.inbox.findFirst({
+      where: { id, accountId },
+      include: { config: true },
+    });
+    if (!inbox) {
+      throw new NotFoundException('Inbox not found');
+    }
+    return inbox;
+  }
+}
+
+// ============================================
+// src/inboxes/inboxes.controller.ts
+// ============================================
+
+import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { CurrentAccount } from '../common/decorators/current-account.decorator';
+import { InboxesService } from './inboxes.service';
+import { CreateInboxDto } from './dto/create-inbox.dto';
+
+@Controller('inboxes')
+@UseGuards(JwtAuthGuard)
+export class InboxesController {
+  constructor(private inboxesService: InboxesService) {}
+
+  @Get()
+  findAll(@CurrentAccount() accountId: string) {
+    return this.inboxesService.findAll(accountId);
+  }
+
+  @Post()
+  create(@CurrentAccount() accountId: string, @Body() dto: CreateInboxDto) {
+    return this.inboxesService.create(accountId, dto);
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string, @CurrentAccount() accountId: string) {
+    return this.inboxesService.findOne(id, accountId);
+  }
+}
+
+// ============================================
+// src/inboxes/inboxes.module.ts
+// ============================================
+
+import { Module } from '@nestjs/common';
+import { InboxesController } from './inboxes.controller';
+import { InboxesService } from './inboxes.service';
+
+@Module({
+  controllers: [InboxesController],
+  providers: [InboxesService],
+  exports: [InboxesService],
+})
+export class InboxesModule {}
+
+// ============================================
+// src/contacts/dto/upsert-contact.dto.ts
+// ============================================
+
+import { IsString, IsOptional, IsEnum, IsNotEmpty } from 'class-validator';
+
+export class UpsertContactDto {
+  @IsString()
+  @IsNotEmpty()
+  identifierValue: string;
+
+  @IsEnum(['WHATSAPP', 'FACEBOOK', 'INSTAGRAM', 'EMAIL'])
+  identifierType: string;
+
+  @IsString()
+  @IsOptional()
+  name?: string;
+}
+
+// ============================================
+// src/contacts/contacts.service.ts
+// ============================================
+
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { UpsertContactDto } from './dto/upsert-contact.dto';
+
+@Injectable()
+export class ContactsService {
+  constructor(private prisma: PrismaService) {}
+
+  async upsertContact(accountId: string, dto: UpsertContactDto) {
+    const existingIdentifier = await this.prisma.contactIdentifier.findUnique({
+      where: {
+        type_value: {
+          type: dto.identifierType as any,
+          value: dto.identifierValue,
+        },
+      },
+      include: { contact: true },
+    });
+    if (existingIdentifier) {
+      if (dto.name) {
+        const updatedContact = await this.prisma.contact.update({
+          where: { id: existingIdentifier.contactId },
+          data: { name: dto.name },
+          include: { identifiers: true },
+        });
+        return updatedContact;
+      }
+      return existingIdentifier.contact;
+    }
+    const contact = await this.prisma.contact.create({
+      data: {
+        accountId,
+        name: dto.name,
+        identifiers: {
+          create: {
+            type: dto.identifierType as any,
+            value: dto.identifierValue,
+          },
+        },
+      },
+      include: { identifiers: true },
+    });
+    return contact;
+  }
+
+  async findAll(accountId: string) {
+    return this.prisma.contact.findMany({
+      where: { accountId },
+      include: {
+        identifiers: true,
+        _count: {
+          select: { conversations: true },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 100,
+    });
+  }
+
+  async findOne(id: string, accountId: string) {
+    return this.prisma.contact.findFirst({
+      where: { id, accountId },
+      include: {
+        identifiers: true,
+        conversations: {
+          include: {
+            inbox: true,
+            messages: {
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+            },
+          },
+        },
+      },
+    });
+  }
+}
+
+// ============================================
+// src/contacts/contacts.controller.ts
+// ============================================
+
+import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { CurrentAccount } from '../common/decorators/current-account.decorator';
+import { ContactsService } from './contacts.service';
+import { UpsertContactDto } from './dto/upsert-contact.dto';
+
+@Controller('contacts')
+@UseGuards(JwtAuthGuard)
+export class ContactsController {
+  constructor(private contactsService: ContactsService) {}
+
+  @Get()
+  findAll(@CurrentAccount() accountId: string) {
+    return this.contactsService.findAll(accountId);
+  }
+
+  @Post()
+  upsert(@CurrentAccount() accountId: string, @Body() dto: UpsertContactDto) {
+    return this.contactsService.upsertContact(accountId, dto);
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string, @CurrentAccount() accountId: string) {
+    return this.contactsService.findOne(id, accountId);
+  }
+}
+
+// ============================================
+// src/contacts/contacts.module.ts
+// ============================================
+
+import { Module } from '@nestjs/common';
+import { ContactsController } from './contacts.controller';
+import { ContactsService } from './contacts.service';
+
+@Module({
+  controllers: [ContactsController],
+  providers: [ContactsService],
+  exports: [ContactsService],
+})
+export class ContactsModule {}
+
+// ============================================
+// src/conversations/dto/update-conversation.dto.ts
+// ============================================
+
+import { IsEnum, IsOptional, IsString } from 'class-validator';
+
+export class UpdateConversationDto {
+  @IsEnum(['OPEN', 'PENDING', 'CLOSED', 'SNOOZED'])
+  @IsOptional()
+  status?: string;
+
+  @IsString()
+  @IsOptional()
+  assigneeId?: string;
+}
+
+// ============================================
+// src/conversations/conversations.service.ts
+// ============================================
+
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { UpdateConversationDto } from './dto/update-conversation.dto';
+
+@Injectable()
+export class ConversationsService {
+  constructor(private prisma: PrismaService) {}
+
+  async findAll(accountId: string, status?: string) {
+    return this.prisma.conversation.findMany({
+      where: {
+        accountId,
+        ...(status && { status: status as any }),
+      },
+      include: {
+        contact: {
+          include: { identifiers: true },
+        },
+        inbox: true,
+        assignee: {
+          select: { id: true, displayName: true, email: true },
+        },
+        messages: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+      },
+      orderBy: { lastMessageAt: 'desc' },
+    });
+  }
+
+  async findOne(id: string, accountId: string) {
+    const conversation = await this.prisma.conversation.findFirst({
+      where: { id, accountId },
+      include: {
+        contact: {
+          include: { identifiers: true },
+        },
+        inbox: true,
+        assignee: {
+          select: { id: true, displayName: true, email: true },
+        },
+      },
+    });
+    if (!conversation) {
+      throw new NotFoundException('Conversation not found');
+    }
+    return conversation;
+  }
+
+  async update(id: string, accountId: string, dto: UpdateConversationDto) {
+    const conversation = await this.findOne(id, accountId);
+    return this.prisma.conversation.update({
+      where: { id: conversation.id },
+      data: {
+        ...(dto.status && { status: dto.status as any }),
+        ...(dto.assigneeId && { assigneeId: dto.assigneeId }),
+      },
+      include: {
+        contact: true,
+        inbox: true,
+        assignee: true,
+      },
+    });
+
+    

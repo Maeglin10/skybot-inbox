@@ -78,8 +78,8 @@ app.setGlobalPrefix('api');
 **Problème**: Les requêtes Airtable échouent avec l'erreur "You should provide valid api key"
 
 **Détails**:
-- Variable configurée: `AIRTABLE_API_KEY=***REMOVED***`
-- Base ID: `***REMOVED***`
+- Variable configurée: `AIRTABLE_API_KEY=<redacted>`
+- Base ID: `<redacted>`
 
 **Impact**:
 - ❌ Analytics dashboard ne peut pas récupérer les leads/feedbacks
