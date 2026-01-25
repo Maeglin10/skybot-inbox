@@ -1,28 +1,37 @@
-import {
-  IsEmail,
-  IsString,
-  MinLength,
-  IsOptional,
-  IsEnum,
-} from 'class-validator';
-import { UserRole } from '@prisma/client';
+import { IsString, IsEmail, IsEnum, IsOptional, MinLength } from 'class-validator';
+
+export enum UserRole {
+  ADMIN = 'ADMIN',
+  USER = 'USER',
+}
+
+export enum UserStatus {
+  ACTIVE = 'ACTIVE',
+  SUSPENDED = 'SUSPENDED',
+  PENDING = 'PENDING',
+}
 
 export class CreateUserDto {
-  @IsString()
-  username!: string;
-
   @IsEmail()
-  @IsOptional()
-  email?: string;
+  email!: string;
 
   @IsString()
-  @MinLength(8)
-  password!: string;
-
-  @IsString()
+  @MinLength(1)
   name!: string;
 
-  @IsEnum(UserRole)
+  @IsString()
+  @MinLength(6)
+  password!: string;
+
   @IsOptional()
+  @IsEnum(UserRole)
   role?: UserRole;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
+  avatarUrl?: string;
 }

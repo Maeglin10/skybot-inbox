@@ -1,7 +1,7 @@
 import { Body, Controller, Logger, Post, UseGuards } from '@nestjs/common';
 import { AgentsService } from './agents.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { MessageDirection } from '@prisma/client';
+import { MessageDirection } from '../prisma';
 import { TriggerAgentDto } from './dto/trigger-agent.dto';
 import { ApiKeyGuard } from '../auth/api-key.guard';
 

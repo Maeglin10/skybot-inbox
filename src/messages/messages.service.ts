@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Channel, MessageDirection } from '@prisma/client';
+import { Channel, MessageDirection } from '../prisma';
 
 @Injectable()
 export class MessagesService {

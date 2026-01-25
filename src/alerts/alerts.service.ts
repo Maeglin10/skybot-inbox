@@ -8,12 +8,6 @@ import {
 } from './dto/create-alert.dto';
 import { UpdateAlertDto } from './dto/update-alert.dto';
 import { AssignAlertDto } from './dto/assign-alert.dto';
-import {
-  AlertType as PrismaAlertType,
-  AlertStatus as PrismaAlertStatus,
-  AlertPriority as PrismaAlertPriority,
-  Channel as PrismaChannel,
-} from '@prisma/client';
 
 export interface AlertItem {
   id: string;
@@ -41,7 +35,7 @@ export class AlertsService {
   constructor(private readonly prisma: PrismaService) {}
 
   private async getAccountId(clientKey: string): Promise<string> {
-    const config = await this.prisma.clientConfig.findFirst({
+    const config = await (this.prisma as any).clientConfig.findFirst({
       where: { clientKey },
       select: { accountId: true },
     });
@@ -62,16 +56,16 @@ export class AlertsService {
       const accountId = await this.getAccountId(clientKey);
 
       const where: any = { accountId };
-      if (status) where.status = status as PrismaAlertStatus;
-      if (type) where.type = type as PrismaAlertType;
+      if (status) where.status = status;
+      if (type) where.type = type;
 
-      const alerts = await this.prisma.alert.findMany({
+      const alerts = await (this.prisma as any).alert.findMany({
         where,
         orderBy: { createdAt: 'desc' },
       });
 
       return {
-        items: alerts.map((a) => this.mapToAlertItem(a)),
+        items: alerts.map((a: any) => this.mapToAlertItem(a)),
         total: alerts.length,
       };
     } catch (error) {
@@ -84,7 +78,7 @@ export class AlertsService {
     try {
       const accountId = await this.getAccountId(clientKey);
 
-      const alert = await this.prisma.alert.findFirst({
+      const alert = await (this.prisma as any).alert.findFirst({
         where: { id, accountId },
       });
 
@@ -103,18 +97,18 @@ export class AlertsService {
     try {
       const accountId = await this.getAccountId(clientKey);
 
-      const alert = await this.prisma.alert.create({
+      const alert = await (this.prisma as any).alert.create({
         data: {
           accountId,
-          type: dto.type as PrismaAlertType,
+          type: dto.type,
           title: dto.title,
           subtitle: dto.subtitle,
-          status: dto.status as PrismaAlertStatus,
-          priority: dto.priority as PrismaAlertPriority,
+          status: dto.status,
+          priority: dto.priority,
           amount: dto.amount,
           currency: dto.currency,
           customerName: dto.customerName,
-          channel: dto.channel as PrismaChannel | undefined,
+          channel: dto.channel,
           conversationId: dto.conversationId,
           assignee: dto.assignee,
         },
@@ -135,7 +129,7 @@ export class AlertsService {
     try {
       const accountId = await this.getAccountId(clientKey);
 
-      const existing = await this.prisma.alert.findFirst({
+      const existing = await (this.prisma as any).alert.findFirst({
         where: { id, accountId },
       });
 
@@ -143,18 +137,18 @@ export class AlertsService {
         throw new NotFoundException(`Alert with ID ${id} not found`);
       }
 
-      const alert = await this.prisma.alert.update({
+      const alert = await (this.prisma as any).alert.update({
         where: { id },
         data: {
-          ...(dto.type !== undefined && { type: dto.type as PrismaAlertType }),
+          ...(dto.type !== undefined && { type: dto.type }),
           ...(dto.title !== undefined && { title: dto.title }),
           ...(dto.subtitle !== undefined && { subtitle: dto.subtitle }),
-          ...(dto.status !== undefined && { status: dto.status as PrismaAlertStatus }),
-          ...(dto.priority !== undefined && { priority: dto.priority as PrismaAlertPriority }),
+          ...(dto.status !== undefined && { status: dto.status }),
+          ...(dto.priority !== undefined && { priority: dto.priority }),
           ...(dto.amount !== undefined && { amount: dto.amount }),
           ...(dto.currency !== undefined && { currency: dto.currency }),
           ...(dto.customerName !== undefined && { customerName: dto.customerName }),
-          ...(dto.channel !== undefined && { channel: dto.channel as PrismaChannel }),
+          ...(dto.channel !== undefined && { channel: dto.channel }),
           ...(dto.conversationId !== undefined && { conversationId: dto.conversationId }),
           ...(dto.assignee !== undefined && { assignee: dto.assignee }),
         },
@@ -171,7 +165,7 @@ export class AlertsService {
     try {
       const accountId = await this.getAccountId(clientKey);
 
-      const existing = await this.prisma.alert.findFirst({
+      const existing = await (this.prisma as any).alert.findFirst({
         where: { id, accountId },
       });
 
@@ -179,7 +173,7 @@ export class AlertsService {
         throw new NotFoundException(`Alert with ID ${id} not found`);
       }
 
-      await this.prisma.alert.delete({ where: { id } });
+      await (this.prisma as any).alert.delete({ where: { id } });
       return { success: true };
     } catch (error) {
       this.logger.error(`Failed to delete alert ${id}:`, error);
@@ -195,7 +189,7 @@ export class AlertsService {
     try {
       const accountId = await this.getAccountId(clientKey);
 
-      const existing = await this.prisma.alert.findFirst({
+      const existing = await (this.prisma as any).alert.findFirst({
         where: { id, accountId },
       });
 
@@ -203,10 +197,10 @@ export class AlertsService {
         throw new NotFoundException(`Alert with ID ${id} not found`);
       }
 
-      const alert = await this.prisma.alert.update({
+      const alert = await (this.prisma as any).alert.update({
         where: { id },
         data: {
-          status: 'RESOLVED' as PrismaAlertStatus,
+          status: 'RESOLVED',
           resolvedAt: new Date(),
           resolvedBy,
         },
@@ -227,7 +221,7 @@ export class AlertsService {
     try {
       const accountId = await this.getAccountId(clientKey);
 
-      const existing = await this.prisma.alert.findFirst({
+      const existing = await (this.prisma as any).alert.findFirst({
         where: { id, accountId },
       });
 
@@ -235,7 +229,7 @@ export class AlertsService {
         throw new NotFoundException(`Alert with ID ${id} not found`);
       }
 
-      const alert = await this.prisma.alert.update({
+      const alert = await (this.prisma as any).alert.update({
         where: { id },
         data: { assignee: dto.assignee },
       });

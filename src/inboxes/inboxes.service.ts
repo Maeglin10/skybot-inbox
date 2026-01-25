@@ -1,6 +1,16 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import type { Channel, Inbox } from '@prisma/client';
+import type { Channel } from '../prisma';
+
+interface Inbox {
+  id: string;
+  accountId: string;
+  externalId: string;
+  name: string;
+  channel: Channel;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 @Injectable()
 export class InboxesService {

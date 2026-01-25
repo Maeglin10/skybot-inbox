@@ -2,52 +2,64 @@ import {
   Controller,
   Get,
   Post,
-  Put,
+  Patch,
   Delete,
   Body,
   Param,
+  Query,
+  Request,
   UseGuards,
+  Logger,
 } from '@nestjs/common';
 import { AdminService } from './admin.service';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { UserRole } from '@prisma/client';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { CreateUserDto } from './dto/create-user.dto';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard, Roles } from '../auth/roles.guard';
+import { CreateUserDto, UserRole, UserStatus } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
 @Controller('admin')
-@UseGuards(RolesGuard)
-@Roles(UserRole.ADMIN)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('ADMIN')
 export class AdminController {
+  private readonly logger = new Logger(AdminController.name);
+
   constructor(private readonly adminService: AdminService) {}
 
   @Get('users')
-  async listUsers(@CurrentUser() admin: any) {
-    return this.adminService.findAll(admin.accountId);
+  async listUsers(
+    @Request() req: any,
+    @Query('role') role?: UserRole,
+    @Query('status') status?: UserStatus,
+  ) {
+    this.logger.log(`GET /admin/users clientKey=${req.user.clientKey}`);
+    return this.adminService.findAllUsers(req.user.clientKey, role, status);
   }
 
   @Get('users/:id')
-  async getUser(@CurrentUser() admin: any, @Param('id') id: string) {
-    return this.adminService.findOne(admin.accountId, id);
+  async getUser(@Request() req: any, @Param('id') id: string) {
+    this.logger.log(`GET /admin/users/${id} clientKey=${req.user.clientKey}`);
+    return this.adminService.findOneUser(req.user.clientKey, id);
   }
 
   @Post('users')
-  async createUser(@CurrentUser() admin: any, @Body() dto: CreateUserDto) {
-    return this.adminService.create(admin.accountId, dto);
+  async createUser(@Request() req: any, @Body() dto: CreateUserDto) {
+    this.logger.log(`POST /admin/users clientKey=${req.user.clientKey}`);
+    return this.adminService.createUser(req.user.clientKey, dto);
   }
 
-  @Put('users/:id')
+  @Patch('users/:id')
   async updateUser(
-    @CurrentUser() admin: any,
+    @Request() req: any,
     @Param('id') id: string,
     @Body() dto: UpdateUserDto,
   ) {
-    return this.adminService.update(admin.accountId, id, dto);
+    this.logger.log(`PATCH /admin/users/${id} clientKey=${req.user.clientKey}`);
+    return this.adminService.updateUser(req.user.clientKey, id, dto);
   }
 
   @Delete('users/:id')
-  async deleteUser(@CurrentUser() admin: any, @Param('id') id: string) {
-    return this.adminService.delete(admin.accountId, id);
+  async deleteUser(@Request() req: any, @Param('id') id: string) {
+    this.logger.log(`DELETE /admin/users/${id} clientKey=${req.user.clientKey}`);
+    return this.adminService.deleteUser(req.user.clientKey, id);
   }
 }

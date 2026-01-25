@@ -19,10 +19,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { AlertsModule } from './alerts/alerts.module';
 import { SettingsModule } from './settings/settings.module';
 import { UserPreferencesModule } from './user-preferences/user-preferences.module';
-import { PreferencesModule } from './preferences/preferences.module';
-import { ChannelsModule } from './channels/channels.module';
-import { EncryptionModule } from './common/encryption/encryption.module';
-import { LegalModule } from './legal/legal.module';
+import { AdminModule } from './admin/admin.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -34,8 +31,6 @@ import { AppController } from './app.controller';
     }),
 
     PrismaModule,
-    EncryptionModule,
-    LegalModule,
     AgentsModule,
     AuthModule,
     AirtableModule,
@@ -44,8 +39,6 @@ import { AppController } from './app.controller';
     AlertsModule,
     SettingsModule,
     UserPreferencesModule,
-    PreferencesModule,
-    ChannelsModule,
     AccountsModule,
     InboxesModule,
     ContactsModule,
@@ -53,6 +46,7 @@ import { AppController } from './app.controller';
     MessagesModule,
     WebhooksModule,
     DebugModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

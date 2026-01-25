@@ -12,16 +12,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiKeyGuard } from '../auth/api-key.guard';
-import { Public } from '../auth/decorators/public.decorator';
 import { AccountsService } from './accounts.service';
 import { CreateAccountDto, AccountRole, AccountStatus } from './dto/create-account.dto';
 import { UpdateAccountDto } from './dto/update-account.dto';
 import { ListAccountsDto } from './dto/list-accounts.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
-import { UpdateFeaturesDto } from './dto/update-features.dto';
 
 @Controller('accounts')
-@Public()
 @UseGuards(ApiKeyGuard)
 export class AccountsController {
   private readonly logger = new Logger(AccountsController.name);
@@ -143,28 +140,5 @@ export class AccountsController {
       return { success: false, message: 'Invalid credentials' };
     }
     return { success: true, account };
-  }
-
-  /**
-   * GET /accounts/:accountId/features
-   * Get account features
-   */
-  @Get(':accountId/features')
-  async getFeatures(@Param('accountId') accountId: string) {
-    this.logger.log(`GET /accounts/${accountId}/features`);
-    return this.accountsService.getFeatures(accountId);
-  }
-
-  /**
-   * PATCH /accounts/:accountId/features
-   * Update account features
-   */
-  @Patch(':accountId/features')
-  async updateFeatures(
-    @Param('accountId') accountId: string,
-    @Body() dto: UpdateFeaturesDto,
-  ) {
-    this.logger.log(`PATCH /accounts/${accountId}/features`);
-    return this.accountsService.updateFeatures(accountId, dto);
   }
 }

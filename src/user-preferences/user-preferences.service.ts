@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { UpdatePreferencesDto } from './dto/update-preferences.dto';
-import { Theme, Language } from '@prisma/client';
+import { UpdatePreferencesDto, Theme, Language } from './dto/update-preferences.dto';
+// Theme and Language types are handled as strings
 
 export interface UserPreferences {
   id: string;
@@ -16,8 +16,8 @@ export interface UserPreferences {
 }
 
 const DEFAULT_PREFERENCES = {
-  theme: 'DEFAULT' as Theme,
-  language: 'EN' as Language,
+  theme: Theme.DARK,
+  language: Language.EN,
   timezone: 'UTC',
   dateFormat: 'YYYY-MM-DD',
   timeFormat: '24h',
@@ -71,8 +71,8 @@ export class UserPreferencesService {
         const prefs = await this.prisma.userPreference.create({
           data: {
             userAccountId: userId,
-            theme: dto.theme || DEFAULT_PREFERENCES.theme,
-            language: dto.language || DEFAULT_PREFERENCES.language,
+            theme: (dto.theme || DEFAULT_PREFERENCES.theme) as any,
+            language: (dto.language || DEFAULT_PREFERENCES.language) as any,
             timezone: dto.timezone || DEFAULT_PREFERENCES.timezone,
             dateFormat: dto.dateFormat || DEFAULT_PREFERENCES.dateFormat,
             timeFormat: dto.timeFormat || DEFAULT_PREFERENCES.timeFormat,
@@ -86,8 +86,8 @@ export class UserPreferencesService {
       const prefs = await this.prisma.userPreference.update({
         where: { userAccountId: userId },
         data: {
-          ...(dto.theme !== undefined && { theme: dto.theme }),
-          ...(dto.language !== undefined && { language: dto.language }),
+          ...(dto.theme !== undefined && { theme: dto.theme as any }),
+          ...(dto.language !== undefined && { language: dto.language as any }),
           ...(dto.timezone !== undefined && { timezone: dto.timezone }),
           ...(dto.dateFormat !== undefined && { dateFormat: dto.dateFormat }),
           ...(dto.timeFormat !== undefined && { timeFormat: dto.timeFormat }),

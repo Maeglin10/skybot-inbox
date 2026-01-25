@@ -1,107 +1,189 @@
-import {
-  Injectable,
-  NotFoundException,
-  ConflictException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateUserDto } from './dto/create-user.dto';
+import { CreateUserDto, UserRole, UserStatus } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { UserRole, AccountStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+
+export interface UserItem {
+  id: string;
+  email: string;
+  name: string;
+  username: string;
+  role: string;
+  status: string;
+  phone?: string;
+  avatarUrl?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
 
 @Injectable()
 export class AdminService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(AdminService.name);
 
-  async findAll(accountId: string) {
-    return this.prisma.userAccount.findMany({
-      where: { accountId },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        status: true,
-        createdAt: true,
-      },
-    });
-  }
+  constructor(private readonly prisma: PrismaService) {}
 
-  async findOne(accountId: string, userId: string) {
-    const user = await this.prisma.userAccount.findUnique({
-      where: { id: userId },
+  private async getAccountId(clientKey: string): Promise<string> {
+    const config = await (this.prisma as any).clientConfig.findFirst({
+      where: { clientKey },
+      select: { accountId: true },
     });
-    if (!user || user.accountId !== accountId) {
-      throw new NotFoundException('User not found');
-    }
-    return user;
-  }
 
-  async create(accountId: string, dto: CreateUserDto) {
-    const existing = await this.prisma.userAccount.findFirst({
-      where: { accountId, username: dto.username },
-    });
-    if (existing) {
-      throw new ConflictException('User already exists');
+    if (!config) {
+      throw new NotFoundException(`Client config not found for key: ${clientKey}`);
     }
 
-    const passwordHash = dto.password
-      ? await bcrypt.hash(dto.password, 10)
-      : null;
-
-    const user = await this.prisma.userAccount.create({
-      data: {
-        accountId,
-        username: dto.username,
-        email: dto.email,
-        passwordHash,
-        name: dto.name,
-        role: dto.role || UserRole.USER,
-        status: AccountStatus.ACTIVE,
-      },
-    });
-
-    const { passwordHash: _, ...sanitized } = user;
-    return sanitized;
+    return config.accountId;
   }
 
-  async update(accountId: string, userId: string, dto: UpdateUserDto) {
-    await this.findOne(accountId, userId);
+  async findAllUsers(
+    clientKey: string,
+    role?: UserRole,
+    status?: UserStatus,
+  ): Promise<{ items: UserItem[]; total: number }> {
+    try {
+      const accountId = await this.getAccountId(clientKey);
 
-    const data: any = {};
-    if (dto.name) data.name = dto.name;
-    if (dto.email) data.email = dto.email;
-    if (dto.role) data.role = dto.role;
-    if (dto.password) data.passwordHash = await bcrypt.hash(dto.password, 10);
+      const where: any = { accountId };
+      if (role) where.role = role;
+      if (status) where.status = status;
 
-    const updated = await this.prisma.userAccount.update({
-      where: { id: userId },
-      data,
-    });
+      const users = await (this.prisma as any).userAccount.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+      });
 
-    const { passwordHash: _, ...sanitized } = updated;
-    return sanitized;
+      return {
+        items: users.map((u: any) => this.mapToUserItem(u)),
+        total: users.length,
+      };
+    } catch (error) {
+      this.logger.error('Failed to fetch users:', error);
+      throw error;
+    }
   }
 
-  async delete(accountId: string, userId: string) {
-    const user = await this.findOne(accountId, userId);
+  async findOneUser(clientKey: string, id: string): Promise<UserItem> {
+    try {
+      const accountId = await this.getAccountId(clientKey);
 
-    // Prevent deleting last admin
-    if (user.role === UserRole.ADMIN) {
-      const adminCount = await this.prisma.userAccount.count({
-        where: {
+      const user = await (this.prisma as any).userAccount.findFirst({
+        where: { id, accountId },
+      });
+
+      if (!user) {
+        throw new NotFoundException(`User with ID ${id} not found`);
+      }
+
+      return this.mapToUserItem(user);
+    } catch (error) {
+      this.logger.error(`Failed to fetch user ${id}:`, error);
+      throw error;
+    }
+  }
+
+  async createUser(clientKey: string, dto: CreateUserDto): Promise<UserItem> {
+    try {
+      const accountId = await this.getAccountId(clientKey);
+
+      // Check if email already exists
+      const existing = await (this.prisma as any).userAccount.findFirst({
+        where: { accountId, email: dto.email.toLowerCase() },
+      });
+
+      if (existing) {
+        throw new ConflictException('User with this email already exists');
+      }
+
+      const passwordHash = await bcrypt.hash(dto.password, 10);
+
+      const user = await (this.prisma as any).userAccount.create({
+        data: {
           accountId,
-          role: UserRole.ADMIN,
-          status: AccountStatus.ACTIVE,
+          email: dto.email.toLowerCase(),
+          name: dto.name,
+          passwordHash,
+          role: dto.role || UserRole.USER,
+          status: 'ACTIVE',
+          phone: dto.phone,
+          avatarUrl: dto.avatarUrl,
         },
       });
-      if (adminCount <= 1) {
-        throw new ForbiddenException('Cannot delete the last admin');
-      }
-    }
 
-    await this.prisma.userAccount.delete({ where: { id: userId } });
-    return { message: 'User deleted' };
+      return this.mapToUserItem(user);
+    } catch (error) {
+      this.logger.error('Failed to create user:', error);
+      throw error;
+    }
+  }
+
+  async updateUser(clientKey: string, id: string, dto: UpdateUserDto): Promise<UserItem> {
+    try {
+      const accountId = await this.getAccountId(clientKey);
+
+      const existing = await (this.prisma as any).userAccount.findFirst({
+        where: { id, accountId },
+      });
+
+      if (!existing) {
+        throw new NotFoundException(`User with ID ${id} not found`);
+      }
+
+      const data: any = {};
+      if (dto.email !== undefined) data.email = dto.email.toLowerCase();
+      if (dto.name !== undefined) data.name = dto.name;
+      if (dto.role !== undefined) data.role = dto.role;
+      if (dto.status !== undefined) data.status = dto.status;
+      if (dto.phone !== undefined) data.phone = dto.phone;
+      if (dto.avatarUrl !== undefined) data.avatarUrl = dto.avatarUrl;
+      if (dto.password !== undefined) {
+        data.passwordHash = await bcrypt.hash(dto.password, 10);
+      }
+
+      const user = await (this.prisma as any).userAccount.update({
+        where: { id },
+        data,
+      });
+
+      return this.mapToUserItem(user);
+    } catch (error) {
+      this.logger.error(`Failed to update user ${id}:`, error);
+      throw error;
+    }
+  }
+
+  async deleteUser(clientKey: string, id: string): Promise<{ success: boolean }> {
+    try {
+      const accountId = await this.getAccountId(clientKey);
+
+      const existing = await (this.prisma as any).userAccount.findFirst({
+        where: { id, accountId },
+      });
+
+      if (!existing) {
+        throw new NotFoundException(`User with ID ${id} not found`);
+      }
+
+      await (this.prisma as any).userAccount.delete({ where: { id } });
+      return { success: true };
+    } catch (error) {
+      this.logger.error(`Failed to delete user ${id}:`, error);
+      throw error;
+    }
+  }
+
+  private mapToUserItem(user: any): UserItem {
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      username: user.email.split('@')[0],
+      role: user.role,
+      status: user.status,
+      phone: user.phone || undefined,
+      avatarUrl: user.avatarUrl || undefined,
+      createdAt: user.createdAt.toISOString(),
+      updatedAt: user.updatedAt?.toISOString(),
+    };
   }
 }

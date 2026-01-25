@@ -1,5 +1,16 @@
 import { IsString, IsOptional, IsEnum } from 'class-validator';
-import { Theme, Language } from '@prisma/client';
+
+export enum Theme {
+  LIGHT = 'LIGHT',
+  DARK = 'DARK',
+  SYSTEM = 'SYSTEM',
+}
+
+export enum Language {
+  EN = 'EN',
+  FR = 'FR',
+  ES = 'ES',
+}
 
 export class UpdatePreferencesDto {
   @IsOptional()

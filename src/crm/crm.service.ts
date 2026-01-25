@@ -4,12 +4,6 @@ import { CreateLeadDto, LeadStatus } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
 import { CreateFeedbackDto } from './dto/create-feedback.dto';
 import { UpdateFeedbackDto } from './dto/update-feedback.dto';
-import {
-  LeadStatus as PrismaLeadStatus,
-  Temperature as PrismaTemperature,
-  FeedbackType as PrismaFeedbackType,
-  FeedbackStatus as PrismaFeedbackStatus,
-} from '@prisma/client';
 
 @Injectable()
 export class CrmService {
@@ -18,7 +12,7 @@ export class CrmService {
   constructor(private readonly prisma: PrismaService) {}
 
   private async getAccountId(clientKey: string): Promise<string> {
-    const config = await this.prisma.clientConfig.findFirst({
+    const config = await (this.prisma as any).clientConfig.findFirst({
       where: { clientKey },
       select: { accountId: true },
     });
@@ -37,15 +31,15 @@ export class CrmService {
       const accountId = await this.getAccountId(clientKey);
 
       const where: any = { accountId };
-      if (status) where.status = status as PrismaLeadStatus;
+      if (status) where.status = status;
 
-      const leads = await this.prisma.lead.findMany({
+      const leads = await (this.prisma as any).lead.findMany({
         where,
         orderBy: { createdAt: 'desc' },
       });
 
       return {
-        items: leads.map((l) => this.mapLead(l)),
+        items: leads.map((l: any) => this.mapLead(l)),
         total: leads.length,
       };
     } catch (error) {
@@ -58,7 +52,7 @@ export class CrmService {
     try {
       const accountId = await this.getAccountId(clientKey);
 
-      const lead = await this.prisma.lead.findFirst({
+      const lead = await (this.prisma as any).lead.findFirst({
         where: { id, accountId },
       });
 
@@ -77,15 +71,15 @@ export class CrmService {
     try {
       const accountId = await this.getAccountId(clientKey);
 
-      const lead = await this.prisma.lead.create({
+      const lead = await (this.prisma as any).lead.create({
         data: {
           accountId,
           name: dto.name,
           company: dto.company,
           email: dto.email,
           phone: dto.phone,
-          status: dto.status as PrismaLeadStatus,
-          temperature: dto.temperature as PrismaTemperature,
+          status: dto.status,
+          temperature: dto.temperature,
           channel: dto.channel,
           assignedTo: dto.assignedTo,
           tags: dto.tags || [],
@@ -103,7 +97,7 @@ export class CrmService {
     try {
       const accountId = await this.getAccountId(clientKey);
 
-      const existing = await this.prisma.lead.findFirst({
+      const existing = await (this.prisma as any).lead.findFirst({
         where: { id, accountId },
       });
 
@@ -111,15 +105,15 @@ export class CrmService {
         throw new NotFoundException(`Lead with ID ${id} not found`);
       }
 
-      const lead = await this.prisma.lead.update({
+      const lead = await (this.prisma as any).lead.update({
         where: { id },
         data: {
           ...(dto.name !== undefined && { name: dto.name }),
           ...(dto.company !== undefined && { company: dto.company }),
           ...(dto.email !== undefined && { email: dto.email }),
           ...(dto.phone !== undefined && { phone: dto.phone }),
-          ...(dto.status !== undefined && { status: dto.status as PrismaLeadStatus }),
-          ...(dto.temperature !== undefined && { temperature: dto.temperature as PrismaTemperature }),
+          ...(dto.status !== undefined && { status: dto.status }),
+          ...(dto.temperature !== undefined && { temperature: dto.temperature }),
           ...(dto.channel !== undefined && { channel: dto.channel }),
           ...(dto.assignedTo !== undefined && { assignedTo: dto.assignedTo }),
           ...(dto.tags !== undefined && { tags: dto.tags }),
@@ -137,7 +131,7 @@ export class CrmService {
     try {
       const accountId = await this.getAccountId(clientKey);
 
-      const existing = await this.prisma.lead.findFirst({
+      const existing = await (this.prisma as any).lead.findFirst({
         where: { id, accountId },
       });
 
@@ -145,7 +139,7 @@ export class CrmService {
         throw new NotFoundException(`Lead with ID ${id} not found`);
       }
 
-      await this.prisma.lead.delete({ where: { id } });
+      await (this.prisma as any).lead.delete({ where: { id } });
       return { success: true };
     } catch (error) {
       this.logger.error(`Failed to delete lead ${id}:`, error);
@@ -159,13 +153,13 @@ export class CrmService {
     try {
       const accountId = await this.getAccountId(clientKey);
 
-      const feedbacks = await this.prisma.feedback.findMany({
+      const feedbacks = await (this.prisma as any).feedback.findMany({
         where: { accountId },
         orderBy: { createdAt: 'desc' },
       });
 
       return {
-        items: feedbacks.map((f) => this.mapFeedback(f)),
+        items: feedbacks.map((f: any) => this.mapFeedback(f)),
         total: feedbacks.length,
       };
     } catch (error) {
@@ -178,7 +172,7 @@ export class CrmService {
     try {
       const accountId = await this.getAccountId(clientKey);
 
-      const feedback = await this.prisma.feedback.findFirst({
+      const feedback = await (this.prisma as any).feedback.findFirst({
         where: { id, accountId },
       });
 
@@ -197,7 +191,7 @@ export class CrmService {
     try {
       const accountId = await this.getAccountId(clientKey);
 
-      const feedback = await this.prisma.feedback.create({
+      const feedback = await (this.prisma as any).feedback.create({
         data: {
           accountId,
           customerName: dto.customerName,
@@ -205,8 +199,8 @@ export class CrmService {
           rating: dto.rating,
           message: dto.fullText || dto.snippet,
           channel: dto.channel,
-          type: PrismaFeedbackType.GENERAL,
-          status: PrismaFeedbackStatus.PENDING,
+          type: 'GENERAL',
+          status: 'PENDING',
         },
       });
 
@@ -221,7 +215,7 @@ export class CrmService {
     try {
       const accountId = await this.getAccountId(clientKey);
 
-      const existing = await this.prisma.feedback.findFirst({
+      const existing = await (this.prisma as any).feedback.findFirst({
         where: { id, accountId },
       });
 
@@ -229,7 +223,7 @@ export class CrmService {
         throw new NotFoundException(`Feedback with ID ${id} not found`);
       }
 
-      const feedback = await this.prisma.feedback.update({
+      const feedback = await (this.prisma as any).feedback.update({
         where: { id },
         data: {
           ...(dto.customerName !== undefined && { customerName: dto.customerName }),
@@ -253,7 +247,7 @@ export class CrmService {
     try {
       const accountId = await this.getAccountId(clientKey);
 
-      const existing = await this.prisma.feedback.findFirst({
+      const existing = await (this.prisma as any).feedback.findFirst({
         where: { id, accountId },
       });
 
@@ -261,7 +255,7 @@ export class CrmService {
         throw new NotFoundException(`Feedback with ID ${id} not found`);
       }
 
-      await this.prisma.feedback.delete({ where: { id } });
+      await (this.prisma as any).feedback.delete({ where: { id } });
       return { success: true };
     } catch (error) {
       this.logger.error(`Failed to delete feedback ${id}:`, error);

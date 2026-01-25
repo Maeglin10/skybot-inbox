@@ -13,8 +13,6 @@ datasource db {
 model Account {
   id        String   @id @default(cuid())
   name      String
-  isDemo    Boolean  @default(false) // Demo account flag
-  features  Json?    // Feature toggles: { crm: true, analytics: true, ... }
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -26,14 +24,12 @@ model Account {
   contacts Contact[]
 
   // New relations
-  userAccounts       UserAccount[]
-  leads              Lead[]
-  feedbacks          Feedback[]
-  alerts             Alert[]
-  channelConnections ChannelConnection[]
+  userAccounts UserAccount[]
+  leads        Lead[]
+  feedbacks    Feedback[]
+  alerts       Alert[]
 
   @@index([createdAt])
-  @@index([isDemo])
 }
 
 model ExternalAccount {
@@ -55,60 +51,6 @@ model ExternalAccount {
   @@index([accountId])
   @@index([clientKey])
   @@index([channel])
-}
-
-// =========================
-// CHANNEL CONNECTIONS (Multi-Channel OAuth)
-// =========================
-
-model ChannelConnection {
-  id                String   @id @default(cuid())
-  accountId         String
-  channelType       Channel  // WHATSAPP, INSTAGRAM, FACEBOOK, etc.
-  channelIdentifier String   // phone number, page ID, IG account ID
-
-  // Encrypted token storage (AES-256-GCM)
-  encryptedToken    String   @db.Text
-  iv                String   // Initialization vector
-  authTag           String   // Authentication tag for GCM
-
-  // Metadata (page name, IG username, token expiry, etc.)
-  metadata          Json?
-
-  status            ChannelConnectionStatus @default(ACTIVE)
-  lastSync          DateTime?
-  lastError         String?
-
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  account           Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
-
-  @@unique([accountId, channelType, channelIdentifier])
-  @@index([accountId])
-  @@index([channelType])
-  @@index([status])
-}
-
-// =========================
-// AUDIT LOGS (Security & Compliance)
-// =========================
-
-model AuditLog {
-  id        String   @id @default(cuid())
-  userId    String?
-  accountId String?
-  action    String   // login_success, user_created, channel_connected, etc.
-  metadata  Json?
-  ipAddress String?
-  userAgent String?
-
-  createdAt DateTime @default(now())
-
-  @@index([userId])
-  @@index([accountId])
-  @@index([action])
-  @@index([createdAt])
 }
 
 // =========================
@@ -183,8 +125,6 @@ model Conversation {
   @@index([contactId])
   @@index([channel])
   @@index([externalId])
-  @@index([lastActivityAt])
-  @@index([status, lastActivityAt])
 }
 
 // =========================
@@ -211,8 +151,6 @@ model Message {
   @@index([conversationId])
   @@index([externalId])
   @@index([channel])
-  @@index([timestamp])
-  @@index([conversationId, createdAt])
 }
 
 // =========================
@@ -271,8 +209,6 @@ model RoutingLog {
   @@index([clientKey])
   @@index([status])
   @@index([createdAt])
-  @@index([clientKey, createdAt])
-  @@index([status, createdAt])
 }
 
 // =========================
@@ -315,8 +251,7 @@ model UserAccount {
   id        String @id @default(cuid())
   accountId String // Links to business Account
 
-  username     String  // Primary login identifier
-  email        String? // Optional - for recovery/notifications only
+  email        String
   passwordHash String?
   name         String
   phone        String?
@@ -331,9 +266,9 @@ model UserAccount {
   account     Account          @relation(fields: [accountId], references: [id], onDelete: Cascade)
   preferences UserPreference?
 
-  @@unique([accountId, username], name: "accountId_username")
+  @@unique([accountId, email], name: "accountId_email")
   @@index([accountId])
-  @@index([username])
+  @@index([email])
   @@index([role])
   @@index([status])
 }
@@ -345,7 +280,7 @@ model UserPreference {
   id            String @id @default(cuid())
   userAccountId String @unique
 
-  theme      Theme    @default(DEFAULT)
+  theme      Theme    @default(DARK)
   language   Language @default(EN)
   timezone   String   @default("UTC")
   dateFormat String   @default("YYYY-MM-DD")
@@ -355,22 +290,6 @@ model UserPreference {
   updatedAt DateTime @updatedAt
 
   userAccount UserAccount @relation(fields: [userAccountId], references: [id], onDelete: Cascade)
-}
-
-// =========================
-// MAGIC LINKS (Passwordless Auth)
-// =========================
-model MagicLink {
-  id        String   @id @default(cuid())
-  email     String
-  token     String   @unique
-  used      Boolean  @default(false)
-  expiresAt DateTime
-
-  createdAt DateTime @default(now())
-
-  @@index([email])
-  @@index([token])
 }
 
 // =========================
@@ -403,7 +322,6 @@ model Lead {
   @@index([temperature])
   @@index([assignedTo])
   @@index([createdAt])
-  @@index([accountId, status])
 }
 
 // =========================
@@ -469,7 +387,6 @@ model Alert {
   @@index([priority])
   @@index([assignee])
   @@index([createdAt])
-  @@index([accountId, status])
 }
 
 // =========================
@@ -487,23 +404,15 @@ enum AccountStatus {
 }
 
 enum Theme {
-  DEFAULT   // The default shadcn/ui theme
-  NORD      // An arctic, north-bluish color palette
-  GOLD      // A warm and inviting color palette of rich browns and shimmering golds
-  NATURE    // A soothing palette of soft yellows, greens, and blues
-  NETFLIX   // A bold color palette of black, white, and fiery red
-  LARACON   // A vibrant color palette celebrating Laracon US 2023
-  DRACULA   // A dark theme using Dracula colors
-  LIGHT     // Legacy - kept for backward compatibility
-  DARK      // Legacy - kept for backward compatibility
-  SYSTEM    // Legacy - kept for backward compatibility
+  LIGHT
+  DARK
+  SYSTEM
 }
 
 enum Language {
   EN
   FR
   ES
-  PT
 }
 
 enum LeadStatus {
@@ -552,11 +461,4 @@ enum AlertPriority {
   HIGH
   MEDIUM
   LOW
-}
-
-enum ChannelConnectionStatus {
-  ACTIVE
-  INACTIVE
-  ERROR
-  PENDING
 }

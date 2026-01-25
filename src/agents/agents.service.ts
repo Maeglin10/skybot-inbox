@@ -8,7 +8,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { ClientsService } from '../clients/clients.service';
-import { RoutingStatus } from '@prisma/client';
+import { RoutingStatus } from '../prisma';
 
 @Injectable()
 export class AgentsService {

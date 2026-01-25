@@ -1,6 +1,6 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { InboxesService } from './inboxes.service';
-import { Channel } from '@prisma/client';
+import { Channel } from '../prisma';
 
 function asString(v: unknown): string | undefined {
   if (typeof v !== 'string') return undefined;
