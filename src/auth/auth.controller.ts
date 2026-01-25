@@ -25,13 +25,14 @@ export class AuthController {
 
   /**
    * POST /api/auth/register
-   * Register a new user
+   * DISABLED: Registration is invitation-only
+   * Only admins can create users via /api/admin/users
    */
-  @Public()
-  @Post('register')
-  async register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
-  }
+  // @Public()
+  // @Post('register')
+  // async register(@Body() dto: RegisterDto) {
+  //   return this.authService.register(dto);
+  // }
 
   /**
    * POST /api/auth/login
