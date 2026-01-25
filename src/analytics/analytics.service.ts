@@ -23,14 +23,14 @@ interface LeadRecord {
   status: string;
   temperature: string;
   channel: string;
-  createdAt?: string;
-  clientKey: string;
+  created_at?: string;
+  client_id: string;
 }
 
 interface FeedbackRecord {
   rating: number;
-  createdAt?: string;
-  clientKey: string;
+  created_at?: string;
+  client_id: string;
 }
 
 @Injectable()
@@ -94,15 +94,15 @@ export class AnalyticsService {
       // For LEADS, query Airtable
       if (metric === MetricGroup.LEADS) {
         const leads = await this.airtable.query<LeadRecord>(
-          'Leads',
+          'leads',
           clientKey,
-          `IS_AFTER({createdAt}, '${startDate.toISOString()}')`,
+          `IS_AFTER({created_at}, '${startDate.toISOString()}')`,
           { maxRecords: 1000, pageSize: 100 },
         );
 
         leads.forEach((lead) => {
-          if (lead.fields.createdAt) {
-            const key = new Date(lead.fields.createdAt).toLocaleDateString(
+          if (lead.fields.created_at) {
+            const key = new Date(lead.fields.created_at).toLocaleDateString(
               'en-US',
             );
             if (dataMap.has(key)) {
@@ -113,25 +113,26 @@ export class AnalyticsService {
       }
 
       // For FEEDBACK, query Airtable
-      if (metric === MetricGroup.FEEDBACK) {
-        const feedbacks = await this.airtable.query<FeedbackRecord>(
-          'Feedbacks',
-          clientKey,
-          `IS_AFTER({createdAt}, '${startDate.toISOString()}')`,
-          { maxRecords: 1000, pageSize: 100 },
-        );
+      // TODO: Create 'feedbacks' table in Airtable with fields: rating, created_at, client_id
+      // if (metric === MetricGroup.FEEDBACK) {
+      //   const feedbacks = await this.airtable.query<FeedbackRecord>(
+      //     'feedbacks',
+      //     clientKey,
+      //     `IS_AFTER({created_at}, '${startDate.toISOString()}')`,
+      //     { maxRecords: 1000, pageSize: 100 },
+      //   );
 
-        feedbacks.forEach((fb) => {
-          if (fb.fields.createdAt) {
-            const key = new Date(fb.fields.createdAt).toLocaleDateString(
-              'en-US',
-            );
-            if (dataMap.has(key)) {
-              dataMap.set(key, (dataMap.get(key) || 0) + 1);
-            }
-          }
-        });
-      }
+      //   feedbacks.forEach((fb) => {
+      //     if (fb.fields.created_at) {
+      //       const key = new Date(fb.fields.created_at).toLocaleDateString(
+      //         'en-US',
+      //       );
+      //       if (dataMap.has(key)) {
+      //         dataMap.set(key, (dataMap.get(key) || 0) + 1);
+      //       }
+      //     }
+      //   });
+      // }
 
       // Convert to array
       const data = Array.from(dataMap.entries()).map(([date, value]) => ({
@@ -205,7 +206,7 @@ export class AnalyticsService {
 
   private async getLeadKpis(clientKey: string) {
     const leads = await this.airtable.query<LeadRecord>(
-      'Leads',
+      'leads',
       clientKey,
       undefined,
       { maxRecords: 1000, pageSize: 100 },
@@ -254,35 +255,39 @@ export class AnalyticsService {
   }
 
   private async getFeedbackKpis(clientKey: string) {
-    const feedbacks = await this.airtable.query<FeedbackRecord>(
-      'Feedbacks',
-      clientKey,
-      undefined,
-      { maxRecords: 1000, pageSize: 100 },
-    );
-
-    const total = feedbacks.length;
-    const avgRating =
-      total > 0
-        ? (
-            feedbacks.reduce((sum, f) => sum + (f.fields.rating || 0), 0) / total
-          ).toFixed(1)
-        : '0';
-
-    const positiveCount = feedbacks.filter((f) => f.fields.rating >= 4).length;
-    const positiveRate = total > 0 ? ((positiveCount / total) * 100).toFixed(0) : '0';
-
+    // TODO: Create 'feedbacks' table in Airtable with: rating (number), created_at (date), client_id (text)
+    // Return mock data until table is created
     return [
-      { label: 'Total Feedback', value: String(total), change: '+15%', trend: 'up' as const },
-      { label: 'Avg Rating', value: avgRating, change: '+0.2', trend: 'up' as const },
-      { label: 'Positive Rate', value: `${positiveRate}%`, change: '+5%', trend: 'up' as const },
-      { label: 'Response Time', value: '1.2h', change: '-10%', trend: 'down' as const },
+      { label: 'Total Feedback', value: '0', change: '+0%', trend: 'up' as const },
+      { label: 'Avg Rating', value: '0', change: '+0', trend: 'up' as const },
+      { label: 'Positive Rate', value: '0%', change: '+0%', trend: 'up' as const },
+      { label: 'Response Time', value: '0h', change: '+0%', trend: 'down' as const },
     ];
+
+    // Uncomment when 'feedbacks' table exists:
+    // const feedbacks = await this.airtable.query<FeedbackRecord>(
+    //   'feedbacks',
+    //   clientKey,
+    //   undefined,
+    //   { maxRecords: 1000, pageSize: 100 },
+    // );
+    // const total = feedbacks.length;
+    // const avgRating = total > 0
+    //   ? (feedbacks.reduce((sum, f) => sum + (f.fields.rating || 0), 0) / total).toFixed(1)
+    //   : '0';
+    // const positiveCount = feedbacks.filter((f) => f.fields.rating >= 4).length;
+    // const positiveRate = total > 0 ? ((positiveCount / total) * 100).toFixed(0) : '0';
+    // return [
+    //   { label: 'Total Feedback', value: String(total), change: '+15%', trend: 'up' as const },
+    //   { label: 'Avg Rating', value: avgRating, change: '+0.2', trend: 'up' as const },
+    //   { label: 'Positive Rate', value: `${positiveRate}%`, change: '+5%', trend: 'up' as const },
+    //   { label: 'Response Time', value: '1.2h', change: '-10%', trend: 'down' as const },
+    // ];
   }
 
   private async getChannelBreakdown(clientKey: string) {
     const leads = await this.airtable.query<LeadRecord>(
-      'Leads',
+      'leads',
       clientKey,
       undefined,
       { maxRecords: 1000, pageSize: 100 },
@@ -302,7 +307,7 @@ export class AnalyticsService {
 
   private async getTemperatureBreakdown(clientKey: string) {
     const leads = await this.airtable.query<LeadRecord>(
-      'Leads',
+      'leads',
       clientKey,
       undefined,
       { maxRecords: 1000, pageSize: 100 },
@@ -321,28 +326,35 @@ export class AnalyticsService {
   }
 
   private async getRatingBreakdown(clientKey: string) {
-    const feedbacks = await this.airtable.query<FeedbackRecord>(
-      'Feedbacks',
-      clientKey,
-      undefined,
-      { maxRecords: 1000, pageSize: 100 },
-    );
-
-    const ratingCounts = { '5': 0, '4': 0, '3': 0, '1-2': 0 };
-
-    feedbacks.forEach((fb) => {
-      const rating = fb.fields.rating || 0;
-      if (rating === 5) ratingCounts['5']++;
-      else if (rating === 4) ratingCounts['4']++;
-      else if (rating === 3) ratingCounts['3']++;
-      else if (rating <= 2) ratingCounts['1-2']++;
-    });
-
+    // TODO: Create 'feedbacks' table in Airtable
+    // Return mock data until table is created
     return [
-      { label: '5 Stars', value: ratingCounts['5'] },
-      { label: '4 Stars', value: ratingCounts['4'] },
-      { label: '3 Stars', value: ratingCounts['3'] },
-      { label: '1-2 Stars', value: ratingCounts['1-2'] },
+      { label: '5 Stars', value: 0 },
+      { label: '4 Stars', value: 0 },
+      { label: '3 Stars', value: 0 },
+      { label: '1-2 Stars', value: 0 },
     ];
+
+    // Uncomment when 'feedbacks' table exists:
+    // const feedbacks = await this.airtable.query<FeedbackRecord>(
+    //   'feedbacks',
+    //   clientKey,
+    //   undefined,
+    //   { maxRecords: 1000, pageSize: 100 },
+    // );
+    // const ratingCounts = { '5': 0, '4': 0, '3': 0, '1-2': 0 };
+    // feedbacks.forEach((fb) => {
+    //   const rating = fb.fields.rating || 0;
+    //   if (rating === 5) ratingCounts['5']++;
+    //   else if (rating === 4) ratingCounts['4']++;
+    //   else if (rating === 3) ratingCounts['3']++;
+    //   else if (rating <= 2) ratingCounts['1-2']++;
+    // });
+    // return [
+    //   { label: '5 Stars', value: ratingCounts['5'] },
+    //   { label: '4 Stars', value: ratingCounts['4'] },
+    //   { label: '3 Stars', value: ratingCounts['3'] },
+    //   { label: '1-2 Stars', value: ratingCounts['1-2'] },
+    // ];
   }
 }

@@ -56,9 +56,10 @@ export class AirtableService implements OnModuleInit {
 
     // Use different client field names based on table
     const clientFieldMap: Record<string, string> = {
-      Leads: 'client_id',
-      Feedbacks: 'client_id',
+      leads: 'client_id',
+      feedbacks: 'client_id',
       Notifications: '', // Notifications table has no client field
+      clients_config: 'client_id',
     };
 
     const clientFieldName = clientFieldMap[tableName] || 'clientKey';
