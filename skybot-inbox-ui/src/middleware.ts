@@ -18,9 +18,9 @@ const protectedRoutes = [
 ];
 
 // Public routes that don't require authentication
+// Note: /register is disabled - invitation-only mode
 const publicRoutes = [
-  '/account/login',
-  '/account/register'
+  '/account/login'
 ];
 
 export default function middleware(request: NextRequest) {
