@@ -74,12 +74,14 @@
 }
 
 .ui-sidebar__link {
-  display: block;
+  display: flex; /* Ensure flex for alignment */
+  align-items: center; /* Vertical center alignment */
   padding: 0.9rem 1rem;
   border-radius: hsl(var(--radius));
   color: hsl(var(--foreground));
   text-decoration: none;
   transition: background-color 0.2s;
+  line-height: 1; /* Help with vertical rhythm */
 }
 
 .ui-sidebar__link:hover {
@@ -162,6 +164,13 @@
   width: 100% !important;
   max-width: none !important;
   display: block !important;
+  /* Updated as requested: Grey background, white text */
+  background: #939AA1 !important; 
+  color: white !important; /* Ensure readable text on grey */
+  border: none !important;
+}
+.ui-inboxHeader__search .ui-input::placeholder {
+  color: rgba(255, 255, 255, 0.7) !important;
 }
 
 /* ==========================================================================
@@ -314,6 +323,7 @@
   opacity: 1;
 }
 
+/* Buttons Base */
 .ui-btn {
   height: 2.25rem;
   padding: 0 1rem;
@@ -330,6 +340,7 @@
   color: hsl(var(--accent-foreground));
 }
 
+/* Unique Primary Button Class */
 .ui-btn--primary {
   background-color: hsl(var(--primary)) !important;
   border-color: hsl(var(--primary)) !important;
