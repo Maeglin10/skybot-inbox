@@ -1,14 +1,24 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Eye, EyeOff, Loader2, ArrowRight, AlertCircle, CheckCircle } from 'lucide-react';
+import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import { loginSchema, LoginValues } from './login.schema';
 import { useTranslations } from '@/lib/translations';
 
+// We'll update the mock login to simulate the response structure you described
+// In a real app, this would use the api.client which should be updated as well.
+interface LoginResponse {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn?: number;
+}
+
 export default function LoginForm() {
   const t = useTranslations('auth');
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -23,15 +33,26 @@ export default function LoginForm() {
     defaultValues: {
       username: '',
       password: '',
-      rememberMe: false,
+      rememberMe: false, // Default false
     },
   });
+
+  // Redirect to inbox after successful login
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => {
+        router.push('/es/inbox');
+      }, 2000); // 2 second delay to show success message
+
+      return () => clearTimeout(timer);
+    }
+  }, [success, router]);
 
   const onSubmit = async (data: LoginValues) => {
     // Simulate network delay
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
-    // Mock validation logic
+    // Mock response logic based on input
     if (data.password === 'fail') {
       setError('root', {
         type: 'manual',
@@ -40,22 +61,38 @@ export default function LoginForm() {
       return;
     }
 
+    // Mock successful login response
+    // If rememberMe is true, return expiresIn
+    const mockResponse: LoginResponse = {
+      accessToken: 'mock_access_token_' + Math.random(),
+      refreshToken: 'mock_refresh_token_' + Math.random(),
+      expiresIn: data.rememberMe ? 259200 : undefined,
+    };
+
+    // Store cookies based on expiry
+    if (mockResponse.expiresIn) {
+      document.cookie = `accessToken=${mockResponse.accessToken}; max-age=${mockResponse.expiresIn}; path=/; secure; samesite=strict`;
+      document.cookie = `refreshToken=${mockResponse.refreshToken}; max-age=${mockResponse.expiresIn}; path=/; secure; samesite=strict`;
+    } else {
+      document.cookie = `accessToken=${mockResponse.accessToken}; path=/; secure; samesite=strict`;
+      document.cookie = `refreshToken=${mockResponse.refreshToken}; path=/; secure; samesite=strict`;
+    }
+
     setSuccess(true);
   };
 
   if (success) {
     return (
-      <div className="ui-card" style={{ maxWidth: '400px', width: '100%', margin: '0 auto' }}>
-        <div className="ui-card__body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem', textAlign: 'center', gap: '1rem' }}>
-          <div style={{ width: '4rem', height: '4rem', background: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="ui-card w-full max-w-[400px] mx-auto">
+        <div className="ui-card__body flex flex-col items-center justify-center p-8 text-center gap-4">
+          <div className="w-16 h-16 bg-green-500/10 text-green-500 rounded-full flex items-center justify-center">
             <CheckCircle size={32} />
           </div>
-          <h3 className="ui-card__title" style={{ fontSize: '1.25rem' }}>{t('welcomeBack')}</h3>
-          <p style={{ color: '#939aa1', fontSize: '0.875rem' }}>{t('redirecting')}</p>
+          <h3 className="text-xl font-bold">{t('welcomeBack')}</h3>
+          <p className="text-muted-foreground text-sm">{t('redirecting')}</p>
           <button
             type="button"
-            className="ui-btn"
-            style={{ marginTop: '1rem' }}
+            className="ui-btn mt-4"
             onClick={() => {
               setSuccess(false);
               reset();
@@ -69,97 +106,98 @@ export default function LoginForm() {
   }
 
   return (
-    <div className="ui-card" style={{ maxWidth: '400px', width: '100%', margin: '0 auto' }}>
-      <div className="ui-card__header" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.5rem' }}>
-        <div className="ui-card__title" style={{ fontSize: '1.1rem' }}>{t('loginTitle')}</div>
-        <div style={{ fontSize: '0.875rem', color: '#939aa1' }}>{t('loginSubtitle')}</div>
+    <div className="ui-card w-full max-w-[400px] mx-auto overflow-hidden rounded-xl border border-border shadow-sm">
+      <div className="ui-card__header flex-col items-start gap-2 bg-muted/30 border-b border-border/50 p-6">
+        <div className="text-lg font-bold">{t('loginTitle')}</div>
+        <div className="text-sm text-muted-foreground">{t('loginSubtitle')}</div>
       </div>
       
-      <div className="ui-card__body">
-        <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      <div className="ui-card__body p-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           
           {errors.root && (
-             <div style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', fontSize: '0.875rem', padding: '0.75rem', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+             <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg flex items-center gap-2">
                <AlertCircle size={16} />
                <span>{errors.root.message}</span>
              </div>
           )}
 
-          <div style={{ display: 'grid', gap: '0.5rem' }}>
-            <label htmlFor="username" style={{ fontSize: '0.875rem', fontWeight: 500, color: '#939aa1' }}>
+          <div className="space-y-2">
+            <label htmlFor="username" className="text-sm font-medium text-muted-foreground">
               {t('usernameLabel')}
             </label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+            <div className="space-y-1">
               <input
                 id="username"
                 type="text"
                 placeholder="tu_usuario"
-                className="ui-input"
+                className="ui-input w-full bg-muted/50 text-foreground"
                 disabled={isSubmitting}
                 {...register('username')}
               />
               {errors.username && (
-                <span style={{ fontSize: '0.75rem', color: '#ef4444' }}>{errors.username.message}</span>
+                <span className="text-xs text-destructive">{errors.username.message}</span>
               )}
             </div>
           </div>
 
-          <div style={{ display: 'grid', gap: '0.5rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <label htmlFor="password" style={{ fontSize: '0.875rem', fontWeight: 500, color: '#939aa1' }}>
-                {t('passwordLabel')}
-              </label>
-              <a href="#" style={{ fontSize: '0.875rem', color: '#ffffff', textDecoration: 'underline', textUnderlineOffset: '4px' }}>
-                {t('forgotPassword')}
-              </a>
-            </div>
-            <div style={{ position: 'relative' }}>
+          <div className="space-y-2">
+            <label htmlFor="password" className="text-sm font-medium text-muted-foreground block">
+              {t('passwordLabel')}
+            </label>
+            <div className="relative">
               <input
                 id="password"
                 type={showPassword ? 'text' : 'password'}
-                className="ui-input"
-                style={{ paddingRight: '2.5rem' }}
+                className="ui-input w-full pr-10 bg-muted/50 text-foreground"
                 disabled={isSubmitting}
                 {...register('password')}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', color: '#939aa1', cursor: 'pointer', display: 'flex' }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground bg-transparent border-0 p-0"
                 tabIndex={-1}
               >
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
             {errors.password && (
-              <span style={{ fontSize: '0.75rem', color: '#ef4444' }}>{errors.password.message}</span>
+              <span className="text-xs text-destructive">{errors.password.message}</span>
             )}
+            <div className="flex justify-end pt-1">
+              <a href="#" className="text-xs text-muted-foreground hover:text-primary transition-colors underline underline-offset-4">
+                {t('forgotPassword')}
+              </a>
+            </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          {/* Remember Me Checkbox with requested design */}
+          <div className="flex items-center space-x-2">
             <input
-              id="rememberMe"
               type="checkbox"
-              className="ui-checkbox"
-              style={{ width: '1rem', height: '1rem', cursor: 'pointer' }}
+              id="rememberMe"
+              className="ui-checkbox rounded border-muted-foreground/30 bg-muted/50 w-4 h-4 cursor-pointer accent-primary"
               disabled={isSubmitting}
               {...register('rememberMe')}
             />
-            <label htmlFor="rememberMe" style={{ fontSize: '0.875rem', color: '#939aa1', cursor: 'pointer' }}>
+            <label htmlFor="rememberMe" className="text-sm text-foreground cursor-pointer select-none">
               {t('rememberMe')}
+              <span className="text-muted-foreground ml-1 text-xs">
+                ({t('rememberMeDescription')})
+              </span>
             </label>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.5rem' }}>
+          <div className="space-y-3 pt-2">
             <button
               type="submit"
-              className="ui-btn ui-btn--primary"
-              style={{ width: '100%', justifyContent: 'center' }}
+              className="ui-btn ui-btn--primary w-full flex justify-center items-center shadow-sm hover:brightness-110 transition-all font-medium py-2.5 h-auto text-sm"
               disabled={isSubmitting}
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 size={16} className="animate-spin" style={{ marginRight: '0.5rem' }} />
+                  <Loader2 size={16} className="animate-spin mr-2" />
                   {t('signingIn')}
                 </>
               ) : (
@@ -171,16 +209,15 @@ export default function LoginForm() {
             
             <button
               type="button"
-              className="ui-btn"
-              style={{ width: '100%', justifyContent: 'center' }}
+              className="ui-btn w-full flex justify-center items-center bg-transparent border border-border text-foreground hover:bg-muted/50 transition-all text-sm h-auto py-2.5"
               disabled={isSubmitting}
             >
               {t('continueWithGoogle')}
             </button>
             
-            <div style={{ textAlign: 'center', fontSize: '0.875rem', marginTop: '1rem', color: '#939aa1' }}>
+            <div className="text-center text-sm mt-4 text-muted-foreground">
               {t('noAccount')}{' '}
-              <a href="#" style={{ color: '#ffffff', textDecoration: 'underline', textUnderlineOffset: '4px' }}>
+              <a href="#" className="text-primary hover:underline underline-offset-4 font-medium transition-colors">
                {t('signUp')}
               </a>
             </div>
