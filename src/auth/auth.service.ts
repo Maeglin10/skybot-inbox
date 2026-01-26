@@ -23,6 +23,7 @@ export interface JwtPayload {
 export interface AuthResponse {
   accessToken: string;
   refreshToken: string;
+  expiresIn?: number; // Duration in seconds for frontend cookie management
   user: {
     id: string;
     username: string;
@@ -125,11 +126,17 @@ export class AuthService {
       throw new UnauthorizedException('Account is not active');
     }
 
-    // Generate tokens
-    const tokens = await this.generateTokens(user);
+    // Generate tokens with rememberMe setting
+    const tokens = await this.generateTokens(user, dto.rememberMe);
+
+    // Calculate expiresIn for frontend cookie management
+    // - rememberMe = true: 3 days (259200 seconds)
+    // - rememberMe = false: undefined (frontend will use session cookie)
+    const expiresIn = dto.rememberMe ? 259200 : undefined;
 
     return {
       ...tokens,
+      expiresIn,
       user: {
         id: user.id,
         username: user.username,
@@ -380,7 +387,10 @@ export class AuthService {
   /**
    * Generate JWT access and refresh tokens
    */
-  private async generateTokens(user: any): Promise<{
+  private async generateTokens(
+    user: any,
+    rememberMe?: boolean,
+  ): Promise<{
     accessToken: string;
     refreshToken: string;
   }> {
@@ -392,6 +402,11 @@ export class AuthService {
       role: user.role,
     };
 
+    // Refresh token duration based on rememberMe
+    // - rememberMe = true: 3 days (72h) - persistent session
+    // - rememberMe = false: 12h - session expires when user closes browser (frontend handles this)
+    const refreshTokenExpiry = rememberMe ? '3d' : '12h';
+
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
         secret: process.env.JWT_SECRET,
@@ -399,7 +414,7 @@ export class AuthService {
       }),
       this.jwtService.signAsync(payload, {
         secret: process.env.JWT_REFRESH_SECRET,
-        expiresIn: '7d',
+        expiresIn: refreshTokenExpiry,
       }),
     ]);
 
