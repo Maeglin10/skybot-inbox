@@ -1,5 +1,7 @@
 services:
-  # SkyBot Inbox API
+  # ===========================================
+  # BACKEND - SkyBot Inbox API (NestJS)
+  # ===========================================
   - type: web
     name: skybot-inbox
     env: node
@@ -7,7 +9,7 @@ services:
     plan: free
     buildCommand: npm install --include=dev && npx prisma generate && npm run build
     startCommand: npx prisma migrate deploy && npm run db:seed && node dist/src/main
-    # healthCheckPath: /health  # Temporarily disabled
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
@@ -16,6 +18,8 @@ services:
           name: skybot-inbox-db
           property: connectionString
       - key: API_KEY
+        generateValue: true
+      - key: JWT_SECRET
         generateValue: true
       - key: N8N_WEBHOOK_BASE_URL
         value: https://vmilliand.app.n8n.cloud/webhook/
@@ -33,10 +37,35 @@ services:
         sync: false
       - key: OPENAI_API_KEY
         sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_CALLBACK_URL
+        value: https://skybot-inbox.onrender.com/api/auth/google/callback
       - key: COMPANY_EMAIL
         value: contact@nexxa.com
       - key: COMPANY_NAME
         value: Nexxa
+
+  # ===========================================
+  # FRONTEND - SkyBot Inbox UI (Next.js)
+  # ===========================================
+  - type: web
+    name: skybot-inbox-ui
+    env: node
+    region: oregon
+    plan: free
+    rootDir: skybot-inbox-ui
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: API_URL
+        value: https://skybot-inbox.onrender.com
+      - key: API_KEY
+        sync: false
 
 databases:
   - name: skybot-inbox-db
