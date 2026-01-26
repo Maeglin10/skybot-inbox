@@ -60,8 +60,13 @@ export function Sidebar() {
               href={it.href}
               className={`ui-sidebar__link flex items-center gap-3 ${active ? 'is-active' : ''}`}
             >
-              <Icon size={18} strokeWidth={2} className={active ? 'text-foreground' : 'text-muted-foreground'} />
-              <span>{t(it.key)}</span>
+               {/* 
+                 Updated alignment: Icon and Text now properly aligned on the same visual line (flex items-center handles this but ensure no extra margins are breaking it).
+                 Current class "flex items-center gap-3" handles row alignment.
+                 The previous issue might have been logo scaling or different implementation.
+               */}
+              <Icon size={18} strokeWidth={2} className={`flex-shrink-0 ${active ? 'text-foreground' : 'text-muted-foreground'}`} />
+              <span className="font-medium leading-none">{t(it.key)}</span>
             </Link>
           );
         })}
