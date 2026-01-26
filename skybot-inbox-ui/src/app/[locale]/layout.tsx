@@ -3,8 +3,8 @@ import { Providers } from '@/app/providers';
 import { Poppins } from 'next/font/google';
 import '../globals.css';
 import "../../styles/ui.css";
-import { getMessages } from 'next-intl/server';
 import { NextIntlClientProvider } from 'next-intl';
+import frMessages from '../../../messages/fr.json';
 
 const nxSans = Poppins({
   subsets: ['latin'],
@@ -17,19 +17,18 @@ export const metadata: Metadata = {
   description: 'Nexxa Agent Inbox',
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // Hardcoded locale for simplified i18n
+  // Hardcoded locale and messages for simplified i18n
   const locale = 'fr';
-  const messages = await getMessages({ locale });
 
   return (
     <html lang={locale} className={`${nxSans.variable} dark`} suppressHydrationWarning>
       <body>
-        <NextIntlClientProvider messages={messages} locale={locale}>
+        <NextIntlClientProvider messages={frMessages} locale={locale}>
           <Providers>{children}</Providers>
         </NextIntlClientProvider>
       </body>
