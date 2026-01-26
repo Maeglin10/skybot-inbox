@@ -24,6 +24,7 @@ import { ChannelsModule } from './channels/channels.module';
 import { EncryptionModule } from './common/encryption/encryption.module';
 import { LegalModule } from './legal/legal.module';
 import { AdminModule } from './admin/admin.module';
+import { TenantModulesModule } from './tenant-modules/tenant-modules.module';
 import { AppController } from './app.controller';
 import { TenantContextMiddleware } from './common/middleware/tenant-context.middleware';
 
@@ -39,6 +40,7 @@ import { TenantContextMiddleware } from './common/middleware/tenant-context.midd
     EncryptionModule,
     LegalModule,
     AdminModule,
+    TenantModulesModule,
     AgentsModule,
     AuthModule,
     AirtableModule,
