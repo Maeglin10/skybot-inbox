@@ -11,12 +11,13 @@ const pool = new Pool({ connectionString: databaseUrl });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
-// Secure credentials for new accounts
+// Credentials loaded from environment variables for security
+// Set these in your .env file before running seed
 const ACCOUNTS_CREDENTIALS = {
   valentin: {
     username: 'valentinmilliand.nexxa',
     email: 'valentin.milliand@nexxa',
-    password: '4gs75062a6rOnOKy3j09ireEPWAB5Td',
+    password: process.env.SEED_VALENTIN_PASSWORD || 'change-me-in-production',
     name: 'Valentin Milliand',
     role: UserRole.ADMIN,
     accountName: 'Nexxa'
@@ -24,7 +25,7 @@ const ACCOUNTS_CREDENTIALS = {
   nexxaAdmin: {
     username: 'nexxa.admin',
     email: 'Nexxa@admin',
-    password: '2J748mbMBcOrJv41K5FmAIaOlMGMw3H',
+    password: process.env.SEED_NEXXA_ADMIN_PASSWORD || 'change-me-in-production',
     name: 'Nexxa Admin',
     role: UserRole.ADMIN,
     accountName: 'Nexxa'
@@ -32,7 +33,7 @@ const ACCOUNTS_CREDENTIALS = {
   nexxaDemo: {
     username: 'nexxa.demo',
     email: 'Nexxa@demo',
-    password: 'OfIPAbn9j6Gy0x9VqOW0KY06UqzPo7',
+    password: process.env.SEED_NEXXA_DEMO_PASSWORD || 'change-me-in-production',
     name: 'Nexxa Demo Account',
     role: UserRole.ADMIN,
     accountName: 'Nexxa Demo'
@@ -40,7 +41,7 @@ const ACCOUNTS_CREDENTIALS = {
   goodlife: {
     username: 'goodlife.nexxaagents',
     email: 'goodlife.agents',
-    password: '4qFEZPjc8f',
+    password: process.env.SEED_GOODLIFE_PASSWORD || 'change-me-in-production',
     name: 'GoodLife Agents',
     role: UserRole.USER,
     accountName: 'GoodLife'

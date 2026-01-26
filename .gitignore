@@ -2,9 +2,12 @@
 node_modules/
 dist/
 
-# Env
+# Env - NEVER commit actual secrets
 .env
 .env.*
+!.env.example
+!.env.local.example
+!.env.production.example
 
 # Logs
 *.log
@@ -16,33 +19,20 @@ dist/
 
 # Prisma
 prisma/dev.db
-
 src/generated/prisma/
 
-# Allow env example
-!.env.example
-
-# zips
-*.zip
-
-# env
-.env
-.env.*
-!.env.example
-!.env.local.example
-
-# next / node
-node_modules/
+# Next.js
 .next/
-dist/
 coverage/
 
-# junk
--d
--H
-select "externalId", "text", "createdAt"?>  from "Message"?>  order by "createdAt" desc?>  limit 10;
+# Documentation - keep only main README
+docs/
+*.md
+!README.md
+!skybot-inbox-ui/README.md
+!mcp-server-airtable/README.md
 
-# Test folders (contain hardcoded secrets for testing)
+# Test folders
 test/
 tests/
 
@@ -51,10 +41,10 @@ tables/
 *.csv
 !example.csv
 
-# Archive scripts
+# Archive and temp
 scripts/archive/
-.env.production
+*.zip
 
-# Allow env examples
-!.env.production.example
+# Credentials files - NEVER commit
 PRODUCTION_CREDENTIALS.md
+*CREDENTIALS*.md

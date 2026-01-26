@@ -1,6 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { WebhooksService } from './webhooks.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { ClientsService } from '../clients/clients.service';
+import { AgentsService } from '../agents/agents.service';
 
 describe('WebhooksService', () => {
   let service: WebhooksService;
@@ -15,6 +17,18 @@ describe('WebhooksService', () => {
             account: { findFirst: jest.fn() },
             inbox: { findFirst: jest.fn() },
             $transaction: jest.fn(),
+          },
+        },
+        {
+          provide: ClientsService,
+          useValue: {
+            getClientKey: jest.fn(),
+          },
+        },
+        {
+          provide: AgentsService,
+          useValue: {
+            findByAccountId: jest.fn(),
           },
         },
       ],
