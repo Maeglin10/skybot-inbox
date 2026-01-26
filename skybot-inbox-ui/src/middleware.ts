@@ -1,11 +1,7 @@
-import createMiddleware from 'next-intl/middleware';
-import {locales, defaultLocale} from './i18n/config';
 import { NextRequest, NextResponse } from 'next/server';
 
-const intlMiddleware = createMiddleware({
-  locales,
-  defaultLocale
-});
+// Hardcoded locale - simplified i18n
+const LOCALE = 'fr';
 
 // Protected routes that require authentication
 const protectedRoutes = [
@@ -18,7 +14,6 @@ const protectedRoutes = [
 ];
 
 // Public routes that don't require authentication
-// Note: /register is disabled - invitation-only mode
 const publicRoutes = [
   '/account/login'
 ];
@@ -26,7 +21,7 @@ const publicRoutes = [
 export default function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Extract locale and path without locale
+  // Extract path without locale prefix
   const pathnameWithoutLocale = pathname.replace(/^\/[a-z]{2}/, '');
 
   // Check if accessing a protected route
@@ -44,20 +39,22 @@ export default function middleware(request: NextRequest) {
 
   // If trying to access protected route without token, redirect to login
   if (isProtectedRoute && !token) {
-    const locale = pathname.split('/')[1] || defaultLocale;
-    const loginUrl = new URL(`/${locale}/account/login`, request.url);
+    const loginUrl = new URL(`/${LOCALE}/account/login`, request.url);
     loginUrl.searchParams.set('redirect', pathname);
     return NextResponse.redirect(loginUrl);
   }
 
   // If logged in and trying to access login page, redirect to inbox
   if (isPublicRoute && token && pathnameWithoutLocale === '/account/login') {
-    const locale = pathname.split('/')[1] || defaultLocale;
-    return NextResponse.redirect(new URL(`/${locale}/inbox`, request.url));
+    return NextResponse.redirect(new URL(`/${LOCALE}/inbox`, request.url));
   }
 
-  // Apply i18n middleware
-  return intlMiddleware(request);
+  // Redirect root to /fr
+  if (pathname === '/') {
+    return NextResponse.redirect(new URL(`/${LOCALE}`, request.url));
+  }
+
+  return NextResponse.next();
 }
 
 export const config = {
