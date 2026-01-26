@@ -4,12 +4,25 @@ import { useEffect, useState } from 'react';
 import { analyticsApi } from '@/lib/api/agents';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Activity, TrendingUp, DollarSign, AlertTriangle } from 'lucide-react';
+import { useAgentsWebSocket } from '@/hooks/useAgentsWebSocket';
 
 export default function AgentsAnalyticsPage() {
   const [overview, setOverview] = useState<any>(null);
+  const { onAgentExecution } = useAgentsWebSocket();
 
   useEffect(() => {
     loadOverview();
+
+    // Listen for global execution metrics updates
+    onAgentExecution((payload) => {
+       setOverview((prev: any) => {
+          if (!prev) return prev;
+          return {
+             ...prev,
+             totalExecutionsToday: prev.totalExecutionsToday + 1
+          }
+       });
+    });
   }, []);
 
   async function loadOverview() {
@@ -57,7 +70,7 @@ export default function AgentsAnalyticsPage() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-2xl font-bold animate-in zoom-in duration-300 key={overview.totalExecutionsToday}">
               {overview.totalExecutionsToday.toLocaleString()}
             </div>
           </CardContent>

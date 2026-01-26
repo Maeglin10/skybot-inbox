@@ -6,12 +6,14 @@ import { agentsApi } from '@/lib/api/agents';
 import { Agent } from '@/types/agents';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { useAgentsWebSocket } from '@/hooks/useAgentsWebSocket';
 
 export default function AgentDetailsPage() {
   const params = useParams();
   const [agent, setAgent] = useState<Agent | null>(null);
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const { subscribeToAgent, onAgentStatusChange, onAgentExecution } = useAgentsWebSocket();
 
   // Helper to ensure ID is string
   const idRaw = params?.id;
@@ -20,13 +22,42 @@ export default function AgentDetailsPage() {
   useEffect(() => {
     if (id) {
        loadAgent(id);
+       
+       // Subscribe to WS updates for this agent
+       try {
+         subscribeToAgent(id);
+         
+         onAgentStatusChange((payload) => {
+            if (payload.agentId === id) {
+               setAgent(prev => prev ? { ...prev, status: payload.status } : null);
+            }
+         });
+         
+         onAgentExecution((payload) => {
+            if (payload.agentId === id) {
+               // Update stats optimistically or append to logs
+               setStats((prev: any) => {
+                  if(!prev) return prev;
+                  return {
+                     ...prev,
+                     stats: {
+                        ...prev.stats,
+                        totalExecutions: (prev.stats?.totalExecutions || 0) + 1
+                     },
+                     executions: [payload.execution, ...(prev.executions || [])].slice(0, 10)
+                  };
+               });
+            }
+         });
+       } catch (e) {
+         console.warn("WebSocket subscription failed", e);
+       }
     }
   }, [id]);
 
   async function loadAgent(agentId: string) {
     try {
       setLoading(true);
-      // Use Promise.allSettled to handle partial failures gracefully if endpoints differ
       const [agentRes, statsRes] = await Promise.allSettled([
         agentsApi.getOne(agentId),
         agentsApi.getStats(agentId, '7d'),
@@ -35,7 +66,6 @@ export default function AgentDetailsPage() {
       if (agentRes.status === 'fulfilled') {
          setAgent(agentRes.value.data);
       } else {
-         // Mock fallback
          setAgent({
             id: agentId,
             externalId: 'ext-1',
@@ -56,7 +86,6 @@ export default function AgentDetailsPage() {
       if (statsRes.status === 'fulfilled') {
          setStats(statsRes.value.data);
       } else {
-         // Mock stats
          setStats({
             stats: { 
                totalExecutions: 120, 
@@ -146,10 +175,10 @@ export default function AgentDetailsPage() {
         <TabsContent value="metrics">
           <Card>
             <CardHeader>
-              <CardTitle>Performance Metrics</CardTitle>
+              <CardTitle>Metric Stream</CardTitle>
             </CardHeader>
             <CardContent>
-              <p>Charts will be here (Recharts integration)...</p>
+              <p className="text-muted-foreground">Real-time charts will appear here when connected to live backend.</p>
             </CardContent>
           </Card>
         </TabsContent>
@@ -162,11 +191,11 @@ export default function AgentDetailsPage() {
             <CardContent>
               <div className="space-y-2">
                 {stats?.executions?.map((exec: any) => (
-                  <div key={exec.id} className="border-b pb-2">
+                  <div key={exec.id || Math.random()} className="border-b pb-2 animate-in slide-in-from-top-2 fade-in">
                     <div className="flex justify-between">
                       <span className="text-sm">{exec.status}</span>
                       <span className="text-sm text-muted-foreground">
-                        {new Date(exec.createdAt).toLocaleString()}
+                        {exec.createdAt ? new Date(exec.createdAt).toLocaleString() : 'Just now'}
                       </span>
                     </div>
                   </div>
