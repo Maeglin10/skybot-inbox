@@ -2,6 +2,8 @@ import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { WinstonModule } from 'nest-winston';
+import { winstonLogger } from './common/logger/winston.config';
 
 import { PrismaModule } from './prisma/prisma.module';
 import { AccountsModule } from './accounts/accounts.module';
@@ -34,6 +36,10 @@ import { TenantContextMiddleware } from './common/middleware/tenant-context.midd
 
     ThrottlerModule.forRoot({
       throttlers: [{ ttl: 60_000, limit: 120 }],
+    }),
+
+    WinstonModule.forRoot({
+      instance: winstonLogger,
     }),
 
     PrismaModule,
