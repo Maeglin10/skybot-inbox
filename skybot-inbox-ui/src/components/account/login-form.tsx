@@ -5,8 +5,10 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Eye, EyeOff, Loader2, ArrowRight, AlertCircle, CheckCircle } from 'lucide-react';
 import { loginSchema, LoginValues } from './login.schema';
+import { useTranslations } from '@/lib/translations';
 
 export default function LoginForm() {
+  const t = useTranslations('auth');
   const [showPassword, setShowPassword] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -19,8 +21,9 @@ export default function LoginForm() {
   } = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: '',
+      username: '',
       password: '',
+      rememberMe: false,
     },
   });
 
@@ -32,7 +35,7 @@ export default function LoginForm() {
     if (data.password === 'fail') {
       setError('root', {
         type: 'manual',
-        message: 'Invalid credentials',
+        message: t('invalidCredentials'),
       });
       return;
     }
@@ -47,8 +50,8 @@ export default function LoginForm() {
           <div style={{ width: '4rem', height: '4rem', background: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <CheckCircle size={32} />
           </div>
-          <h3 className="ui-card__title" style={{ fontSize: '1.25rem' }}>Welcome back!</h3>
-          <p style={{ color: '#939aa1', fontSize: '0.875rem' }}>Redirecting you to dashboard...</p>
+          <h3 className="ui-card__title" style={{ fontSize: '1.25rem' }}>{t('welcomeBack')}</h3>
+          <p style={{ color: '#939aa1', fontSize: '0.875rem' }}>{t('redirecting')}</p>
           <button
             type="button"
             className="ui-btn"
@@ -58,7 +61,7 @@ export default function LoginForm() {
               reset();
             }}
           >
-            Reset (Demo)
+            {t('resetDemo')}
           </button>
         </div>
       </div>
@@ -68,8 +71,8 @@ export default function LoginForm() {
   return (
     <div className="ui-card" style={{ maxWidth: '400px', width: '100%', margin: '0 auto' }}>
       <div className="ui-card__header" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.5rem' }}>
-        <div className="ui-card__title" style={{ fontSize: '1.1rem' }}>Login to your account</div>
-        <div style={{ fontSize: '0.875rem', color: '#939aa1' }}>Enter your email below to login to your account</div>
+        <div className="ui-card__title" style={{ fontSize: '1.1rem' }}>{t('loginTitle')}</div>
+        <div style={{ fontSize: '0.875rem', color: '#939aa1' }}>{t('loginSubtitle')}</div>
       </div>
       
       <div className="ui-card__body">
@@ -83,20 +86,20 @@ export default function LoginForm() {
           )}
 
           <div style={{ display: 'grid', gap: '0.5rem' }}>
-            <label htmlFor="email" style={{ fontSize: '0.875rem', fontWeight: 500, color: '#939aa1' }}>
-              Email
+            <label htmlFor="username" style={{ fontSize: '0.875rem', fontWeight: 500, color: '#939aa1' }}>
+              {t('usernameLabel')}
             </label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
               <input
-                id="email"
-                type="email"
-                placeholder="m@example.com"
+                id="username"
+                type="text"
+                placeholder="tu_usuario"
                 className="ui-input"
                 disabled={isSubmitting}
-                {...register('email')}
+                {...register('username')}
               />
-              {errors.email && (
-                <span style={{ fontSize: '0.75rem', color: '#ef4444' }}>{errors.email.message}</span>
+              {errors.username && (
+                <span style={{ fontSize: '0.75rem', color: '#ef4444' }}>{errors.username.message}</span>
               )}
             </div>
           </div>
@@ -104,10 +107,10 @@ export default function LoginForm() {
           <div style={{ display: 'grid', gap: '0.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <label htmlFor="password" style={{ fontSize: '0.875rem', fontWeight: 500, color: '#939aa1' }}>
-                Password
+                {t('passwordLabel')}
               </label>
               <a href="#" style={{ fontSize: '0.875rem', color: '#ffffff', textDecoration: 'underline', textUnderlineOffset: '4px' }}>
-                Forgot your password?
+                {t('forgotPassword')}
               </a>
             </div>
             <div style={{ position: 'relative' }}>
@@ -133,6 +136,20 @@ export default function LoginForm() {
             )}
           </div>
 
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <input
+              id="rememberMe"
+              type="checkbox"
+              className="ui-checkbox"
+              style={{ width: '1rem', height: '1rem', cursor: 'pointer' }}
+              disabled={isSubmitting}
+              {...register('rememberMe')}
+            />
+            <label htmlFor="rememberMe" style={{ fontSize: '0.875rem', color: '#939aa1', cursor: 'pointer' }}>
+              {t('rememberMe')}
+            </label>
+          </div>
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.5rem' }}>
             <button
               type="submit"
@@ -143,11 +160,11 @@ export default function LoginForm() {
               {isSubmitting ? (
                 <>
                   <Loader2 size={16} className="animate-spin" style={{ marginRight: '0.5rem' }} />
-                  Signing in...
+                  {t('signingIn')}
                 </>
               ) : (
                 <>
-                  Login
+                  {t('signin')}
                 </>
               )}
             </button>
@@ -158,13 +175,13 @@ export default function LoginForm() {
               style={{ width: '100%', justifyContent: 'center' }}
               disabled={isSubmitting}
             >
-              Continue with Google
+              {t('continueWithGoogle')}
             </button>
             
             <div style={{ textAlign: 'center', fontSize: '0.875rem', marginTop: '1rem', color: '#939aa1' }}>
-              Don&apos;t have an account?{' '}
+              {t('noAccount')}{' '}
               <a href="#" style={{ color: '#ffffff', textDecoration: 'underline', textUnderlineOffset: '4px' }}>
-               Sign up
+               {t('signUp')}
               </a>
             </div>
           </div>
