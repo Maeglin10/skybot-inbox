@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import type { InboxConversation, InboxConversationStatus } from './inbox-shell';
+import { useTranslations } from '@/lib/translations';
 
 function previewText(c: InboxConversation) {
   const t = c.preview?.text ?? c.messages?.[c.messages.length - 1]?.text ?? '';
@@ -29,13 +30,11 @@ function lastTs(c: InboxConversation) {
 }
 
 function statusUi(status?: InboxConversationStatus) {
-  if (status === 'OPEN')
-    return { label: 'OPEN', pill: 'is-open', dot: 'is-open' };
-  if (status === 'PENDING')
-    return { label: 'PENDING', pill: 'is-pending', dot: 'is-pending' };
-  if (status === 'CLOSED')
-    return { label: 'CLOSED', pill: 'is-closed', dot: 'is-closed' };
-  return { label: status ?? '—', pill: 'is-unknown', dot: 'is-unknown' };
+  // Using global class as requested
+  if (status === 'OPEN') return { labelKey: 'statusOpen' };
+  if (status === 'PENDING') return { labelKey: 'statusPending' };
+  if (status === 'CLOSED') return { labelKey: 'statusClosed' };
+  return { labelKey: 'statusOpen' }; // default fallback
 }
 
 function nextStatusValue(s?: InboxConversationStatus): InboxConversationStatus {
@@ -55,6 +54,8 @@ export function InboxList({
   onSelect: (id: string) => void;
   onToggleStatus?: (id: string, next: InboxConversationStatus) => void;
 }) {
+  const t = useTranslations('inbox');
+
   return (
     <div className="ui-conv">
       <div className="ui-conv__header">
@@ -90,9 +91,10 @@ export function InboxList({
                   </div>
 
                   <div className="ui-convRight">
-                    <div className={`ui-pill ${st.pill}`} title="Status">
-                      <span className={`ui-dot ${st.dot}`} />
-                      <span>{st.label}</span>
+                    <div className="ui-statusPill" title="Status">
+                      <span className="ui-dot" />
+                      {/* @ts-ignore - dynamic key */}
+                      <span className="font-medium">{t(st.labelKey)}</span>
                     </div>
                     <div className="ui-ts">{fmtLite(ts)}</div>
                   </div>
@@ -105,7 +107,7 @@ export function InboxList({
                 <div className="ui-convActions">
                   <button
                     type="button"
-                    className="ui-btn"
+                    className="ui-btn w-full text-xs h-7"
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
