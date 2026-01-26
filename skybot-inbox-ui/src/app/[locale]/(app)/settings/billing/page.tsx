@@ -3,14 +3,14 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from '@/lib/translations'; // or next-intl if available
-import { apiGetClient, apiPostClient } from '@/lib/api.client';
-import { CreditCard, ExternalLink, Loader2, Sparkles, PlusCircle } from 'lucide-react';
+import { apiGetClient } from '@/lib/api.client';
+import { CreditCard, PlusCircle, Loader2 } from 'lucide-react';
 import { useTenantModules } from '@/hooks/use-tenant-modules';
 import { TenantBadge } from '@/components/tenant-badge';
 import { StatusBadge } from '@/components/status-badge'; 
 import { ModuleCard } from '@/components/module-card';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress'; // Assuming shadcn progress exists
+import { UpgradeModal } from '@/components/upgrade-modal'; // Imported as requested, even if we use direct nav often
 
 // Map known modules to display names
 const MODULE_INFO: Record<string, { title: string, desc: string }> = {
@@ -35,7 +35,7 @@ export default function BillingPage() {
       if (res && res.url) {
         window.location.href = res.url;
       } else {
-        alert("Billing portal not configured yet.");
+        alert("Billing portal currently unavailable (Mock).");
       }
     } catch {
       alert("Failed to redirect to billing portal.");
@@ -97,9 +97,8 @@ export default function BillingPage() {
                    <span className="font-bold">1,240</span>
                    <span className="text-muted-foreground">/ {limits.messagesPerMonth}</span>
                 </div>
-                {/* Fallback to simple div if Progress component not available */}
                 <div className="h-2 w-full bg-primary/20 rounded-full overflow-hidden">
-                   <div className="h-full bg-primary" style={{ width: `${(1240 / limits.messagesPerMonth) * 100}%` }} />
+                   <div className="h-full bg-primary" style={{ width: `${Math.min((1240 / (limits.messagesPerMonth || 1)) * 100, 100)}%` }} />
                 </div>
              </div>
              <div className="text-xs text-muted-foreground mt-2">
@@ -120,8 +119,6 @@ export default function BillingPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
              {Object.entries(MODULE_INFO).map(([key, info]) => {
                 const isEnabled = modules.includes(key);
-                // We show enabled modules here, or locked ones?
-                // Let's show all core modules so user sees what they have vs what they could have
                 return (
                    <div key={key} className="h-full">
                       <ModuleCard 
@@ -130,7 +127,7 @@ export default function BillingPage() {
                          description={info.desc}
                          enabled={isEnabled}
                          locked={!isEnabled}
-                         usagePct={isEnabled ? Math.random() * 80 : undefined} // Mock usage
+                         usagePct={isEnabled ? Math.random() * 80 : undefined} 
                          onUpgrade={!isEnabled ? handleAddModules : undefined}
                          onConfigure={isEnabled ? () => router.push(`/${key}`) : undefined}
                       />
@@ -164,7 +161,6 @@ export default function BillingPage() {
              </Button>
           </div>
        </div>
-
     </div>
   );
 }

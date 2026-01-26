@@ -20,8 +20,6 @@ export default function CheckoutPage() {
   const [selected, setSelected] = React.useState<string[]>([]);
   const [checkoutLoading, setCheckoutLoading] = React.useState(false);
 
-  // Pre-select nothing, let user choose
-  
   const toggle = (id: string) => {
     setSelected(prev => 
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
@@ -44,21 +42,21 @@ export default function CheckoutPage() {
        if (res && res.url) {
           window.location.href = res.url;
        } else {
-          // If no stripe configured, simulate success
+          // Fallback if no specific URL returned (mock environment)
           setTimeout(() => {
-             alert('Simulated Checkout Success');
+             alert('Simulated Checkout Success (Demo Mode)');
              router.push('/settings/billing');
-          }, 1000);
+          }, 800);
        }
     } catch (err) {
        console.error(err);
-       alert('Checkout failed');
+       alert('Checkout flow failed to initialize.');
     } finally {
        setCheckoutLoading(false);
     }
   };
 
-  if (modulesLoading) return <div className="p-20 text-center">Loading...</div>;
+  if (modulesLoading) return <div className="p-20 text-center"><Loader2 className="animate-spin inline mr-2"/>Loading modules...</div>;
 
   return (
     <div className="max-w-4xl mx-auto py-12 px-4">
@@ -117,7 +115,7 @@ export default function CheckoutPage() {
                
                <div className="space-y-3 mb-6">
                   {selected.length === 0 ? (
-                     <div className="text-sm text-muted-foreground italic">No modules selected</div>
+                     <div className="text-sm text-muted-foreground italic">No add-ons selected</div>
                   ) : (
                      selected.map(id => {
                         const item = AVAILABLE_ADDONS.find(a => a.id === id);
@@ -139,7 +137,7 @@ export default function CheckoutPage() {
                <div className="bg-muted/50 rounded p-3 text-xs text-muted-foreground mb-6 flex gap-2">
                   <ShieldCheck size={24} className="flex-shrink-0 text-green-600" />
                   <div>
-                     Secure checkout powered by Stripe. You can cancel active add-ons at any time.
+                     Secure checkout via Stripe. Cancel anytime.
                   </div>
                </div>
 
