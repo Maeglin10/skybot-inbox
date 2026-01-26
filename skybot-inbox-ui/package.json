@@ -16,10 +16,8 @@
     "@radix-ui/react-scroll-area": "^1.2.10",
     "@radix-ui/react-separator": "^1.1.8",
     "@radix-ui/react-slot": "^1.2.4",
-    "@tailwindcss/postcss": "^4.1.18",
     "autoprefixer": "^10.4.20",
     "class-variance-authority": "^0.7.1",
-    "lightningcss": "^1.30.2",
     "clsx": "^2.1.1",
     "lucide-react": "^0.562.0",
     "next": "16.0.10",
@@ -31,12 +29,8 @@
     "react-hook-form": "^7.71.1",
     "recharts": "^3.7.0",
     "tailwind-merge": "^3.4.0",
-    "tailwindcss": "^4",
+    "tailwindcss": "^3.4.17",
     "zod": "^4.3.6"
-  },
-  "optionalDependencies": {
-    "@parcel/watcher-linux-x64-glibc": "^2.5.6",
-    "lightningcss-linux-x64-gnu": "^1.30.2"
   },
   "devDependencies": {
     "@types/node": "^20",
