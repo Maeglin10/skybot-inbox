@@ -117,7 +117,9 @@ export class AuthController {
   async getMe(@CurrentUser() user: any) {
     return {
       id: user.id,
+      username: user.username,
       email: user.email,
+      name: user.name,
       accountId: user.accountId,
       role: user.role,
     };
