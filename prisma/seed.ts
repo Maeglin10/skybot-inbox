@@ -373,6 +373,7 @@ async function main() {
       data: {
         accountId,
         email: `admin@${clientId.toLowerCase()}.com`,
+        username: `${clientId.toLowerCase()}-admin`,
         name: `${config.client_name} Admin`,
         role: 'ADMIN',
         status: 'ACTIVE',

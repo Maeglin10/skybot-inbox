@@ -25,7 +25,7 @@ export interface AuthResponse {
   expiresIn?: number; // Duration in seconds for frontend cookie management
   user: {
     id: string;
-    email: string;
+    email: string | null; // Email can be null for OAuth users
     name: string | null;
     role: string;
     accountId: string;
@@ -62,6 +62,7 @@ export class AuthService {
     const user = await this.prisma.userAccount.create({
       data: {
         email: dto.email,
+        username: dto.email.split('@')[0], // Use email prefix as username
         passwordHash: hashedPassword,
         name: dto.name || 'User',
         accountId: dto.accountId,
@@ -201,7 +202,7 @@ export class AuthService {
     // Store token in database
     await this.prisma.magicLink.create({
       data: {
-        email: user.email,
+        email: dto.email, // Use dto.email since that's what we searched for
         token,
         expiresAt,
       },
@@ -311,6 +312,7 @@ export class AuthService {
       user = await this.prisma.userAccount.create({
         data: {
           email,
+          username: email.split('@')[0], // Use email prefix as username
           name: name || 'User',
           accountId: demoAccount.id,
           role: 'USER',

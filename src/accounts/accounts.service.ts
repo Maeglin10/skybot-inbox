@@ -133,6 +133,7 @@ export class AccountsService {
       const user = await this.prisma.userAccount.create({
         data: {
           accountId,
+          username: dto.email.split('@')[0], // Use email prefix as username
           name: dto.name,
           email: dto.email,
           phone: dto.phone,
