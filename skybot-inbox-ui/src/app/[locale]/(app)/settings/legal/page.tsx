@@ -1,16 +1,18 @@
 'use client';
 
+import { useTranslations } from '@/lib/translations';
 import { FileText, ExternalLink } from 'lucide-react';
 
 export default function LegalPage() {
+  const t = useTranslations('settings');
   const privacyUrl = process.env.NEXT_PUBLIC_PRIVACY_URL || '#';
   const termsUrl = process.env.NEXT_PUBLIC_TERMS_URL || '#';
 
   return (
     <div className="space-y-6">
        <div>
-          <h2 className="ui-pageTitle">Legal</h2>
-          <p className="ui-pageSubtitle">Review our legal documents and policies.</p>
+          <h2 className="ui-pageTitle">{t('legal')}</h2>
+          <p className="ui-pageSubtitle">{t('reviewLegal')}</p>
        </div>
        
        <div className="ui-card">
@@ -27,8 +29,8 @@ export default function LegalPage() {
                     <FileText size={20} />
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold">Privacy Policy</h3>
-                    <p className="text-xs text-muted-foreground">How we handle your data.</p>
+                    <h3 className="text-sm font-semibold">{t('privacyPolicy')}</h3>
+                    <p className="text-xs text-muted-foreground">{t('howWeHandleData')}</p>
                   </div>
                </div>
                <ExternalLink size={16} className="text-muted-foreground group-hover:text-primary transition-colors" />
@@ -45,8 +47,8 @@ export default function LegalPage() {
                     <FileText size={20} />
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold">Terms & Conditions</h3>
-                    <p className="text-xs text-muted-foreground">Rules and regulations.</p>
+                    <h3 className="text-sm font-semibold">{t('termsConditions')}</h3>
+                    <p className="text-xs text-muted-foreground">{t('rulesRegulations')}</p>
                   </div>
                </div>
                <ExternalLink size={16} className="text-muted-foreground group-hover:text-primary transition-colors" />

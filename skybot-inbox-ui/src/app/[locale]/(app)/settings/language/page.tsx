@@ -5,7 +5,6 @@ import { useTranslations } from '@/lib/translations';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { usePathname, useRouter } from '@/i18n/navigation';
 import { Languages, Check } from 'lucide-react';
-import { apiPatchClient } from '@/lib/api.client';
 
 const LOCALES = [
   { code: 'en', label: 'English' },
@@ -16,12 +15,14 @@ const LOCALES = [
 
 export default function LanguagePage() {
   const t = useTranslations('settings');
-  const locale = 'es'; // Hardcoded to Spanish
+  const locale = 'es'; // Hardcoded Spanish UI
   const { preferences, updatePreferences } = useUserPreferences();
 
+  // We only enable preference saving now, as UI is forced to ES.
   const handleLanguageChange = (newLocale: string) => {
-    // Update preferences in backend
     updatePreferences({ language: newLocale });
+    // In a real full i18n app we would route/reload here.
+    // For this demo with hardcoded ES, we just save the user preference.
   };
 
   return (
@@ -35,13 +36,18 @@ export default function LanguagePage() {
           <div className="ui-card__header">
              <div className="flex items-center gap-2">
                 <Languages size={18} />
-                <span className="font-semibold">{t('language')}</span>
+                <span className="font-semibold">{t('systemLanguage')}</span>
              </div>
           </div>
           <div className="ui-card__body">
+             <p className="text-sm text-muted-foreground mb-4">
+               {/* Inform the user the UI is locked to ES for this demo if desired, or just show the selector */}
+               La interfaz está configurada actualmente en Español. Puedes cambiar tu preferencia regional abajo.
+             </p>
              <div className="grid gap-2 max-w-sm">
                 {LOCALES.map(l => {
-                   const isActive = locale === l.code;
+                   // Calculate active based on user preference to give feedback
+                   const isActive = (preferences.language?.toLowerCase() || 'es') === l.code;
                    return (
                      <button
                        key={l.code}
