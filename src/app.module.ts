@@ -23,6 +23,7 @@ import { PreferencesModule } from './preferences/preferences.module';
 import { ChannelsModule } from './channels/channels.module';
 import { EncryptionModule } from './common/encryption/encryption.module';
 import { LegalModule } from './legal/legal.module';
+import { AdminModule } from './admin/admin.module';
 import { AppController } from './app.controller';
 import { TenantContextMiddleware } from './common/middleware/tenant-context.middleware';
 
@@ -37,6 +38,7 @@ import { TenantContextMiddleware } from './common/middleware/tenant-context.midd
     PrismaModule,
     EncryptionModule,
     LegalModule,
+    AdminModule,
     AgentsModule,
     AuthModule,
     AirtableModule,
