@@ -23,6 +23,7 @@ import { PreferencesModule } from './preferences/preferences.module';
 import { ChannelsModule } from './channels/channels.module';
 import { EncryptionModule } from './common/encryption/encryption.module';
 import { LegalModule } from './legal/legal.module';
+import { UsersModule } from './users/users.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -46,6 +47,7 @@ import { AppController } from './app.controller';
     UserPreferencesModule,
     PreferencesModule,
     ChannelsModule,
+    UsersModule,
     AccountsModule,
     InboxesModule,
     ContactsModule,
