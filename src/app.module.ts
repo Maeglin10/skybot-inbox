@@ -20,6 +20,7 @@ import { AlertsModule } from './alerts/alerts.module';
 import { SettingsModule } from './settings/settings.module';
 import { UserPreferencesModule } from './user-preferences/user-preferences.module';
 import { PreferencesModule } from './preferences/preferences.module';
+import { UsersModule } from './users/users.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -40,6 +41,7 @@ import { AppController } from './app.controller';
     SettingsModule,
     UserPreferencesModule,
     PreferencesModule,
+    UsersModule,
     AccountsModule,
     InboxesModule,
     ContactsModule,
