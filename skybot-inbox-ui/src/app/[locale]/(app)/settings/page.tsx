@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { useTranslations } from 'next-intl';
+import { useTranslations } from '@/lib/translations';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { Monitor, Moon, Sun, Clock, Calendar as CalendarIcon, Languages as LangIcon, Palette } from 'lucide-react';
 import { Theme, themes } from '@/lib/themes';

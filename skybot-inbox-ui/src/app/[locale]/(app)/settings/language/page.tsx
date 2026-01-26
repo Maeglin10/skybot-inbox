@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useTransition } from 'react';
-import { useTranslations, useLocale } from 'next-intl';
+import { useTranslations } from '@/lib/translations';
 import { useUserPreferences } from '@/hooks/use-user-preferences';
 import { usePathname, useRouter } from '@/i18n/navigation';
 import { Languages, Check } from 'lucide-react';
@@ -16,20 +16,12 @@ const LOCALES = [
 
 export default function LanguagePage() {
   const t = useTranslations('settings');
-  const locale = useLocale();
-  const router = useRouter();
-  const pathname = usePathname();
+  const locale = 'es'; // Hardcoded to Spanish
   const { preferences, updatePreferences } = useUserPreferences();
-  const [isPending, startTransition] = useTransition();
 
   const handleLanguageChange = (newLocale: string) => {
-    // 1. Optimistic UI update via hook (persists to backend)
+    // Update preferences in backend
     updatePreferences({ language: newLocale });
-
-    // 2. Switch locale routing immediately
-    startTransition(() => {
-      router.replace(pathname, { locale: newLocale });
-    });
   };
 
   return (

@@ -1,19 +1,17 @@
 'use client';
 
 import { Link, usePathname } from '@/i18n/navigation';
-import { useTranslations } from 'next-intl';
+import { useTranslations } from '@/lib/translations';
 import { User, Shield, Palette, Languages, FileText, CreditCard, Plug, ChevronRight } from 'lucide-react';
 
 const SETTINGS_NAV = [
-  // Keeping keys simple for now, using existing labels as fallback or map to translation keys
-  // For this exercise, I will use hardcoded mapping in render or assume specific keys
-  { href: '/settings/profile', label: 'Profile', icon: User },
-  { href: '/settings/security', label: 'Security', icon: Shield },
-  { href: '/settings/appearance', label: 'Appearance', icon: Palette },
-  { href: '/settings/language', label: 'Language', icon: Languages },
-  { href: '/settings/billing', label: 'Billing', icon: CreditCard },
-  { href: '/settings/integrations', label: 'Integrations', icon: Plug },
-  { href: '/settings/legal', label: 'Legal', icon: FileText },
+  { href: '/settings/profile', key: 'profile', icon: User },
+  { href: '/settings/security', key: 'security', icon: Shield },
+  { href: '/settings/appearance', key: 'appearance', icon: Palette },
+  { href: '/settings/language', key: 'language', icon: Languages },
+  { href: '/settings/billing', key: 'billing', icon: CreditCard },
+  { href: '/settings/integrations', key: 'integrations', icon: Plug },
+  { href: '/settings/legal', key: 'legal', icon: FileText },
 ];
 
 export function SettingsLayout({ children }: { children: React.ReactNode }) {
@@ -33,22 +31,20 @@ export function SettingsLayout({ children }: { children: React.ReactNode }) {
           {SETTINGS_NAV.map((it) => {
              const Icon = it.icon;
              const active = pathname === it.href;
-             // Try to find translation, fallback to label
-             const translatedLabel = it.label; 
-             
+
              return (
                <Link
                  key={it.href}
                  href={it.href}
                  className={`flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-lg transition-all group ${
-                    active 
-                      ? 'bg-background text-foreground shadow-sm border border-border/40' 
+                    active
+                      ? 'bg-background text-foreground shadow-sm border border-border/40'
                       : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
                  }`}
                >
                  <div className="flex items-center gap-3">
                     <Icon size={16} className={active ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground transition-colors'} />
-                    {translatedLabel}
+                    {t(it.key as any)}
                  </div>
                  {active && <ChevronRight size={14} className="text-muted-foreground" />}
                </Link>

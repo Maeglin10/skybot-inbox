@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useTransition } from 'react';
-import { useLocale, useTranslations } from 'next-intl';
-import { usePathname, useRouter } from '@/i18n/navigation';
+import React, { useState, useRef, useEffect } from 'react';
+import { useTranslations } from '@/lib/translations';
 import { apiPatchClient } from '@/lib/api.client';
 import { Check, ChevronDown, Languages, Globe } from 'lucide-react';
 
@@ -15,12 +14,9 @@ const LOCALES = [
 
 export function LanguageSwitcher({ userAccountId = "me" }: { userAccountId?: string }) {
   const t = useTranslations('settings');
-  const locale = useLocale();
-  const router = useRouter();
-  const pathname = usePathname();
+  const locale = 'es'; // Hardcoded to Spanish
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [isPending, startTransition] = useTransition();
 
   // Close on click outside
   useEffect(() => {
@@ -34,16 +30,11 @@ export function LanguageSwitcher({ userAccountId = "me" }: { userAccountId?: str
   }, []);
 
   const handleLanguageChange = (newLocale: string) => {
-    // 1. Switch locale (optimistic) via next-intl
-    startTransition(() => {
-      router.replace(pathname, { locale: newLocale });
-    });
     setIsOpen(false);
 
-    // 2. Persist to API
-    // Prompt asks for uppercase EN|FR|ES|PT
-    apiPatchClient(`/preferences/${userAccountId}`, { 
-      language: newLocale.toUpperCase() 
+    // Persist to API
+    apiPatchClient(`/preferences/${userAccountId}`, {
+      language: newLocale.toUpperCase()
     }).catch(console.error);
   };
 
@@ -70,10 +61,9 @@ export function LanguageSwitcher({ userAccountId = "me" }: { userAccountId?: str
             <button
               key={l.code}
               onClick={() => handleLanguageChange(l.code)}
-              disabled={isPending && locale === l.code}
               className={`w-full flex items-center justify-between px-2 py-2 rounded-md text-sm transition-colors ${
-                locale === l.code 
-                  ? 'bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))]' 
+                locale === l.code
+                  ? 'bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))]'
                   : 'hover:bg-[hsl(var(--muted))] text-[hsl(var(--foreground))]'
               }`}
             >
