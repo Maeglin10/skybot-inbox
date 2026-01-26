@@ -1,5 +1,3 @@
-<<<<<<< Updated upstream
-=======
 'use client';
 
 import { useTranslations } from '@/lib/translations';
@@ -16,27 +14,17 @@ const INTEGRATIONS = [
   { id: 'whatsapp', name: 'WhatsApp', icon: '📱', description: 'Messaging channel' },
 ];
 
->>>>>>> Stashed changes
 export default function IntegrationsPage() {
+  const t = useTranslations('settings');
+
   return (
     <div className="space-y-6">
        <div>
-<<<<<<< Updated upstream
-          <h2 className="text-2xl font-bold mb-1">Integrations</h2>
-          <p className="text-sm text-muted-foreground">Connect third-party tools.</p>
-=======
           <h2 className="ui-pageTitle">{t('integrationsTitle')}</h2>
           <p className="ui-pageSubtitle">{t('manageIntegrationsDesc')}</p>
->>>>>>> Stashed changes
        </div>
        
        <div className="grid gap-4">
-<<<<<<< Updated upstream
-          {['Google Calendar', 'Airtable', 'Slack', 'Zapier'].map(app => (
-             <div key={app} className="ui-card p-4 flex items-center justify-between">
-                <span className="font-semibold">{app}</span>
-                <button className="ui-btn h-8 text-xs">Connect</button>
-=======
           {INTEGRATIONS.map(app => (
              <div key={app.id} className="ui-card p-5 flex items-center justify-between transition-all hover:border-primary/50">
                 <div className="flex items-center gap-4">
@@ -57,7 +45,6 @@ export default function IntegrationsPage() {
                    <Plus size={14} />
                    {t('connect')}
                 </button>
->>>>>>> Stashed changes
              </div>
           ))}
        </div>

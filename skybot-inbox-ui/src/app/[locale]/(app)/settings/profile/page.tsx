@@ -1,9 +1,6 @@
 'use client';
 
 import * as React from 'react';
-<<<<<<< Updated upstream
-import { Camera } from 'lucide-react';
-=======
 import { useTranslations } from '@/lib/translations';
 import { Camera, Mail, User, Shield, Activity, UserCircle } from 'lucide-react';
 import { apiGetClient, apiPatchClient } from '@/lib/api.client';
@@ -16,16 +13,14 @@ interface UserProfile {
   status: string;
   avatarUrl?: string; // Optional if we support it later
 }
->>>>>>> Stashed changes
 
 export default function ProfilePage() {
+  const t = useTranslations('settings');
   const [loading, setLoading] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [saved, setSaved] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-<<<<<<< Updated upstream
-=======
   const [formData, setFormData] = React.useState<UserProfile | null>(null);
 
   // Load initial data
@@ -56,7 +51,6 @@ export default function ProfilePage() {
     return () => { mounted = false; };
   }, []);
 
->>>>>>> Stashed changes
   const handleSave = async () => {
     if(!formData) return;
     setSaving(true);
@@ -89,39 +83,20 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="space-y-8">
-       <div className="flex items-end justify-between border-b border-border/20 pb-4">
-          <div>
-             <h2 className="text-2xl font-bold mb-1">Profile</h2>
-             <p className="text-sm text-muted-foreground">Manage your personal information and avatar.</p>
-          </div>
+    <div className="space-y-6">
+       <div>
+          <h2 className="ui-pageTitle">{t('profile')}</h2>
+          <p className="ui-pageSubtitle">{t('manageProfile')}</p>
        </div>
 
-       <div className="grid gap-8">
-          <section className="ui-card p-6 flex flex-col sm:flex-row gap-6 items-start">
-             <div className="relative group cursor-pointer">
-                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-3xl font-bold text-primary border-4 border-background shadow-lg">
-                  JD
-                </div>
-                <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                   <Camera className="text-white" size={24} />
+       <div className="grid gap-6">
+          <section className="ui-card">
+             <div className="ui-card__header">
+                <div className="flex items-center gap-2">
+                   <UserCircle size={18} />
+                   <span className="font-semibold">{t('publicProfile')}</span>
                 </div>
              </div>
-<<<<<<< Updated upstream
-             <div className="flex-1 space-y-4 max-w-md w-full">
-                <div className="grid gap-1.5">
-                   <label className="text-xs font-semibold uppercase text-muted-foreground">Display Name</label>
-                   <input className="ui-input bg-background/50" defaultValue="John Doe" />
-                </div>
-                <div className="grid gap-1.5">
-                   <label className="text-xs font-semibold uppercase text-muted-foreground">Email Address</label>
-                   <input className="ui-input bg-background/50" defaultValue="john.doe@example.com" />
-                </div>
-                <div className="grid gap-1.5">
-                   <label className="text-xs font-semibold uppercase text-muted-foreground">Role</label>
-                   <input className="ui-input bg-muted/50 text-muted-foreground cursor-not-allowed" disabled defaultValue="Administrator" />
-                </div>
-=======
              
              <div className="ui-card__body flex flex-col sm:flex-row gap-8 items-start">
                 {/* Avatar Section */}
@@ -201,20 +176,8 @@ export default function ProfilePage() {
                 >
                    {saving ? t('saving') : t('saveChanges')}
                 </button>
->>>>>>> Stashed changes
              </div>
           </section>
-       </div>
-
-       <div className="flex items-center justify-end gap-3 pt-4">
-          {saved && <span className="text-xs font-medium text-green-500 animate-in fade-in">Changes saved successfully!</span>}
-          <button 
-             onClick={handleSave} 
-             disabled={loading}
-             className="ui-btn ui-btn--primary min-w-[100px]"
-          >
-             {loading ? 'Saving...' : 'Save Changes'}
-          </button>
        </div>
     </div>
   );
