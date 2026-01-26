@@ -17,7 +17,7 @@ const SETTINGS_NAV = [
 export function SettingsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const t = useTranslations('settings');
-  const tNav = useTranslations('navigation');
+  // Removed tNav since we only use 'settings' namespace keys now for navigation items
 
   return (
     <div className="ui-page flex flex-row h-full overflow-hidden bg-background">
@@ -25,7 +25,7 @@ export function SettingsLayout({ children }: { children: React.ReactNode }) {
       <aside className="w-72 border-r border-border/20 bg-muted/10 flex flex-col h-full">
         <div className="p-6 border-b border-border/20">
           <h1 className="text-xl font-bold">{t('preferences')}</h1>
-          <p className="text-xs text-muted-foreground mt-1">Manage workspace preferences</p>
+          <p className="text-xs text-muted-foreground mt-1">{t('manageWorkspace')}</p>
         </div>
         <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
           {SETTINGS_NAV.map((it) => {
@@ -37,14 +37,15 @@ export function SettingsLayout({ children }: { children: React.ReactNode }) {
                  key={it.href}
                  href={it.href}
                  className={`flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-lg transition-all group ${
-                    active
-                      ? 'bg-background text-foreground shadow-sm border border-border/40'
+                    active 
+                      ? 'bg-background text-foreground shadow-sm border border-border/40' 
                       : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
                  }`}
                >
                  <div className="flex items-center gap-3">
                     <Icon size={16} className={active ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground transition-colors'} />
-                    {t(it.key as any)}
+                    {/* @ts-ignore - Dynamic key access */}
+                    {t(it.key)}
                  </div>
                  {active && <ChevronRight size={14} className="text-muted-foreground" />}
                </Link>

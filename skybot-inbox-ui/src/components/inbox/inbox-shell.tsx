@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from '@/lib/translations';
 import { InboxList } from './list';
 import { InboxThread } from './thread';
 import { fetchConversation, fetchConversations } from '@/lib/inbox.client';
@@ -93,10 +94,8 @@ export function InboxShell({
   initialActiveId?: string | null;
 }) {
   const router = useRouter();
+  const t = useTranslations('inbox');
 
-  // Use mock data if initialItems empty (Demo Mode)
-  // In real prod, remove this || MOCK... logic if not desired.
-  // The user requested: "Si données mock/demo présentes → afficher conversations."
   const effectiveInitialItems = initialItems.length > 0 ? initialItems : MOCK_CONVERSATIONS;
 
   const [tab, setTab] = React.useState<Tab>('OPEN');
@@ -133,7 +132,6 @@ export function InboxShell({
     async (id: string) => {
       setActiveId(id);
       
-      // If it's a mock conversation, don't fetch from API
       const isMock = id.startsWith('demo-');
       if(isMock) {
          const found = MOCK_CONVERSATIONS.find(c => c.id === id);
@@ -162,24 +160,19 @@ export function InboxShell({
     [tab],
   );
 
-  // ---- user select (router + core)
   const selectUser = React.useCallback(
     (id: string) => {
-      // In next-intl or app router, we might want to keep URL clean or append. 
-      // For now, simpler to just keep client state or use shallow routing if possible.
       // router.push(`/inbox/${id}`, { scroll: false }); 
       void selectCore(id);
     },
     [router, selectCore],
   );
 
-  // Bootstrap OPEN tab list + cursor
   React.useEffect(() => {
     setByTab((prev) => ({ ...prev, OPEN: effectiveInitialItems }));
     setCursorByTab((prev) => ({ ...prev, OPEN: initialCursor }));
   }, [effectiveInitialItems, initialCursor]);
 
-  // If route gives an initialActiveId, load it once without pushing route again
   React.useEffect(() => {
     if (!initialActiveId) return;
     setActiveId(initialActiveId);
@@ -210,17 +203,12 @@ export function InboxShell({
     return sortedItems.filter((c) => matchSearch(c, searchQ));
   }, [sortedItems, searchQ]);
 
-  // Lazy-load per tab (only once when empty)
   React.useEffect(() => {
     const hasAny = (byTab[tab]?.length ?? 0) > 0;
     
     // Auto-fill mock data for other tabs if empty and we are using mocks in OPEN
     const usingMocks = effectiveInitialItems === MOCK_CONVERSATIONS;
-    if (usingMocks && !hasAny) {
-       // Just duplicate mocks for other tabs for demo feel? Or leave empty. 
-       // Start empty for other tabs to test "empty state" logic
-       return; 
-    }
+    if (usingMocks && !hasAny) return; 
 
     if (hasAny) return;
 
@@ -259,7 +247,6 @@ export function InboxShell({
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
   const refresh = React.useCallback((full: InboxConversation) => {
@@ -279,10 +266,9 @@ export function InboxShell({
     });
   }, []);
 
-  // Single polling effect: refresh active conversation without route changes.
   React.useEffect(() => {
     if (!activeId) return;
-    if (activeId.startsWith('demo-')) return; // No poll for mocks
+    if (activeId.startsWith('demo-')) return;
 
     const ms = clampPollMs(process.env.NEXT_PUBLIC_INBOX_POLL_MS);
 
@@ -321,7 +307,7 @@ export function InboxShell({
 
       if (active?.id === id) setActive({ ...active, status: nextStatus });
 
-      if (isMock) return; // Stop if mock
+      if (isMock) return;
 
       try {
         await patchConversationStatus({
@@ -399,20 +385,20 @@ export function InboxShell({
         <div className="border-r border-border/20 flex flex-col">
           <div className="ui-inboxHeader">
             <div className="ui-inboxHeader__top">
-              <div className="ui-inboxHeader__title font-bold text-lg">Inbox</div>
+              <div className="ui-inboxHeader__title font-bold text-lg">{t('title')}</div>
               <div className="ui-inboxHeader__state text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full border border-border/10">
                 {tab === 'OPEN'
-                  ? 'Open'
+                  ? t('open')
                   : tab === 'PENDING'
-                    ? 'Pending'
-                    : 'Closed'}
+                    ? t('pending')
+                    : t('closed')}
               </div>
             </div>
 
             <div className="ui-inboxHeader__tabs">
-              <TabBtn v="OPEN" label="Open" />
-              <TabBtn v="PENDING" label="Pending" />
-              <TabBtn v="CLOSED" label="Closed" />
+              <TabBtn v="OPEN" label={t('open')} />
+              <TabBtn v="PENDING" label={t('pending')} />
+              <TabBtn v="CLOSED" label={t('closed')} />
             </div>
 
             <div className="ui-inboxHeader__search">
@@ -420,7 +406,7 @@ export function InboxShell({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="ui-input"
-                placeholder="Search messages..."
+                placeholder={t('search')}
               />
             </div>
           </div>
@@ -431,8 +417,8 @@ export function InboxShell({
                 <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center opacity-50">
                    <Inbox size={24} className="text-muted-foreground" />
                 </div>
-                <p className="text-sm font-medium text-foreground">No conversations yet</p>
-                <p className="text-xs text-muted-foreground">New messages will appear here.</p>
+                <p className="text-sm font-medium text-foreground">{t('noConversations')}</p>
+                <p className="text-xs text-muted-foreground">{t('newMessagesWillAppear')}</p>
               </div>
             ) : (
               <InboxList
@@ -451,7 +437,7 @@ export function InboxShell({
               onClick={() => void loadMore()}
               disabled={!cursor || loadingMore}
             >
-              {cursor ? (loadingMore ? 'Loading...' : 'Load older messages') : 'All messages loaded'}
+              {cursor ? (loadingMore ? t('loading') : t('loadOlder')) : t('allLoaded')}
             </button>
           </div>
         </div>

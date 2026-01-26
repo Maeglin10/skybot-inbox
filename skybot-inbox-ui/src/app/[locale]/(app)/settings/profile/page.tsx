@@ -1,9 +1,11 @@
 'use client';
 
 import * as React from 'react';
+import { useTranslations } from '@/lib/translations';
 import { Camera, Mail, User, Shield, Activity, UserCircle } from 'lucide-react';
 
 export default function ProfilePage() {
+  const t = useTranslations('settings');
   const [loading, setLoading] = React.useState(false);
   const [saved, setSaved] = React.useState(false);
 
@@ -27,8 +29,8 @@ export default function ProfilePage() {
   return (
     <div className="space-y-6">
        <div>
-          <h2 className="ui-pageTitle">Profile</h2>
-          <p className="ui-pageSubtitle">Manage your personal information.</p>
+          <h2 className="ui-pageTitle">{t('profile')}</h2>
+          <p className="ui-pageSubtitle">{t('manageProfile')}</p>
        </div>
 
        <div className="grid gap-6">
@@ -36,7 +38,7 @@ export default function ProfilePage() {
              <div className="ui-card__header">
                 <div className="flex items-center gap-2">
                    <UserCircle size={18} />
-                   <span className="font-semibold">Public Profile</span>
+                   <span className="font-semibold">{t('publicProfile')}</span>
                 </div>
              </div>
              
@@ -51,7 +53,7 @@ export default function ProfilePage() {
                          <Camera className="text-white" size={20} />
                       </div>
                    </div>
-                   <button className="text-xs text-primary hover:underline font-medium">Change Avatar</button>
+                   <button className="text-xs text-primary hover:underline font-medium">{t('changeAvatar')}</button>
                 </div>
 
                 {/* Form Section */}
@@ -59,7 +61,7 @@ export default function ProfilePage() {
                    
                    <div className="space-y-1.5">
                       <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                         <User size={12} /> Full Name
+                         <User size={12} /> {t('fullName')}
                       </label>
                       <input 
                         className="ui-input w-full" 
@@ -70,7 +72,7 @@ export default function ProfilePage() {
 
                    <div className="space-y-1.5">
                       <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                         <Mail size={12} /> Email Address
+                         <Mail size={12} /> {t('email')}
                       </label>
                       <input 
                         className="ui-input w-full bg-muted/30" 
@@ -83,7 +85,7 @@ export default function ProfilePage() {
                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1.5">
                          <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                            <Shield size={12} /> Role
+                            <Shield size={12} /> {t('role')}
                          </label>
                          <div className="flex items-center px-3 h-[2.25rem] bg-muted/30 border border-border rounded-lg text-sm text-muted-foreground cursor-not-allowed">
                             {formData.role}
@@ -91,7 +93,7 @@ export default function ProfilePage() {
                       </div>
                       <div className="space-y-1.5">
                          <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                            <Activity size={12} /> Status
+                            <Activity size={12} /> {t('status')}
                          </label>
                          <div className="flex items-center px-3 h-[2.25rem] bg-green-500/10 border border-green-500/20 rounded-lg text-sm text-green-600 font-medium">
                             <div className="w-1.5 h-1.5 rounded-full bg-green-500 mr-2" />
@@ -104,13 +106,13 @@ export default function ProfilePage() {
              </div>
 
              <div className="p-4 border-t border-border flex justify-end items-center gap-4 bg-muted/30">
-                {saved && <span className="text-xs font-medium text-green-600 animate-in fade-in">Saved successfully!</span>}
+                {saved && <span className="text-xs font-medium text-green-600 animate-in fade-in">{t('saved')}</span>}
                 <button 
                    onClick={handleSave} 
                    disabled={loading}
                    className="ui-btn ui-btn--primary min-w-[100px]"
                 >
-                   {loading ? 'Saving...' : 'Save Changes'}
+                   {loading ? t('saving') : t('saveChanges')}
                 </button>
              </div>
           </section>
