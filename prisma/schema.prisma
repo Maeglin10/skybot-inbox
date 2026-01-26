@@ -15,6 +15,12 @@ model Account {
   name      String
   isDemo    Boolean  @default(false) // Demo account flag
   features  Json?    // Feature toggles: { crm: true, analytics: true, ... }
+
+  // Multi-tenant subscription fields
+  tier         Tier          @default(STARTER)
+  status       TenantStatus  @default(TRIAL)
+  trialEndsAt  DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -31,9 +37,19 @@ model Account {
   feedbacks          Feedback[]
   alerts             Alert[]
   channelConnections ChannelConnection[]
+  modules            TenantModule[]
+  integrations       Integration[]
+  corporateNumbers   CorporateNumber[]
+  subscription       Subscription?
+  usageTracking      UsageTracking[]
+  media              Media[]
+  ingestionJobs      IngestionJob[]
+  knowledgeItems     KnowledgeItem[]
 
   @@index([createdAt])
   @@index([isDemo])
+  @@index([tier])
+  @@index([status])
 }
 
 model ExternalAccount {
@@ -476,8 +492,11 @@ model Alert {
 // NEW ENUMS
 // =========================
 enum UserRole {
-  ADMIN
-  USER
+  SUPER_ADMIN  // Can manage all tenants
+  CLIENT_ADMIN // Can manage their tenant
+  AGENT_USER   // Regular user/agent
+  ADMIN        // Legacy - kept for backward compatibility
+  USER         // Legacy - kept for backward compatibility
 }
 
 enum AccountStatus {
@@ -559,4 +578,254 @@ enum ChannelConnectionStatus {
   INACTIVE
   ERROR
   PENDING
+}
+
+enum TenantStatus {
+  TRIAL
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+}
+
+enum Tier {
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+enum IntegrationProvider {
+  SHOPIFY
+  WHATSAPP
+  AIRTABLE
+  STRIPE
+  CUSTOM
+}
+
+enum IntegrationStatus {
+  PENDING
+  ACTIVE
+  ERROR
+  DISABLED
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+  AUDIO
+  DOCUMENT
+  OTHER
+}
+
+enum IngestionJobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum KnowledgeType {
+  PRODUCT
+  FAQ
+  POLICY
+  CUSTOM
+}
+
+// =========================
+// MULTI-TENANT MODULES
+// =========================
+model TenantModule {
+  id        String  @id @default(cuid())
+  tenantId  String
+  moduleKey String  // "inbox", "crm", "analytics", "shopify", etc.
+  enabled   Boolean @default(true)
+  limits    Json?   // { maxUsers: 10, messagesPerMonth: 5000 }
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Account @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, moduleKey])
+  @@index([tenantId])
+  @@index([moduleKey])
+}
+
+// =========================
+// INTEGRATIONS
+// =========================
+model Integration {
+  id       String              @id @default(cuid())
+  tenantId String
+  provider IntegrationProvider
+  status   IntegrationStatus   @default(PENDING)
+
+  credentials     String?   // Encrypted JSON with AES-256-GCM
+  config          Json?     // Non-sensitive config: { webhookUrl, etc. }
+  lastHealthCheck DateTime?
+  healthStatus    String?   // "healthy", "degraded", "down"
+  errorMessage    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Account @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, provider])
+  @@index([tenantId])
+  @@index([provider])
+  @@index([status])
+}
+
+// =========================
+// CORPORATE NUMBERS
+// =========================
+model CorporateNumber {
+  id       String @id @default(cuid())
+  tenantId String
+
+  phone          String  // Format: +1234567890
+  company        String?
+  department     String?
+  notes          String?
+  autoRespond    Boolean @default(false) // If false, alerts only
+  alertOnContact Boolean @default(true)  // Create alert when contacted
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Account @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, phone])
+  @@index([tenantId])
+  @@index([phone])
+}
+
+// =========================
+// SUBSCRIPTION & BILLING
+// =========================
+model Subscription {
+  id       String @id @default(cuid())
+  tenantId String @unique
+
+  stripeCustomerId     String?   @unique
+  stripeSubscriptionId String?   @unique
+  stripePriceId        String?
+
+  tier               Tier     @default(STARTER)
+  status             String   @default("trialing") // Stripe statuses: trialing, active, past_due, canceled
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  cancelAtPeriodEnd  Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Account @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([stripeCustomerId])
+  @@index([status])
+}
+
+// =========================
+// USAGE TRACKING
+// =========================
+model UsageTracking {
+  id       String @id @default(cuid())
+  tenantId String
+
+  metric String // "messages_sent", "users", "api_calls", etc.
+  value  Int
+  period String // "2024-01", "2024-W05", "2024-01-26"
+
+  createdAt DateTime @default(now())
+
+  tenant Account @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, metric, period])
+  @@index([tenantId])
+  @@index([metric])
+  @@index([period])
+}
+
+// =========================
+// MEDIA STORAGE
+// =========================
+model Media {
+  id       String @id @default(cuid())
+  tenantId String
+
+  fileUrl      String    // S3/R2 URL
+  fileName     String
+  type         MediaType
+  mimeType     String?
+  size         Int?      // bytes
+  source       String?   // "whatsapp", "shopify", "upload"
+  sourceId     String?   // External ID from source
+  thumbnailUrl String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Account @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([type])
+  @@index([source])
+  @@index([sourceId])
+}
+
+// =========================
+// INGESTION JOBS
+// =========================
+model IngestionJob {
+  id       String             @id @default(cuid())
+  tenantId String
+  status   IngestionJobStatus @default(PENDING)
+
+  type           String  // "shopify_products", "airtable_faq", "manual_upload"
+  source         String? // URL or identifier
+  progress       Int     @default(0) // 0-100
+  itemsProcessed Int     @default(0)
+  itemsTotal     Int     @default(0)
+  errorMessage   String?
+  metadata       Json?   // Additional context
+
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  tenant Account @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+}
+
+// =========================
+// KNOWLEDGE BASE
+// =========================
+model KnowledgeItem {
+  id       String        @id @default(cuid())
+  tenantId String
+  type     KnowledgeType @default(CUSTOM)
+
+  title     String
+  content   String   // Main content (could be markdown)
+  tags      String[] // PostgreSQL array
+  metadata  Json?    // Additional structured data
+  sourceUrl String?  // Original source URL
+  embedding String?  // Vector embedding for semantic search (future)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Account @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([type])
+  @@index([tags])
+  @@index([createdAt])
 }
