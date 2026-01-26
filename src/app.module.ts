@@ -34,6 +34,8 @@ import { BillingModule } from './billing/billing.module';
 import { CorporateNumbersModule } from './corporate-numbers/corporate-numbers.module';
 import { IngestionModule } from './ingestion/ingestion.module';
 import { KnowledgeModule } from './knowledge/knowledge.module';
+import { TemplatesModule } from './templates/templates.module';
+import { WebsocketsModule } from './websockets/websockets.module';
 import { AppController } from './app.controller';
 import { TenantContextMiddleware } from './common/middleware/tenant-context.middleware';
 
@@ -62,6 +64,8 @@ import { TenantContextMiddleware } from './common/middleware/tenant-context.midd
     IngestionModule,
     KnowledgeModule,
     AgentsModule,
+    TemplatesModule,
+    WebsocketsModule,
     AuthModule,
     AirtableModule,
     CrmModule,
