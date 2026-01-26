@@ -27,6 +27,13 @@ import { EncryptionModule } from './common/encryption/encryption.module';
 import { LegalModule } from './legal/legal.module';
 import { AdminModule } from './admin/admin.module';
 import { TenantModulesModule } from './tenant-modules/tenant-modules.module';
+import { ShopifyModule } from './shopify/shopify.module';
+import { MediaModule } from './media/media.module';
+import { IntegrationsModule } from './integrations/integrations.module';
+import { BillingModule } from './billing/billing.module';
+import { CorporateNumbersModule } from './corporate-numbers/corporate-numbers.module';
+import { IngestionModule } from './ingestion/ingestion.module';
+import { KnowledgeModule } from './knowledge/knowledge.module';
 import { AppController } from './app.controller';
 import { TenantContextMiddleware } from './common/middleware/tenant-context.middleware';
 
@@ -47,6 +54,13 @@ import { TenantContextMiddleware } from './common/middleware/tenant-context.midd
     LegalModule,
     AdminModule,
     TenantModulesModule,
+    ShopifyModule,
+    MediaModule,
+    IntegrationsModule,
+    BillingModule,
+    CorporateNumbersModule,
+    IngestionModule,
+    KnowledgeModule,
     AgentsModule,
     AuthModule,
     AirtableModule,
