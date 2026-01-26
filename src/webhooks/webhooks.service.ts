@@ -179,18 +179,20 @@ export class WebhooksService {
         if (txResult.stored) {
           stored += 1;
 
+          // TODO: Migrate to new agents system (Agent model + SkyBot API deployment)
+          // Temporarily disabled during agents system refactor
           // Trigger n8n APRÈS la transaction (synchrone, pas fire-and-forget)
-          if (txResult.triggerData) {
-            try {
-              await this.agents.trigger(txResult.triggerData);
-            } catch (triggerErr) {
-              // Log l'erreur mais ne fait pas échouer le webhook
-              // Le message est déjà stocké, n8n sera retry plus tard si besoin
-              this.logger.error(
-                `n8n trigger failed for message ${txResult.triggerData.messageId}: ${triggerErr instanceof Error ? triggerErr.message : String(triggerErr)}`,
-              );
-            }
-          }
+          // if (txResult.triggerData) {
+          //   try {
+          //     await this.agents.trigger(txResult.triggerData);
+          //   } catch (triggerErr) {
+          //     // Log l'erreur mais ne fait pas échouer le webhook
+          //     // Le message est déjà stocké, n8n sera retry plus tard si besoin
+          //     this.logger.error(
+          //       `n8n trigger failed for message ${txResult.triggerData.messageId}: ${triggerErr instanceof Error ? triggerErr.message : String(triggerErr)}`,
+          //     );
+          //   }
+          // }
         }
 
         await this.prisma.routingLog.update({

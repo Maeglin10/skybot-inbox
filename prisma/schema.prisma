@@ -45,6 +45,7 @@ model Account {
   media              Media[]
   ingestionJobs      IngestionJob[]
   knowledgeItems     KnowledgeItem[]
+  agents             Agent[]
 
   @@index([createdAt])
   @@index([isDemo])
@@ -828,4 +829,100 @@ model KnowledgeItem {
   @@index([type])
   @@index([tags])
   @@index([createdAt])
+}
+
+// =========================
+// AGENTS SYSTEM
+// =========================
+model Agent {
+  id        String      @id @default(cuid())
+  accountId String      // Multi-tenant isolation
+
+  agentName     String
+  agentType     AgentType
+  status        AgentStatus @default(INACTIVE)
+
+  // N8N Integration
+  n8nWorkflowId String?   // N8N workflow ID after deployment
+  templatePath  String    // Path to JSON template (e.g., "templates/sales/lead-scorer.json")
+
+  // Configuration
+  configJson    Json?     // Client-specific config (encrypted if contains sensitive data)
+
+  // Metrics
+  executionCount Int      @default(0)
+  errorCount     Int      @default(0)
+  lastExecutedAt DateTime?
+
+  // Timestamps
+  createdAt     DateTime @default(now())
+  deployedAt    DateTime?
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  account Account    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  logs    AgentLog[]
+
+  @@index([accountId])
+  @@index([status])
+  @@index([agentType])
+  @@index([accountId, status])
+}
+
+model AgentLog {
+  id        String          @id @default(cuid())
+  agentId   String
+  accountId String          // For analytics per tenant
+
+  executionStatus ExecutionStatus
+  inputMessage    String?         @db.Text
+  outputMessage   String?         @db.Text
+
+  // Performance Metrics
+  processingTimeMs Int
+  openaiTokensUsed Int?
+  openaiCostUsd    Decimal?        @db.Decimal(10, 6)
+
+  errorMessage String?  @db.Text
+  timestamp    DateTime @default(now())
+
+  // Relations
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([agentId])
+  @@index([accountId])
+  @@index([timestamp])
+  @@index([executionStatus])
+  @@index([agentId, timestamp])
+  @@index([accountId, timestamp])
+}
+
+enum AgentType {
+  SALES
+  SUPPORT
+  ANALYTICS
+  HR
+  FINANCE
+  LEGAL
+  CONTENT
+  MARKETPLACE
+  DEVOPS
+  OPERATIONS
+  INTERNAL
+  INTELLIGENCE
+}
+
+enum AgentStatus {
+  ACTIVE
+  INACTIVE
+  DEPLOYING
+  ERROR
+  SUSPENDED
+}
+
+enum ExecutionStatus {
+  SUCCESS
+  ERROR
+  TIMEOUT
+  CANCELLED
 }
