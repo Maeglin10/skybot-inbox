@@ -19,18 +19,17 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({
   children,
-  params
 }: {
   children: React.ReactNode;
-  params: Promise<{ locale: string }>;
 }) {
-  const { locale } = await params;
-  const messages = await getMessages();
+  // Hardcoded locale for simplified i18n
+  const locale = 'fr';
+  const messages = await getMessages({ locale });
 
   return (
     <html lang={locale} className={`${nxSans.variable} dark`} suppressHydrationWarning>
       <body>
-        <NextIntlClientProvider messages={messages}>
+        <NextIntlClientProvider messages={messages} locale={locale}>
           <Providers>{children}</Providers>
         </NextIntlClientProvider>
       </body>
