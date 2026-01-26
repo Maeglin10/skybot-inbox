@@ -3,12 +3,18 @@
 import React, { useState } from 'react';
 import { useTranslations } from '@/lib/translations';
 import { Shield, Key, AlertCircle, CheckCircle } from 'lucide-react';
+import { apiPostClient } from '@/lib/api.client';
 
 export default function SecurityPage() {
   const t = useTranslations('settings');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Form state
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -16,12 +22,32 @@ export default function SecurityPage() {
     setError(null);
     setSuccess(false);
 
-    // Mock API call
-    setTimeout(() => {
+    if (newPassword !== confirmPassword) {
+      setError('Las contraseñas no coinciden'); // Simple spanish error
       setLoading(false);
+      return;
+    }
+
+    try {
+      await apiPostClient('users/me/change-password', {
+        currentPassword,
+        newPassword
+      });
+      
       setSuccess(true);
-      // In real scenario: catch error -> setError("Incorrect password") etc.
-    }, 1500);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      
+      // Auto-hide success message
+      setTimeout(() => setSuccess(false), 5000);
+      
+    } catch (err: any) {
+      console.error(err);
+      setError('Error al actualizar la contraseña. Verifique su contraseña actual.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -56,18 +82,39 @@ export default function SecurityPage() {
                 <label className="text-xs font-medium mb-1.5 block text-muted-foreground">{t('currentPassword')}</label>
                 <div className="relative">
                    <Key size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                   <input required type="password" className="ui-input pl-9 w-full" placeholder="••••••••" />
+                   <input 
+                      required 
+                      type="password" 
+                      className="ui-input pl-9 w-full" 
+                      placeholder="••••••••" 
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                   />
                 </div>
              </div>
              
              <div className="grid grid-cols-2 gap-4">
                <div>
                   <label className="text-xs font-medium mb-1.5 block text-muted-foreground">{t('newPassword')}</label>
-                  <input required type="password" className="ui-input w-full" placeholder="••••••••" />
+                  <input 
+                      required 
+                      type="password" 
+                      className="ui-input w-full" 
+                      placeholder="••••••••" 
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                  />
                </div>
                <div>
                   <label className="text-xs font-medium mb-1.5 block text-muted-foreground">{t('confirmPassword')}</label>
-                  <input required type="password" className="ui-input w-full" placeholder="••••••••" />
+                  <input 
+                      required 
+                      type="password" 
+                      className="ui-input w-full" 
+                      placeholder="••••••••" 
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                  />
                </div>
              </div>
           </div>
