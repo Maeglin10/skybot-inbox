@@ -97,6 +97,17 @@ export class AgentsController {
   }
 
   /**
+   * Deploy agent to SkyBot/N8N
+   * Manually triggers deployment to SkyBot API
+   * Only admins can trigger deployment
+   */
+  @Post(':id/deploy-to-skybot')
+  @Roles(UserRole.CLIENT_ADMIN, UserRole.SUPER_ADMIN)
+  async deployToSkybot(@CurrentUser() user: any, @Param('id') id: string) {
+    return this.agentsService.deployToSkybot(user.accountId, id);
+  }
+
+  /**
    * Get agent statistics
    * Returns execution metrics, success rate, costs, etc.
    */

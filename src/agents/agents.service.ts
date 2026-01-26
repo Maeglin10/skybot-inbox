@@ -12,6 +12,7 @@ import { UpdateAgentDto } from './dto/update-agent.dto';
 import { AgentStatus, ExecutionStatus } from '@prisma/client';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { Logger } from 'winston';
+import { SkybotApiClient } from './skybot-api.client';
 
 @Injectable()
 export class AgentsService {
@@ -19,6 +20,7 @@ export class AgentsService {
 
   constructor(
     private prisma: PrismaService,
+    private skybotClient: SkybotApiClient,
     @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
   ) {}
 
@@ -39,7 +41,7 @@ export class AgentsService {
     });
 
     // Create agent in database with DEPLOYING status
-    const agent = await this.prisma.agent.create({
+    let agent = await this.prisma.agent.create({
       data: {
         accountId,
         agentName: dto.agentName,
@@ -50,20 +52,69 @@ export class AgentsService {
       },
     });
 
-    // TODO: Call SkyBot API to deploy N8N workflow
-    // For now, we'll mark it as INACTIVE and return
-    // In Phase 2, we'll implement the actual deployment via HTTP call to SkyBot
+    // Call SkyBot API to deploy N8N workflow
+    try {
+      this.logger.info('Deploying agent to SkyBot', {
+        agentId: agent.id,
+        templatePath: dto.templatePath,
+      });
 
-    await this.prisma.agent.update({
-      where: { id: agent.id },
-      data: {
-        status: AgentStatus.INACTIVE,
-      },
-    });
+      const deploymentResult = await this.skybotClient.deployAgent({
+        templatePath: dto.templatePath,
+        clientId: accountId,
+        config: dto.configJson,
+      });
+
+      if (deploymentResult.success && deploymentResult.workflowId) {
+        // Deployment successful - store workflow ID and set status to INACTIVE
+        agent = await this.prisma.agent.update({
+          where: { id: agent.id },
+          data: {
+            n8nWorkflowId: deploymentResult.workflowId,
+            status: AgentStatus.INACTIVE,
+            deployedAt: new Date(),
+          },
+        });
+
+        this.logger.info('Agent deployed successfully to SkyBot', {
+          agentId: agent.id,
+          workflowId: deploymentResult.workflowId,
+          workflowUrl: deploymentResult.workflowUrl,
+        });
+      } else {
+        // Deployment failed - mark as error
+        agent = await this.prisma.agent.update({
+          where: { id: agent.id },
+          data: {
+            status: AgentStatus.ERROR,
+          },
+        });
+
+        this.logger.error('SkyBot deployment failed', {
+          agentId: agent.id,
+          error: deploymentResult.error,
+        });
+      }
+    } catch (error) {
+      // Handle deployment errors gracefully
+      this.logger.error('Error deploying agent to SkyBot', {
+        agentId: agent.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      // Mark agent as INACTIVE (not ERROR) so user can retry deployment
+      agent = await this.prisma.agent.update({
+        where: { id: agent.id },
+        data: {
+          status: AgentStatus.INACTIVE,
+        },
+      });
+    }
 
     this.logger.info('Agent created successfully', {
       agentId: agent.id,
       accountId,
+      status: agent.status,
     });
 
     // Emit WebSocket event
@@ -141,6 +192,87 @@ export class AgentsService {
   }
 
   /**
+   * Manually deploy agent to SkyBot (for re-deployment or retry)
+   */
+  async deployToSkybot(accountId: string, agentId: string) {
+    const agent = await this.findOne(accountId, agentId);
+
+    this.logger.info('Manually deploying agent to SkyBot', {
+      agentId,
+      templatePath: agent.templatePath,
+    });
+
+    // Update status to DEPLOYING
+    await this.prisma.agent.update({
+      where: { id: agentId },
+      data: { status: AgentStatus.DEPLOYING },
+    });
+
+    try {
+      const deploymentResult = await this.skybotClient.deployAgent({
+        templatePath: agent.templatePath,
+        clientId: accountId,
+        config: agent.configJson as Record<string, any>,
+      });
+
+      if (deploymentResult.success && deploymentResult.workflowId) {
+        // Deployment successful
+        const updated = await this.prisma.agent.update({
+          where: { id: agentId },
+          data: {
+            n8nWorkflowId: deploymentResult.workflowId,
+            status: AgentStatus.INACTIVE,
+            deployedAt: new Date(),
+          },
+        });
+
+        this.logger.info('Agent deployed successfully to SkyBot', {
+          agentId,
+          workflowId: deploymentResult.workflowId,
+        });
+
+        return {
+          success: true,
+          agent: updated,
+          workflowId: deploymentResult.workflowId,
+          workflowUrl: deploymentResult.workflowUrl,
+        };
+      } else {
+        // Deployment failed
+        await this.prisma.agent.update({
+          where: { id: agentId },
+          data: { status: AgentStatus.ERROR },
+        });
+
+        this.logger.error('SkyBot deployment failed', {
+          agentId,
+          error: deploymentResult.error,
+        });
+
+        return {
+          success: false,
+          error: deploymentResult.error || 'Unknown deployment error',
+        };
+      }
+    } catch (error) {
+      this.logger.error('Error deploying agent to SkyBot', {
+        agentId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      // Mark agent as ERROR
+      await this.prisma.agent.update({
+        where: { id: agentId },
+        data: { status: AgentStatus.ERROR },
+      });
+
+      throw new BadRequestException(
+        `Failed to deploy agent: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
    * Activate an agent
    */
   async activate(accountId: string, agentId: string) {
@@ -150,22 +282,44 @@ export class AgentsService {
       throw new BadRequestException('Agent is already active');
     }
 
-    this.logger.info('Activating agent', { agentId, accountId });
-
-    const updated = await this.prisma.agent.update({
-      where: { id: agentId },
-      data: {
-        status: AgentStatus.ACTIVE,
-        deployedAt: new Date(),
-      },
-    });
-
-    // Emit WebSocket event
-    if (this.gateway) {
-      this.gateway.emitAgentStatusChanged(accountId, agentId, AgentStatus.ACTIVE);
+    if (!agent.n8nWorkflowId) {
+      throw new BadRequestException('Agent has no deployed workflow to activate');
     }
 
-    return updated;
+    this.logger.info('Activating agent', { agentId, accountId, workflowId: agent.n8nWorkflowId });
+
+    // Call SkyBot API to activate N8N workflow
+    try {
+      const result = await this.skybotClient.activateWorkflow(agent.n8nWorkflowId);
+
+      if (!result.success) {
+        throw new BadRequestException('Failed to activate workflow on SkyBot');
+      }
+
+      const updated = await this.prisma.agent.update({
+        where: { id: agentId },
+        data: {
+          status: AgentStatus.ACTIVE,
+          deployedAt: new Date(),
+        },
+      });
+
+      this.logger.info('Agent activated successfully', { agentId, workflowId: agent.n8nWorkflowId });
+
+      // Emit WebSocket event
+      if (this.gateway) {
+        this.gateway.emitAgentStatusChanged(accountId, agentId, AgentStatus.ACTIVE);
+      }
+
+      return updated;
+    } catch (error) {
+      this.logger.error('Failed to activate agent', {
+        agentId,
+        workflowId: agent.n8nWorkflowId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
   }
 
   /**
@@ -178,59 +332,99 @@ export class AgentsService {
       throw new BadRequestException('Agent is already inactive');
     }
 
-    this.logger.info('Deactivating agent', { agentId, accountId });
-
-    const updated = await this.prisma.agent.update({
-      where: { id: agentId },
-      data: { status: AgentStatus.INACTIVE },
-    });
-
-    // Emit WebSocket event
-    if (this.gateway) {
-      this.gateway.emitAgentStatusChanged(accountId, agentId, AgentStatus.INACTIVE);
+    if (!agent.n8nWorkflowId) {
+      throw new BadRequestException('Agent has no deployed workflow to deactivate');
     }
 
-    return updated;
+    this.logger.info('Deactivating agent', { agentId, accountId, workflowId: agent.n8nWorkflowId });
+
+    // Call SkyBot API to deactivate N8N workflow
+    try {
+      const result = await this.skybotClient.deactivateWorkflow(agent.n8nWorkflowId);
+
+      if (!result.success) {
+        throw new BadRequestException('Failed to deactivate workflow on SkyBot');
+      }
+
+      const updated = await this.prisma.agent.update({
+        where: { id: agentId },
+        data: { status: AgentStatus.INACTIVE },
+      });
+
+      this.logger.info('Agent deactivated successfully', { agentId, workflowId: agent.n8nWorkflowId });
+
+      // Emit WebSocket event
+      if (this.gateway) {
+        this.gateway.emitAgentStatusChanged(accountId, agentId, AgentStatus.INACTIVE);
+      }
+
+      return updated;
+    } catch (error) {
+      this.logger.error('Failed to deactivate agent', {
+        agentId,
+        workflowId: agent.n8nWorkflowId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
   }
 
   /**
    * Get agent statistics
+   * Optimized with database aggregations
    */
   async getStats(accountId: string, agentId: string) {
     const agent = await this.findOne(accountId, agentId);
 
-    // Get recent logs (last 100)
-    const recentLogs = await this.prisma.agentLog.findMany({
-      where: {
-        agentId,
-        timestamp: {
-          gte: new Date(Date.now() - 24 * 60 * 60 * 1000), // Last 24 hours
+    const last24HoursDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    // Use database aggregations for better performance
+    const [totalCount, successCount, errorCount, aggregations] = await Promise.all([
+      // Total count of executions in last 24 hours
+      this.prisma.agentLog.count({
+        where: {
+          agentId,
+          timestamp: { gte: last24HoursDate },
         },
-      },
-      orderBy: { timestamp: 'desc' },
-      take: 100,
-    });
+      }),
 
-    const successCount = recentLogs.filter(
-      (l) => l.executionStatus === ExecutionStatus.SUCCESS,
-    ).length;
+      // Success count
+      this.prisma.agentLog.count({
+        where: {
+          agentId,
+          timestamp: { gte: last24HoursDate },
+          executionStatus: ExecutionStatus.SUCCESS,
+        },
+      }),
 
-    const errorCount = recentLogs.filter(
-      (l) => l.executionStatus === ExecutionStatus.ERROR,
-    ).length;
+      // Error count
+      this.prisma.agentLog.count({
+        where: {
+          agentId,
+          timestamp: { gte: last24HoursDate },
+          executionStatus: ExecutionStatus.ERROR,
+        },
+      }),
 
-    const avgProcessingTime =
-      recentLogs.length > 0
-        ? recentLogs.reduce((sum, l) => sum + l.processingTimeMs, 0) /
-          recentLogs.length
-        : 0;
+      // Aggregate processing time and cost
+      this.prisma.agentLog.aggregate({
+        where: {
+          agentId,
+          timestamp: { gte: last24HoursDate },
+        },
+        _avg: {
+          processingTimeMs: true,
+        },
+        _sum: {
+          openaiCostUsd: true,
+        },
+      }),
+    ]);
 
-    const totalCost = recentLogs.reduce((sum, l) => {
-      const cost = l.openaiCostUsd
-        ? parseFloat(l.openaiCostUsd.toString())
-        : 0;
-      return sum + cost;
-    }, 0);
+    const avgProcessingTime = aggregations._avg.processingTimeMs || 0;
+    const totalCost = aggregations._sum.openaiCostUsd
+      ? parseFloat(aggregations._sum.openaiCostUsd.toString())
+      : 0;
 
     return {
       agentId,
@@ -240,11 +434,10 @@ export class AgentsService {
       totalErrors: agent.errorCount,
       lastExecutedAt: agent.lastExecutedAt,
       last24Hours: {
-        executions: recentLogs.length,
+        executions: totalCount,
         successCount,
         errorCount,
-        successRate:
-          recentLogs.length > 0 ? successCount / recentLogs.length : 0,
+        successRate: totalCount > 0 ? successCount / totalCount : 0,
         avgProcessingTimeMs: Math.round(avgProcessingTime),
         totalCostUsd: totalCost.toFixed(4),
       },
