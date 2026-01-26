@@ -16,18 +16,18 @@ import {
 // ThemeSwitcher removed from Sidebar footer
 
 const NAV_ITEMS = [
-  // { href: '/dashboard', key: 'dashboard', icon: LayoutDashboard }, 
-  { href: '/inbox', key: 'inbox', icon: Inbox },
-  { href: '/alerts', key: 'alerts', icon: Bell },
-  { href: '/crm', key: 'crm', icon: Users },
-  { href: '/calendar', key: 'calendar', icon: Calendar },
-  { href: '/analytics', key: 'analytics', icon: BarChart3 },
-  { href: '/account/login', key: 'account', icon: User },
-  { href: '/settings', key: 'settings', icon: Settings },
+  // { href: '/es/dashboard', key: 'dashboard', icon: LayoutDashboard },
+  { href: '/es/inbox', key: 'inbox', icon: Inbox },
+  { href: '/es/alerts', key: 'alerts', icon: Bell },
+  { href: '/es/crm', key: 'crm', icon: Users },
+  { href: '/es/calendar', key: 'calendar', icon: Calendar },
+  { href: '/es/analytics', key: 'analytics', icon: BarChart3 },
+  { href: '/es/account/login', key: 'account', icon: User },
+  { href: '/es/settings', key: 'settings', icon: Settings },
 ];
 
 function isActive(pathname: string, href: string) {
-  // next-intl usePathname returns path without locale, so strict check or startsWith works
+  // Check if current pathname matches the href
   return pathname === href || pathname.startsWith(href + '/');
 }
 

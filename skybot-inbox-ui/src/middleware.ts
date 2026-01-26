@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // Hardcoded locale - simplified i18n
-const LOCALE = 'fr';
+const LOCALE = 'es';
 
 // Protected routes that require authentication
 const protectedRoutes = [
