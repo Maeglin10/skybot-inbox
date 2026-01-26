@@ -20,7 +20,7 @@ export default function AppearancePage() {
     <div className="space-y-8">
       <div>
         <h2 className="ui-pageTitle">{t('theme')}</h2>
-        <p className="ui-pageSubtitle">Customize the look and feel of your workspace.</p>
+        <p className="ui-pageSubtitle">{t('customizeLook')}</p>
       </div>
 
       <div className="ui-card">
@@ -34,25 +34,25 @@ export default function AppearancePage() {
            
            {/* Mode Toggle */}
            <div className="flex flex-col gap-2">
-             <label className="text-sm font-medium text-foreground">Mode</label>
+             <label className="text-sm font-medium text-foreground">{t('mode')}</label>
              <div className="flex items-center gap-2 bg-muted p-1 rounded-lg w-fit">
                 <button 
                   onClick={() => setMode('light')}
                   className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-all ${mode === 'light' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                 >
-                   <Sun size={16} /> Light
+                   <Sun size={16} /> {t('light')}
                 </button>
                 <button 
                   onClick={() => setMode('system')}
                   className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-all ${mode === 'system' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                 >
-                   <Monitor size={16} /> Auto
+                   <Monitor size={16} /> {t('auto')}
                 </button>
                 <button 
                   onClick={() => setMode('dark')}
                   className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-all ${mode === 'dark' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                 >
-                   <Moon size={16} /> Dark
+                   <Moon size={16} /> {t('dark')}
                 </button>
              </div>
            </div>
@@ -62,8 +62,6 @@ export default function AppearancePage() {
               {THEME_NAMES.map(themeName => {
                  const isActive = preferences.theme === themeName;
                  // Get preview colors
-                 // Always use light mode variables for the preview swatch to be consistent visually regardless of current mode?
-                 // Actually better to use the mode corresponding variables if we want true preview, but 'light' is safe choice for catalog.
                  const vars = themes[themeName].light; 
                  const bg = `hsl(${vars['--background']})`;
                  const primary = `hsl(${vars['--primary']})`;

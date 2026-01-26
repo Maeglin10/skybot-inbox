@@ -19,7 +19,7 @@ const translations = {
     security: 'Seguridad',
     billing: 'Facturación',
     integrations: 'Integraciones',
-    language: 'Idioma',
+    language: 'Idioma y Región',
     legal: 'Legal',
     theme: 'Tema',
     selectTheme: 'Seleccionar tema',
@@ -27,6 +27,61 @@ const translations = {
     timezone: 'Zona horaria',
     dateFormat: 'Formato de fecha',
     timeFormat: 'Formato de hora',
+    manageWorkspace: 'Gestionar preferencias del espacio de trabajo',
+    customizeLook: 'Personaliza la apariencia',
+    customizeRegional: 'Personaliza idioma y región',
+    manageSecurity: 'Gestionar seguridad y credenciales',
+    manageProfile: 'Gestionar información personal',
+    manageBilling: 'Gestionar facturación y plan',
+    manageIntegrations: 'Gestionar integraciones externas',
+    reviewLegal: 'Revisar documentos legales y políticas',
+    changePassword: 'Cambiar contraseña',
+    currentPassword: 'Contraseña actual',
+    newPassword: 'Nueva contraseña',
+    confirmPassword: 'Confirmar contraseña',
+    updatePassword: 'Actualizar contraseña',
+    passwordUpdated: 'Contraseña actualizada con éxito',
+    publicProfile: 'Perfil Público',
+    changeAvatar: 'Cambiar Avatar',
+    fullName: 'Nombre Completo',
+    email: 'Correo Electrónico',
+    role: 'Rol',
+    status: 'Estado',
+    saveChanges: 'Guardar Cambios',
+    saving: 'Guardando...',
+    saved: '¡Guardado con éxito!',
+    mode: 'Modo',
+    light: 'Claro',
+    dark: 'Oscuro',
+    auto: 'Auto',
+    privacyPolicy: 'Política de Privacidad',
+    termsConditions: 'Términos y Condiciones',
+    dataProcessing: 'Acuerdo de Procesamiento de Datos',
+    systemLanguage: 'Idioma del Sistema',
+    howWeHandleData: 'Cómo manejamos tus datos',
+    rulesRegulations: 'Reglas y regulaciones',
+    billingTitle: 'Facturación',
+    billingDescription: 'Gestiona tu suscripción y facturas',
+    billingDemo: 'El módulo de facturación no está configurado para esta demostración.',
+    integrationsTitle: 'Integraciones',
+    integrationsDescription: 'Conectar herramientas de terceros',
+    connect: 'Conectar',
+    connected: 'Conectado',
+  },
+  inbox: {
+    title: 'Bandeja de entrada',
+    open: 'Abiertos',
+    pending: 'Pendientes',
+    closed: 'Cerrados',
+    search: 'Buscar mensajes...',
+    noConversations: 'No hay conversaciones',
+    newMessagesWillAppear: 'Los nuevos mensajes aparecerán aquí',
+    loadOlder: 'Cargar mensajes antiguos',
+    loading: 'Cargando...',
+    allLoaded: 'Todos los mensajes cargados',
+    typeMessage: 'Escribe un mensaje...',
+    send: 'Enviar',
+    unassigned: 'Sin asignar',
   },
   appearance: {
     title: 'Apariencia',
@@ -49,11 +104,10 @@ const translations = {
 };
 
 type TranslationNamespace = keyof typeof translations;
-type TranslationKey<T extends TranslationNamespace> = keyof typeof translations[T];
 
-// Simple hook to replace useTranslations from next-intl
 export function useTranslations<T extends TranslationNamespace>(namespace: T) {
-  return (key: TranslationKey<T>) => {
+  return (key: keyof typeof translations[T]) => {
+    // @ts-ignore - Dynamic key access
     const value = translations[namespace][key];
     return typeof value === 'string' ? value : String(key);
   };

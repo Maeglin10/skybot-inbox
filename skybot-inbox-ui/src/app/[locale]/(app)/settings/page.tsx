@@ -34,7 +34,7 @@ export default function PreferencesPage() {
   const t = useTranslations('settings');
   const tCommon = useTranslations('common');
   const { preferences, loading, saving, updatePreferences } = useUserPreferences();
-  const { mode, setMode } = useTheme(); // We can use global theme context for mode
+  const { mode, setMode } = useTheme(); 
 
   if (loading) {
      return <div className="p-8 text-muted-foreground">{tCommon('loading')}</div>;
@@ -46,7 +46,7 @@ export default function PreferencesPage() {
       {/* Header */}
       <div>
         <h2 className="ui-pageTitle">{t('preferences')}</h2>
-        <p className="ui-pageSubtitle">Customize your interface and regional settings.</p>
+        <p className="ui-pageSubtitle">{t('customizeRegional')}</p>
       </div>
 
       {/* Appearance Section */}
@@ -61,25 +61,25 @@ export default function PreferencesPage() {
            
            {/* Mode Toggle */}
            <div className="flex flex-col gap-2">
-             <label className="text-sm font-medium text-foreground">Mode</label>
+             <label className="text-sm font-medium text-foreground">{t('mode')}</label>
              <div className="flex items-center gap-2 bg-muted p-1 rounded-lg w-fit">
                 <button 
                   onClick={() => setMode('light')}
                   className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-all ${mode === 'light' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                 >
-                   <Sun size={16} /> Light
+                   <Sun size={16} /> {t('light')}
                 </button>
                 <button 
                   onClick={() => setMode('system')}
                   className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-all ${mode === 'system' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                 >
-                   <Monitor size={16} /> Auto
+                   <Monitor size={16} /> {t('auto')}
                 </button>
                 <button 
                   onClick={() => setMode('dark')}
                   className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-all ${mode === 'dark' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                 >
-                   <Moon size={16} /> Dark
+                   <Moon size={16} /> {t('dark')}
                 </button>
              </div>
            </div>
@@ -88,7 +88,6 @@ export default function PreferencesPage() {
            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
               {THEME_NAMES.map(themeName => {
                  const isActive = preferences.theme === themeName;
-                 // Get preview colors
                  const vars = themes[themeName].light; 
                  const bg = `hsl(${vars['--background']})`;
                  const primary = `hsl(${vars['--primary']})`;
@@ -120,14 +119,14 @@ export default function PreferencesPage() {
         <div className="ui-card__header">
            <div className="flex items-center gap-2">
               <LangIcon size={18} />
-              <span className="font-semibold">Language & Region</span>
+              <span className="font-semibold">{t('language')}</span>
            </div>
         </div>
         <div className="ui-card__body grid gap-6 md:grid-cols-2">
            
            {/* Language */}
            <div className="space-y-2">
-              <label className="text-sm font-medium">{t('language')}</label>
+              <label className="text-sm font-medium">{t('selectLanguage')}</label>
               <select 
                 className="ui-input w-full"
                 value={preferences.language}
@@ -192,7 +191,7 @@ export default function PreferencesPage() {
 
       {/* Status */}
       <div className="flex justify-end text-xs text-muted-foreground">
-         {saving ? <span>Saving...</span> : <span>Preferences saved</span>}
+         {saving ? <span>{t('saving')}</span> : <span>{t('saved')}</span>}
       </div>
 
     </div>
