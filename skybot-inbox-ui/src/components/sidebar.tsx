@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { Link, usePathname } from '@/i18n/navigation';
-import { useTranslations } from 'next-intl';
+import { useTranslations } from '@/lib/translations';
 import { 
   Inbox, 
   Bell, 
