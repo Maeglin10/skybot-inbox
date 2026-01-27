@@ -5,13 +5,13 @@ import { useTranslations } from '@/lib/translations';
 import { User, Shield, Palette, Languages, FileText, CreditCard, Plug, ChevronRight } from 'lucide-react';
 
 const SETTINGS_NAV = [
-  { href: '/es/settings/profile', key: 'profile', icon: User },
-  { href: '/es/settings/security', key: 'security', icon: Shield },
-  { href: '/es/settings/appearance', key: 'appearance', icon: Palette },
-  { href: '/es/settings/language', key: 'language', icon: Languages },
-  { href: '/es/settings/billing', key: 'billing', icon: CreditCard },
-  { href: '/es/settings/integrations', key: 'integrations', icon: Plug },
-  { href: '/es/settings/legal', key: 'legal', icon: FileText },
+  { href: '/settings/profile', key: 'profile', icon: User },
+  { href: '/settings/security', key: 'security', icon: Shield },
+  { href: '/settings/appearance', key: 'appearance', icon: Palette },
+  { href: '/settings/language', key: 'language', icon: Languages },
+  { href: '/settings/billing', key: 'billing', icon: CreditCard },
+  { href: '/settings/integrations', key: 'integrations', icon: Plug },
+  { href: '/settings/legal', key: 'legal', icon: FileText },
 ];
 
 export function SettingsLayout({ children }: { children: React.ReactNode }) {
