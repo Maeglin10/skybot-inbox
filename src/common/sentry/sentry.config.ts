@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/node';
-import { ProfilingIntegration } from '@sentry/profiling-node';
+import { nodeProfilingIntegration } from '@sentry/profiling-node';
 
 /**
  * Initialize Sentry for error tracking and performance monitoring
@@ -25,7 +25,7 @@ export function initializeSentry() {
     release: 'skybot-inbox@1.0.0',
     tracesSampleRate,
     profilesSampleRate,
-    integrations: [new ProfilingIntegration()],
+    integrations: [nodeProfilingIntegration()],
     beforeSend(event) {
       if (event.request?.headers) {
         delete event.request.headers['authorization'];
