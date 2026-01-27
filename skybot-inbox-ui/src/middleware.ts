@@ -10,7 +10,11 @@ const protectedRoutes = [
   '/analytics',
   '/calendar',
   '/crm',
-  '/settings'
+  '/agents',
+  '/marketplace',
+  '/billing',
+  '/settings',
+  '/legal'
 ];
 
 // Public routes that don't require authentication
@@ -21,44 +25,62 @@ const publicRoutes = [
 export default function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // ⚠️ TEMPORARY: Auth disabled for 1h demo - RE-ENABLE AFTER MEETING ⚠️
-  // Extract path without locale prefix
-  // const pathnameWithoutLocale = pathname.replace(/^\/[a-z]{2}/, '');
+  // Extract path without locale prefix (remove /es, /en, etc.)
+  const pathnameWithoutLocale = pathname.replace(/^\/[a-z]{2}/, '');
 
   // Check if accessing a protected route
-  // const isProtectedRoute = protectedRoutes.some(route =>
-  //   pathnameWithoutLocale.startsWith(route)
-  // );
+  const isProtectedRoute = protectedRoutes.some(route =>
+    pathnameWithoutLocale.startsWith(route)
+  );
 
   // Check if accessing a public route
-  // const isPublicRoute = publicRoutes.some(route =>
-  //   pathnameWithoutLocale.startsWith(route)
-  // );
+  const isPublicRoute = publicRoutes.some(route =>
+    pathnameWithoutLocale.startsWith(route)
+  );
 
   // Get auth token from cookies
-  // const token = request.cookies.get('accessToken')?.value;
+  const token = request.cookies.get('accessToken')?.value;
 
   // If trying to access protected route without token, redirect to login
-  // if (isProtectedRoute && !token) {
-  //   const loginUrl = new URL(`/${LOCALE}/account/login`, request.url);
-  //   loginUrl.searchParams.set('redirect', pathname);
-  //   return NextResponse.redirect(loginUrl);
-  // }
+  if (isProtectedRoute && !token) {
+    const loginUrl = new URL(`/${LOCALE}/account/login`, request.url);
+    loginUrl.searchParams.set('redirect', pathname);
+    return NextResponse.redirect(loginUrl);
+  }
 
   // If logged in and trying to access login page, redirect to inbox
-  // if (isPublicRoute && token && pathnameWithoutLocale === '/account/login') {
-  //   return NextResponse.redirect(new URL(`/${LOCALE}/inbox`, request.url));
-  // }
+  if (isPublicRoute && token && pathnameWithoutLocale === '/account/login') {
+    return NextResponse.redirect(new URL(`/${LOCALE}/inbox`, request.url));
+  }
 
-  // Redirect root to /es
+  // Redirect root to login (force login-first)
   if (pathname === '/') {
-    return NextResponse.redirect(new URL(`/${LOCALE}`, request.url));
+    return NextResponse.redirect(new URL(`/${LOCALE}/account/login`, request.url));
+  }
+
+  // Redirect /es to login if not authenticated
+  if (pathname === `/${LOCALE}` && !token) {
+    return NextResponse.redirect(new URL(`/${LOCALE}/account/login`, request.url));
+  }
+
+  // Redirect /es to inbox if authenticated
+  if (pathname === `/${LOCALE}` && token) {
+    return NextResponse.redirect(new URL(`/${LOCALE}/inbox`, request.url));
   }
 
   return NextResponse.next();
 }
 
-// ⚠️ MIDDLEWARE COMPLETELY DISABLED FOR DEMO - RE-ENABLE AFTER MEETING ⚠️
 export const config = {
-  matcher: []  // Empty matcher = middleware disabled
+  matcher: [
+    /*
+     * Match all request paths except:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder
+     * - api routes (handled separately)
+     */
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$|api).*)',
+  ],
 };
