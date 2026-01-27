@@ -5,6 +5,7 @@ import { ValidationPipe } from '@nestjs/common';
 import * as express from 'express';
 import helmet from 'helmet';
 import type { Request } from 'express';
+import { winstonLogger } from './common/logger/winston.config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -70,7 +71,11 @@ async function bootstrap() {
 
   const port = process.env.PORT ? Number(process.env.PORT) : 3000;
   await app.listen(port, '0.0.0.0');
-  console.log(`🚀 Application is running on http://0.0.0.0:${port}`);
+  winstonLogger.info(`Application started successfully`, {
+    port,
+    environment: process.env.NODE_ENV || 'development',
+    url: `http://0.0.0.0:${port}`,
+  });
   type RawBodyRequest = Request & { rawBody?: Buffer };
 }
 void bootstrap();
