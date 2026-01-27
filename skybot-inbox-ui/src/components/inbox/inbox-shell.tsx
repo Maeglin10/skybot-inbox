@@ -400,7 +400,7 @@ export function InboxShell({
   );
 
   return (
-    <div className="h-[calc(100vh-1px)] w-full bg-transparent text-foreground">
+    <div className="h-full w-full bg-transparent text-foreground">
       <div className="grid h-full grid-cols-[380px_minmax(0,1fr)]">
         <div className="border-r border-border/20 flex flex-col">
           <div className="ui-inboxHeader">

@@ -61,7 +61,7 @@ export function SettingsLayout({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   return (
-    <div className="ui-page flex flex-row h-full overflow-hidden bg-background">
+    <div className="flex-1 w-full flex flex-row h-full overflow-hidden bg-background">
       {/* Settings Sidebar */}
       <aside className="w-72 border-r border-border/20 bg-muted/10 flex flex-col h-full">
         <div className="p-6 border-b border-border/20">
