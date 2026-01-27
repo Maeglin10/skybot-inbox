@@ -119,4 +119,42 @@ export class AppController {
       };
     }
   }
+
+  /**
+   * TEMPORARY: Reset and reseed demo account
+   * Protected by secret key
+   */
+  @Public()
+  @SkipThrottle()
+  @Post('reset-and-seed-demo')
+  async resetAndSeedDemo(@Query('key') key: string) {
+    const secretKey = process.env.SEED_SECRET_KEY || 'demo-seed-2024';
+
+    if (key !== secretKey) {
+      throw new UnauthorizedException('Invalid seed key');
+    }
+
+    try {
+      // Reset demo account data
+      const { stdout: resetOutput } = await execAsync('npx ts-node scripts/reset-demo-account.ts');
+
+      // Seed fresh data
+      const { stdout: seedOutput } = await execAsync('npm run seed:demo');
+
+      return {
+        status: 'success',
+        message: 'Demo account reset and reseeded successfully',
+        resetOutput,
+        seedOutput,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      return {
+        status: 'error',
+        message: 'Failed to reset and seed demo',
+        error: error instanceof Error ? error.message : String(error),
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
 }
