@@ -1,12 +1,13 @@
 'use client';
 
 import { useTranslations } from '@/lib/translations';
-import { FileText, ExternalLink } from 'lucide-react';
+import { FileText, ArrowRight } from 'lucide-react';
+import Link from 'next/link';
 
 export default function LegalPage() {
   const t = useTranslations('settings');
-  const privacyUrl = process.env.NEXT_PUBLIC_PRIVACY_URL || '#';
-  const termsUrl = process.env.NEXT_PUBLIC_TERMS_URL || '#';
+  const privacyUrl = '/legal/privacy';
+  const termsUrl = '/legal/terms';
 
   return (
     <div className="space-y-6">
@@ -18,10 +19,8 @@ export default function LegalPage() {
        <div className="ui-card">
           <div className="ui-card__body space-y-4">
             
-            <a 
-              href={privacyUrl} 
-              target="_blank" 
-              rel="noopener noreferrer"
+            <Link
+              href={privacyUrl}
               className="group flex items-center justify-between p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors"
             >
                <div className="flex items-center gap-4">
@@ -33,13 +32,11 @@ export default function LegalPage() {
                     <p className="text-xs text-muted-foreground">{t('howWeHandleData')}</p>
                   </div>
                </div>
-               <ExternalLink size={16} className="text-muted-foreground group-hover:text-primary transition-colors" />
-            </a>
+               <ArrowRight size={16} className="text-muted-foreground group-hover:text-primary transition-colors" />
+            </Link>
 
-            <a 
-              href={termsUrl} 
-              target="_blank" 
-              rel="noopener noreferrer"
+            <Link
+              href={termsUrl}
               className="group flex items-center justify-between p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors"
             >
                <div className="flex items-center gap-4">
@@ -51,8 +48,8 @@ export default function LegalPage() {
                     <p className="text-xs text-muted-foreground">{t('rulesRegulations')}</p>
                   </div>
                </div>
-               <ExternalLink size={16} className="text-muted-foreground group-hover:text-primary transition-colors" />
-            </a>
+               <ArrowRight size={16} className="text-muted-foreground group-hover:text-primary transition-colors" />
+            </Link>
 
           </div>
        </div>
