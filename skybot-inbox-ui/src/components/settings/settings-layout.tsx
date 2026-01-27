@@ -133,7 +133,7 @@ export function SettingsLayout({ children }: { children: React.ReactNode }) {
 
       {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto bg-background/50">
-        <div className="max-w-4xl mx-auto p-8 lg:p-12 animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <div className="max-w-4xl mx-auto p-8 lg:p-12">
            {children}
         </div>
       </main>
