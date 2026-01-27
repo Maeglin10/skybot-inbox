@@ -141,7 +141,10 @@ export class SettingsService {
         total: configs.length,
       };
     } catch (error) {
-      this.logger.error(`Failed to list settings for account ${accountId}:`, error);
+      this.logger.error(
+        `Failed to list settings for account ${accountId}:`,
+        error,
+      );
       throw error;
     }
   }

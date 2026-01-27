@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EnableModuleDto } from './dto/enable-module.dto';
 import { UpdateModuleLimitsDto } from './dto/update-module-limits.dto';
@@ -98,7 +102,9 @@ export class TenantModulesService {
         },
         data: {
           enabled: dto.enabled,
-          limits: (dto.limits !== undefined ? dto.limits : existing.limits) as any,
+          limits: (dto.limits !== undefined
+            ? dto.limits
+            : existing.limits) as any,
         },
       });
     }

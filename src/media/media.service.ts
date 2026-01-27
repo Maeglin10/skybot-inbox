@@ -15,6 +15,9 @@ export class MediaService {
 
   async uploadUrl(tenantId: string) {
     // TODO: Generate S3/R2 presigned upload URL
-    return { message: 'Upload URL generation - S3/R2 integration needed', tenantId };
+    return {
+      message: 'Upload URL generation - S3/R2 integration needed',
+      tenantId,
+    };
   }
 }

@@ -1,4 +1,10 @@
-import { IsOptional, IsObject, IsString, IsArray, IsEnum } from 'class-validator';
+import {
+  IsOptional,
+  IsObject,
+  IsString,
+  IsArray,
+  IsEnum,
+} from 'class-validator';
 
 export enum ClientStatus {
   ACTIVE = 'ACTIVE',

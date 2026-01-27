@@ -1,4 +1,10 @@
-import { IsString, IsEnum, IsOptional, IsBoolean, IsDateString } from 'class-validator';
+import {
+  IsString,
+  IsEnum,
+  IsOptional,
+  IsBoolean,
+  IsDateString,
+} from 'class-validator';
 import { Tier, TenantStatus } from '@prisma/client';
 
 export class CreateTenantDto {

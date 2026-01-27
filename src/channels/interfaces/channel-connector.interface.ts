@@ -113,7 +113,7 @@ export interface ChannelConnector {
    */
   ingestWebhook(
     payload: any,
-    headers: Record<string, string>
+    headers: Record<string, string>,
   ): Promise<UnifiedMessage[]>;
 
   /**

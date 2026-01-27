@@ -99,7 +99,7 @@ export class ChannelsService {
   async ingestWebhook(
     channelType: string,
     payload: any,
-    headers: Record<string, string>
+    headers: Record<string, string>,
   ): Promise<UnifiedMessage[]> {
     const connector = this.getConnector(channelType);
     return connector.ingestWebhook(payload, headers);

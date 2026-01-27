@@ -44,7 +44,9 @@ export class UserPreferencesController {
     @Headers('x-client-key') clientKey: string,
     @Param('userId') userId: string,
   ) {
-    this.logger.log(`POST /user-preferences/${userId}/reset clientKey=${clientKey}`);
+    this.logger.log(
+      `POST /user-preferences/${userId}/reset clientKey=${clientKey}`,
+    );
     return this.preferencesService.resetPreferences(clientKey, userId);
   }
 }

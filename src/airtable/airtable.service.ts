@@ -91,17 +91,15 @@ export class AirtableService implements OnModuleInit {
       selectOptions.pageSize = options.pageSize;
     }
 
-    await table
-      .select(selectOptions)
-      .eachPage((pageRecords, fetchNextPage) => {
-        pageRecords.forEach((record) => {
-          records.push({
-            id: record.id,
-            fields: record.fields as T,
-          });
+    await table.select(selectOptions).eachPage((pageRecords, fetchNextPage) => {
+      pageRecords.forEach((record) => {
+        records.push({
+          id: record.id,
+          fields: record.fields as T,
         });
-        fetchNextPage();
       });
+      fetchNextPage();
+    });
 
     return records;
   }

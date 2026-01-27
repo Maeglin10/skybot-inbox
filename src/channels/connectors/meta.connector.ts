@@ -56,10 +56,13 @@ export class MetaConnector implements ChannelConnector {
   private readonly logger = new Logger(MetaConnector.name);
 
   private readonly META_GRAPH_API = 'https://graph.facebook.com/v21.0';
-  private readonly META_APP_ID = process.env.META_APP_ID || 'placeholder-app-id';
-  private readonly META_APP_SECRET = process.env.META_APP_SECRET || process.env.WHATSAPP_APP_SECRET;
+  private readonly META_APP_ID =
+    process.env.META_APP_ID || 'placeholder-app-id';
+  private readonly META_APP_SECRET =
+    process.env.META_APP_SECRET || process.env.WHATSAPP_APP_SECRET;
   private readonly CALLBACK_URL = `${process.env.RENDER_APP_URL || 'http://localhost:3001'}/api/channels/meta/callback`;
-  private readonly VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'verify_token_default';
+  private readonly VERIFY_TOKEN =
+    process.env.WHATSAPP_VERIFY_TOKEN || 'verify_token_default';
 
   constructor(
     private prisma: PrismaService,
@@ -67,14 +70,19 @@ export class MetaConnector implements ChannelConnector {
     private jwtService: JwtService,
   ) {
     if (!this.META_APP_ID || this.META_APP_ID === 'placeholder-app-id') {
-      this.logger.warn('⚠️  META_APP_ID not configured. OAuth flow will not work.');
+      this.logger.warn(
+        '⚠️  META_APP_ID not configured. OAuth flow will not work.',
+      );
     }
   }
 
   /**
    * Start OAuth authorization flow
    */
-  async startAuth(accountId: string, returnUrl?: string): Promise<OAuthStartResponse> {
+  async startAuth(
+    accountId: string,
+    returnUrl?: string,
+  ): Promise<OAuthStartResponse> {
     // Create state JWT with accountId and returnUrl
     const state: MetaOAuthState = {
       accountId,
@@ -92,13 +100,16 @@ export class MetaConnector implements ChannelConnector {
     authUrl.searchParams.set('client_id', this.META_APP_ID);
     authUrl.searchParams.set('redirect_uri', this.CALLBACK_URL);
     authUrl.searchParams.set('state', stateToken);
-    authUrl.searchParams.set('scope', [
-      'pages_show_list',           // List Pages
-      'pages_messaging',           // Send/receive Page messages
-      'pages_manage_metadata',     // Manage Page webhooks
-      'instagram_basic',           // Instagram basic info
-      'instagram_manage_messages', // Instagram DM
-    ].join(','));
+    authUrl.searchParams.set(
+      'scope',
+      [
+        'pages_show_list', // List Pages
+        'pages_messaging', // Send/receive Page messages
+        'pages_manage_metadata', // Manage Page webhooks
+        'instagram_basic', // Instagram basic info
+        'instagram_manage_messages', // Instagram DM
+      ].join(','),
+    );
 
     return {
       authUrl: authUrl.toString(),
@@ -130,13 +141,17 @@ export class MetaConnector implements ChannelConnector {
     const tokenResponse = await this.exchangeCodeForToken(code);
 
     // Exchange short-lived token for long-lived token (60 days)
-    const longLivedToken = await this.getLongLivedToken(tokenResponse.access_token);
+    const longLivedToken = await this.getLongLivedToken(
+      tokenResponse.access_token,
+    );
 
     // Get user's Pages
     const pages = await this.getUserPages(longLivedToken.access_token);
 
     if (pages.length === 0) {
-      throw new Error('No Facebook Pages found. User must have at least one Page.');
+      throw new Error(
+        'No Facebook Pages found. User must have at least one Page.',
+      );
     }
 
     // For now, auto-select the first page (later we can add UI for selection)
@@ -145,11 +160,13 @@ export class MetaConnector implements ChannelConnector {
     // Get Instagram account linked to the page (if any)
     const igAccount = await this.getPageInstagramAccount(
       selectedPage.id,
-      selectedPage.access_token
+      selectedPage.access_token,
     );
 
     // Store the connection with encrypted token
-    const { encrypted, iv, authTag } = this.encryption.encrypt(selectedPage.access_token);
+    const { encrypted, iv, authTag } = this.encryption.encrypt(
+      selectedPage.access_token,
+    );
 
     const metadata: any = {
       pageName: selectedPage.name,
@@ -178,8 +195,11 @@ export class MetaConnector implements ChannelConnector {
 
     // If Instagram account exists, create a separate connection for it
     if (igAccount) {
-      const { encrypted: igEncrypted, iv: igIv, authTag: igAuthTag } =
-        this.encryption.encrypt(selectedPage.access_token);
+      const {
+        encrypted: igEncrypted,
+        iv: igIv,
+        authTag: igAuthTag,
+      } = this.encryption.encrypt(selectedPage.access_token);
 
       await this.prisma.channelConnection.create({
         data: {
@@ -201,7 +221,7 @@ export class MetaConnector implements ChannelConnector {
     }
 
     this.logger.log(
-      `✅ Meta connection created for account ${stateData.accountId} (Page: ${selectedPage.name})`
+      `✅ Meta connection created for account ${stateData.accountId} (Page: ${selectedPage.name})`,
     );
 
     return connection.id;
@@ -223,7 +243,7 @@ export class MetaConnector implements ChannelConnector {
     const token = this.encryption.decrypt(
       connection.encryptedToken,
       connection.iv,
-      connection.authTag
+      connection.authTag,
     );
 
     let isTokenValid = false;
@@ -233,7 +253,8 @@ export class MetaConnector implements ChannelConnector {
       await axios.get(url);
       isTokenValid = true;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Token validation failed: ${errorMessage}`);
     }
 
@@ -253,7 +274,7 @@ export class MetaConnector implements ChannelConnector {
    */
   async ingestWebhook(
     payload: any,
-    headers: Record<string, string>
+    headers: Record<string, string>,
   ): Promise<UnifiedMessage[]> {
     // Verify webhook signature
     this.verifyWebhookSignature(payload, headers['x-hub-signature-256']);
@@ -297,7 +318,10 @@ export class MetaConnector implements ChannelConnector {
   /**
    * Send a message through Meta (Instagram or Facebook)
    */
-  async sendMessage(connectionId: string, message: OutgoingMessage): Promise<string> {
+  async sendMessage(
+    connectionId: string,
+    message: OutgoingMessage,
+  ): Promise<string> {
     const connection = await this.prisma.channelConnection.findUnique({
       where: { id: connectionId },
     });
@@ -309,7 +333,7 @@ export class MetaConnector implements ChannelConnector {
     const token = this.encryption.decrypt(
       connection.encryptedToken,
       connection.iv,
-      connection.authTag
+      connection.authTag,
     );
 
     // Send via Graph API
@@ -374,7 +398,9 @@ export class MetaConnector implements ChannelConnector {
     return response.data;
   }
 
-  private async getLongLivedToken(shortToken: string): Promise<MetaLongLivedTokenResponse> {
+  private async getLongLivedToken(
+    shortToken: string,
+  ): Promise<MetaLongLivedTokenResponse> {
     const url = `${this.META_GRAPH_API}/oauth/access_token`;
     const response = await axios.get(url, {
       params: {
@@ -402,7 +428,7 @@ export class MetaConnector implements ChannelConnector {
 
   private async getPageInstagramAccount(
     pageId: string,
-    pageToken: string
+    pageToken: string,
   ): Promise<MetaInstagramAccount | null> {
     try {
       const url = `${this.META_GRAPH_API}/${pageId}`;
@@ -429,7 +455,8 @@ export class MetaConnector implements ChannelConnector {
       throw new Error('META_APP_SECRET not configured');
     }
 
-    const expectedSignature = 'sha256=' +
+    const expectedSignature =
+      'sha256=' +
       crypto
         .createHmac('sha256', this.META_APP_SECRET)
         .update(JSON.stringify(payload))
@@ -461,7 +488,10 @@ export class MetaConnector implements ChannelConnector {
     };
   }
 
-  private normalizeFacebookMessage(msg: any, pageId: string): UnifiedMessage | null {
+  private normalizeFacebookMessage(
+    msg: any,
+    pageId: string,
+  ): UnifiedMessage | null {
     return {
       externalId: msg.mid,
       channelType: Channel.FACEBOOK,

@@ -13,6 +13,10 @@ export class IngestionController {
 
   @Post('jobs')
   async createJob(@CurrentUser() user: any, @Body() dto: any) {
-    return this.ingestionService.createJob(user.accountId, dto.type, dto.source);
+    return this.ingestionService.createJob(
+      user.accountId,
+      dto.type,
+      dto.source,
+    );
   }
 }

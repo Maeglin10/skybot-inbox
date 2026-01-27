@@ -29,7 +29,10 @@ export class UserPreferencesService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async getPreferences(clientKey: string, userId: string): Promise<UserPreferences> {
+  async getPreferences(
+    clientKey: string,
+    userId: string,
+  ): Promise<UserPreferences> {
     try {
       const prefs = await this.prisma.userPreference.findUnique({
         where: { userAccountId: userId },
@@ -46,7 +49,10 @@ export class UserPreferencesService {
 
       return this.mapToUserPreferences(prefs, userId);
     } catch (error) {
-      this.logger.error(`Failed to fetch preferences for user ${userId}:`, error);
+      this.logger.error(
+        `Failed to fetch preferences for user ${userId}:`,
+        error,
+      );
       return {
         id: '',
         userId,
@@ -96,12 +102,18 @@ export class UserPreferencesService {
 
       return this.mapToUserPreferences(prefs, userId);
     } catch (error) {
-      this.logger.error(`Failed to update preferences for user ${userId}:`, error);
+      this.logger.error(
+        `Failed to update preferences for user ${userId}:`,
+        error,
+      );
       throw error;
     }
   }
 
-  async resetPreferences(clientKey: string, userId: string): Promise<UserPreferences> {
+  async resetPreferences(
+    clientKey: string,
+    userId: string,
+  ): Promise<UserPreferences> {
     try {
       await this.prisma.userPreference.deleteMany({
         where: { userAccountId: userId },
@@ -114,7 +126,10 @@ export class UserPreferencesService {
         createdAt: new Date().toISOString(),
       };
     } catch (error) {
-      this.logger.error(`Failed to reset preferences for user ${userId}:`, error);
+      this.logger.error(
+        `Failed to reset preferences for user ${userId}:`,
+        error,
+      );
       throw error;
     }
   }

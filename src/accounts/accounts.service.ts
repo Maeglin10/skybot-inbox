@@ -47,7 +47,9 @@ export class AccountsService {
     });
 
     if (!config) {
-      throw new NotFoundException(`Client config not found for key: ${clientKey}`);
+      throw new NotFoundException(
+        `Client config not found for key: ${clientKey}`,
+      );
     }
 
     return config.accountId;
@@ -99,7 +101,10 @@ export class AccountsService {
     }
   }
 
-  async findByEmail(clientKey: string, email: string): Promise<AccountItem | null> {
+  async findByEmail(
+    clientKey: string,
+    email: string,
+  ): Promise<AccountItem | null> {
     try {
       const accountId = await this.getAccountId(clientKey);
 
@@ -127,11 +132,16 @@ export class AccountsService {
       });
 
       if (existing) {
-        throw new ConflictException(`Account with email ${dto.email} already exists`);
+        throw new ConflictException(
+          `Account with email ${dto.email} already exists`,
+        );
       }
 
       // Generate username from email (part before @)
-      const username = dto.email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+      const username = dto.email
+        .split('@')[0]
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '');
 
       const user = await this.prisma.userAccount.create({
         data: {
@@ -175,7 +185,9 @@ export class AccountsService {
           where: { accountId, email: dto.email, NOT: { id } },
         });
         if (emailExists) {
-          throw new ConflictException(`Account with email ${dto.email} already exists`);
+          throw new ConflictException(
+            `Account with email ${dto.email} already exists`,
+          );
         }
       }
 
@@ -186,7 +198,9 @@ export class AccountsService {
           ...(dto.email !== undefined && { email: dto.email }),
           ...(dto.phone !== undefined && { phone: dto.phone }),
           ...(dto.role !== undefined && { role: dto.role as PrismaUserRole }),
-          ...(dto.status !== undefined && { status: dto.status as PrismaAccountStatus }),
+          ...(dto.status !== undefined && {
+            status: dto.status as PrismaAccountStatus,
+          }),
           ...(dto.notes !== undefined && { notes: dto.notes }),
           ...(dto.avatarUrl !== undefined && { avatarUrl: dto.avatarUrl }),
         },
@@ -242,7 +256,9 @@ export class AccountsService {
   ): Promise<{ success: boolean; message: string }> {
     try {
       if (dto.newPassword !== dto.confirmPassword) {
-        throw new BadRequestException('New password and confirmation do not match');
+        throw new BadRequestException(
+          'New password and confirmation do not match',
+        );
       }
 
       const accountId = await this.getAccountId(clientKey);
@@ -294,7 +310,10 @@ export class AccountsService {
 
       return { success: true };
     } catch (error) {
-      this.logger.error(`Failed to set initial password for account ${id}:`, error);
+      this.logger.error(
+        `Failed to set initial password for account ${id}:`,
+        error,
+      );
       throw error;
     }
   }

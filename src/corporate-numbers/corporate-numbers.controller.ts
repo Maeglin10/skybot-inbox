@@ -4,7 +4,9 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @Controller('corporate-numbers')
 export class CorporateNumbersController {
-  constructor(private readonly corporateNumbersService: CorporateNumbersService) {}
+  constructor(
+    private readonly corporateNumbersService: CorporateNumbersService,
+  ) {}
 
   @Get()
   async listNumbers(@CurrentUser() user: any) {

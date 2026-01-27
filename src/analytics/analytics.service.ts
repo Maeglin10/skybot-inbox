@@ -83,7 +83,10 @@ export class AnalyticsService {
       logs.forEach((log) => {
         const key = new Date(log.createdAt).toLocaleDateString('en-US');
         if (dataMap.has(key)) {
-          if (metric === MetricGroup.CONVERSIONS && log.status === 'FORWARDED') {
+          if (
+            metric === MetricGroup.CONVERSIONS &&
+            log.status === 'FORWARDED'
+          ) {
             dataMap.set(key, (dataMap.get(key) || 0) + 1);
           } else if (metric === MetricGroup.FOLLOWUPS) {
             dataMap.set(key, (dataMap.get(key) || 0) + 1);
@@ -211,15 +214,37 @@ export class AnalyticsService {
       { maxRecords: 1000, pageSize: 100 },
     );
     const total = leads.length;
-    const qualified = leads.filter((l) => l.fields.status === 'QUALIFIED').length;
+    const qualified = leads.filter(
+      (l) => l.fields.status === 'QUALIFIED',
+    ).length;
     const lost = leads.filter((l) => l.fields.status === 'LOST').length;
     const newLeads = leads.filter((l) => l.fields.status === 'NEW').length;
 
     return [
-      { label: 'New Leads', value: String(newLeads), change: '+12%', trend: 'up' as const },
-      { label: 'Qualified', value: String(qualified), change: '+5%', trend: 'up' as const },
-      { label: 'Lost', value: String(lost), change: '-2%', trend: 'down' as const },
-      { label: 'Total Leads', value: String(total), change: '+8%', trend: 'up' as const },
+      {
+        label: 'New Leads',
+        value: String(newLeads),
+        change: '+12%',
+        trend: 'up' as const,
+      },
+      {
+        label: 'Qualified',
+        value: String(qualified),
+        change: '+5%',
+        trend: 'up' as const,
+      },
+      {
+        label: 'Lost',
+        value: String(lost),
+        change: '-2%',
+        trend: 'down' as const,
+      },
+      {
+        label: 'Total Leads',
+        value: String(total),
+        change: '+8%',
+        trend: 'up' as const,
+      },
     ];
   }
 
@@ -232,13 +257,34 @@ export class AnalyticsService {
       where: { clientKey },
     });
 
-    const conversionRate = totalLogs > 0 ? ((logs / totalLogs) * 100).toFixed(1) : '0';
+    const conversionRate =
+      totalLogs > 0 ? ((logs / totalLogs) * 100).toFixed(1) : '0';
 
     return [
-      { label: 'Total Conversions', value: String(logs), change: '+8%', trend: 'up' as const },
-      { label: 'Conv. Rate', value: `${conversionRate}%`, change: '+1.5%', trend: 'up' as const },
-      { label: 'Revenue', value: '$12.5k', change: '+18%', trend: 'up' as const },
-      { label: 'Avg Deal', value: '$350', change: '-4%', trend: 'down' as const },
+      {
+        label: 'Total Conversions',
+        value: String(logs),
+        change: '+8%',
+        trend: 'up' as const,
+      },
+      {
+        label: 'Conv. Rate',
+        value: `${conversionRate}%`,
+        change: '+1.5%',
+        trend: 'up' as const,
+      },
+      {
+        label: 'Revenue',
+        value: '$12.5k',
+        change: '+18%',
+        trend: 'up' as const,
+      },
+      {
+        label: 'Avg Deal',
+        value: '$350',
+        change: '-4%',
+        trend: 'down' as const,
+      },
     ];
   }
 
@@ -246,9 +292,24 @@ export class AnalyticsService {
     const logs = await this.prisma.routingLog.count({ where: { clientKey } });
 
     return [
-      { label: 'Total Followups', value: String(logs), change: '+10%', trend: 'up' as const },
-      { label: 'Success Rate', value: '85%', change: '+3%', trend: 'up' as const },
-      { label: 'Avg Response', value: '2.3h', change: '-15%', trend: 'down' as const },
+      {
+        label: 'Total Followups',
+        value: String(logs),
+        change: '+10%',
+        trend: 'up' as const,
+      },
+      {
+        label: 'Success Rate',
+        value: '85%',
+        change: '+3%',
+        trend: 'up' as const,
+      },
+      {
+        label: 'Avg Response',
+        value: '2.3h',
+        change: '-15%',
+        trend: 'down' as const,
+      },
       { label: 'Pending', value: '12', change: '-5%', trend: 'down' as const },
     ];
   }
@@ -261,16 +322,41 @@ export class AnalyticsService {
       { maxRecords: 1000, pageSize: 100 },
     );
     const total = feedbacks.length;
-    const avgRating = total > 0
-      ? (feedbacks.reduce((sum, f) => sum + (f.fields.rating || 0), 0) / total).toFixed(1)
-      : '0';
+    const avgRating =
+      total > 0
+        ? (
+            feedbacks.reduce((sum, f) => sum + (f.fields.rating || 0), 0) /
+            total
+          ).toFixed(1)
+        : '0';
     const positiveCount = feedbacks.filter((f) => f.fields.rating >= 4).length;
-    const positiveRate = total > 0 ? ((positiveCount / total) * 100).toFixed(0) : '0';
+    const positiveRate =
+      total > 0 ? ((positiveCount / total) * 100).toFixed(0) : '0';
     return [
-      { label: 'Total Feedback', value: String(total), change: '+15%', trend: 'up' as const },
-      { label: 'Avg Rating', value: avgRating, change: '+0.2', trend: 'up' as const },
-      { label: 'Positive Rate', value: `${positiveRate}%`, change: '+5%', trend: 'up' as const },
-      { label: 'Response Time', value: '1.2h', change: '-10%', trend: 'down' as const },
+      {
+        label: 'Total Feedback',
+        value: String(total),
+        change: '+15%',
+        trend: 'up' as const,
+      },
+      {
+        label: 'Avg Rating',
+        value: avgRating,
+        change: '+0.2',
+        trend: 'up' as const,
+      },
+      {
+        label: 'Positive Rate',
+        value: `${positiveRate}%`,
+        change: '+5%',
+        trend: 'up' as const,
+      },
+      {
+        label: 'Response Time',
+        value: '1.2h',
+        change: '-10%',
+        trend: 'down' as const,
+      },
     ];
   }
 
