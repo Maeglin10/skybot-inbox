@@ -1,6 +1,6 @@
 # TODO List - SkyBot-Inbox
 
-> Last Updated: 2026-01-26
+> Last Updated: 2026-01-27
 
 ## ✅ Completed
 
@@ -29,6 +29,21 @@
 - [x] WebSocket real-time updates
 - [x] Inbound webhooks from SkyBot
 
+### Phase 3: Monitoring & Observability ✅ COMPLETE
+- [x] Winston structured logging
+- [x] Request ID tracking middleware
+- [x] Sentry error tracking and APM
+- [x] Replace all console.log statements
+- [x] Query logging in PrismaService
+
+### Phase 4: Performance & Scalability ✅ COMPLETE
+- [x] Database query logging (slow queries >100ms)
+- [x] Database index review (96 indexes verified)
+- [x] In-memory caching with cache-manager
+- [x] AgentsService.getStats() caching (2-min TTL)
+- [x] Enhanced rate limiting per endpoint (5 tiers)
+- [x] Rate limits applied to all critical endpoints
+
 ---
 
 ## 🔲 Immediate Priorities (This Week)
@@ -56,51 +71,22 @@
 
 ## 🔥 Next Sprint (Next 2 Weeks)
 
-### Phase 3: Monitoring & Observability
-- [x] **Winston Structured Logging** (P0) ✅ DONE
-  - [x] Install winston + nest-winston
-  - [x] Configure winston.config.ts
-  - [x] Replace all console.log with logger
-  - [x] Add request ID tracking middleware
-  - [x] Test log output in production
+### Enhanced Input Validation (P1)
+- [ ] Review all DTOs for stricter validation
+- [ ] Add sanitization for text inputs
+- [ ] Test with malicious payloads
+- [ ] Document validation rules
 
-- [x] **Sentry Integration** (P0) ✅ DONE
-  - [x] Install @sentry/node + @sentry/profiling-node
-  - [x] Configure sentry.config.ts
-  - [ ] Add to main.ts bootstrap
-  - [ ] Test error tracking
-  - [ ] Setup performance monitoring
-
-- [ ] **Enhanced Input Validation** (P1)
-  - [ ] Review all DTOs
-  - [ ] Add sanitization for text inputs
-  - [ ] Test with malicious payloads
-  - [ ] Document validation rules
+### Optional: Background Jobs (requires Redis)
+- [ ] Setup Redis (Render add-on or separate service)
+- [ ] Install Bull queue
+- [ ] Move agent deployment to background queue
+- [ ] Move analytics generation to background queue
+- [ ] Add job monitoring dashboard
 
 ---
 
 ## 📋 Backlog (Next Month)
-
-### Phase 4: Performance & Scalability
-- [ ] **Database Optimization**
-  - [ ] Enable Prisma query logging
-  - [ ] Identify slow queries (>100ms)
-  - [ ] Add missing indexes
-  - [ ] Implement query result caching
-  - [ ] Test with realistic data volume
-
-- [ ] **Enhanced Rate Limiting**
-  - [ ] Configure per-endpoint throttling
-  - [ ] Implement different limits for different user roles
-  - [ ] Add rate limit headers to responses
-  - [ ] Monitor rate limit violations
-
-- [ ] **Background Jobs** (requires Redis)
-  - [ ] Setup Redis (Render add-on or separate service)
-  - [ ] Install Bull queue
-  - [ ] Move agent deployment to background queue
-  - [ ] Move analytics generation to background queue
-  - [ ] Add job monitoring dashboard
 
 ### Phase 5: Security Hardening
 - [ ] **API Key Management**
@@ -198,9 +184,14 @@ BILLING_PORTAL_URL
 BILLING_SSO_SECRET
 
 # Optional but recommended
-LOG_LEVEL
+LOG_LEVEL=info
 SENTRY_DSN
-SENTRY_TRACES_SAMPLE_RATE
+SENTRY_TRACES_SAMPLE_RATE=0.1
+SENTRY_PROFILES_SAMPLE_RATE=0.1
+
+# Caching (Phase 4)
+CACHE_TTL=300
+CACHE_MAX_ITEMS=100
 ```
 
 ### Testing Commands
