@@ -22,17 +22,26 @@ class AgentsSocket {
   }
 
   subscribeToAgent(agentId: string) {
-    if (!this.socket) throw new Error('Socket not connected');
+    if (!this.socket) {
+      console.warn('Socket not connected');
+      return;
+    }
     this.socket.emit('subscribe:agent', agentId);
   }
 
   onAgentStatusChange(callback: (data: any) => void) {
-    if (!this.socket) throw new Error('Socket not connected');
+    if (!this.socket) {
+      console.warn('Socket not connected');
+      return;
+    }
     this.socket.on('agent:status', callback);
   }
 
   onAgentExecution(callback: (data: any) => void) {
-    if (!this.socket) throw new Error('Socket not connected');
+    if (!this.socket) {
+      console.warn('Socket not connected');
+      return;
+    }
     this.socket.on('agent:execution', callback);
   }
 

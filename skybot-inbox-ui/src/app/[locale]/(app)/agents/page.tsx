@@ -20,9 +20,15 @@ export default function AgentsPage() {
   useEffect(() => {
     loadAgents();
 
-    onAgentStatusChange((payload) => {
-       setAgents(prev => prev.map(a => a.id === payload.agentId ? { ...a, status: payload.status } : a));
-    });
+    // Only set up WebSocket listener if we have a valid connection
+    try {
+      onAgentStatusChange((payload) => {
+         setAgents(prev => prev.map(a => a.id === payload.agentId ? { ...a, status: payload.status } : a));
+      });
+    } catch (e) {
+      // WebSocket not connected, ignore - will still work without real-time updates
+      console.log('WebSocket not available for real-time updates');
+    }
   }, []);
 
   async function loadAgents() {
