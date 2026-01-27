@@ -13,10 +13,10 @@ export function initializeSentry() {
   }
 
   const tracesSampleRate = parseFloat(
-    process.env.SENTRY_TRACES_SAMPLE_RATE || '0.1'
+    process.env.SENTRY_TRACES_SAMPLE_RATE || '0.1',
   );
   const profilesSampleRate = parseFloat(
-    process.env.SENTRY_PROFILES_SAMPLE_RATE || '0.1'
+    process.env.SENTRY_PROFILES_SAMPLE_RATE || '0.1',
   );
 
   Sentry.init({
@@ -25,9 +25,7 @@ export function initializeSentry() {
     release: 'skybot-inbox@1.0.0',
     tracesSampleRate,
     profilesSampleRate,
-    integrations: [
-      new ProfilingIntegration(),
-    ],
+    integrations: [new ProfilingIntegration()],
     beforeSend(event) {
       if (event.request?.headers) {
         delete event.request.headers['authorization'];
