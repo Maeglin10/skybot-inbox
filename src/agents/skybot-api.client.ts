@@ -48,8 +48,7 @@ export class SkybotApiClient {
     this.baseUrl =
       this.configService.get<string>('SKYBOT_API_URL') ||
       'http://localhost:8080';
-    this.apiKey =
-      this.configService.get<string>('SKYBOT_API_KEY') || '';
+    this.apiKey = this.configService.get<string>('SKYBOT_API_KEY') || '';
 
     if (!this.apiKey) {
       this.logger.warn(
@@ -250,8 +249,7 @@ export class SkybotApiClient {
       };
     }
 
-    const errorMessage =
-      error instanceof Error ? error.message : String(error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
     this.logger.error(`SkyBot API error in ${operation}: ${errorMessage}`);
 
     return {

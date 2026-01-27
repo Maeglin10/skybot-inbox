@@ -89,7 +89,9 @@ export class AdminService {
     });
 
     if (existing) {
-      throw new ConflictException(`Tenant with name "${dto.name}" already exists`);
+      throw new ConflictException(
+        `Tenant with name "${dto.name}" already exists`,
+      );
     }
 
     // Create tenant account
@@ -98,7 +100,8 @@ export class AdminService {
         name: dto.name,
         tier: dto.tier || 'STARTER',
         status: dto.status || 'TRIAL',
-        trialEndsAt: dto.trialEndsAt || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days
+        trialEndsAt:
+          dto.trialEndsAt || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days
         isDemo: dto.isDemo || false,
       },
     });
@@ -256,7 +259,9 @@ export class AdminService {
       throw new ConflictException('User with this username already exists');
     }
 
-    const passwordHash = dto.password ? await bcrypt.hash(dto.password, 10) : null;
+    const passwordHash = dto.password
+      ? await bcrypt.hash(dto.password, 10)
+      : null;
 
     const user = await this.prisma.userAccount.create({
       data: {
@@ -314,7 +319,10 @@ export class AdminService {
     const user = await this.getUser(tenantId, userId);
 
     // Prevent deleting last admin
-    if (user.role === UserRole.CLIENT_ADMIN || user.role === UserRole.SUPER_ADMIN) {
+    if (
+      user.role === UserRole.CLIENT_ADMIN ||
+      user.role === UserRole.SUPER_ADMIN
+    ) {
       const adminCount = await this.prisma.userAccount.count({
         where: {
           accountId: tenantId,

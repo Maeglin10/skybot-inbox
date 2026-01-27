@@ -35,7 +35,10 @@ export class TenantModulesController {
    */
   @Get(':moduleKey')
   @Roles(UserRole.SUPER_ADMIN, UserRole.CLIENT_ADMIN, UserRole.AGENT_USER)
-  async getModule(@CurrentUser() user: any, @Param('moduleKey') moduleKey: string) {
+  async getModule(
+    @CurrentUser() user: any,
+    @Param('moduleKey') moduleKey: string,
+  ) {
     return this.tenantModulesService.getModule(user.accountId, moduleKey);
   }
 
@@ -70,7 +73,10 @@ export class TenantModulesController {
    */
   @Delete(':moduleKey')
   @Roles(UserRole.SUPER_ADMIN, UserRole.CLIENT_ADMIN)
-  async deleteModule(@CurrentUser() user: any, @Param('moduleKey') moduleKey: string) {
+  async deleteModule(
+    @CurrentUser() user: any,
+    @Param('moduleKey') moduleKey: string,
+  ) {
     return this.tenantModulesService.deleteModule(user.accountId, moduleKey);
   }
 }

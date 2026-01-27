@@ -34,10 +34,7 @@ export class PreferencesService {
   /**
    * Update preferences for a user
    */
-  async updatePreferences(
-    userAccountId: string,
-    dto: UpdatePreferencesDto,
-  ) {
+  async updatePreferences(userAccountId: string, dto: UpdatePreferencesDto) {
     // Check if preferences exist, create if not
     const existing = await this.prisma.userPreference.findUnique({
       where: { userAccountId },

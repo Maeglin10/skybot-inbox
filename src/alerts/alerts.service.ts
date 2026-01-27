@@ -47,7 +47,9 @@ export class AlertsService {
     });
 
     if (!config) {
-      throw new NotFoundException(`Client config not found for key: ${clientKey}`);
+      throw new NotFoundException(
+        `Client config not found for key: ${clientKey}`,
+      );
     }
 
     return config.accountId;
@@ -149,13 +151,23 @@ export class AlertsService {
           ...(dto.type !== undefined && { type: dto.type as PrismaAlertType }),
           ...(dto.title !== undefined && { title: dto.title }),
           ...(dto.subtitle !== undefined && { subtitle: dto.subtitle }),
-          ...(dto.status !== undefined && { status: dto.status as PrismaAlertStatus }),
-          ...(dto.priority !== undefined && { priority: dto.priority as PrismaAlertPriority }),
+          ...(dto.status !== undefined && {
+            status: dto.status as PrismaAlertStatus,
+          }),
+          ...(dto.priority !== undefined && {
+            priority: dto.priority as PrismaAlertPriority,
+          }),
           ...(dto.amount !== undefined && { amount: dto.amount }),
           ...(dto.currency !== undefined && { currency: dto.currency }),
-          ...(dto.customerName !== undefined && { customerName: dto.customerName }),
-          ...(dto.channel !== undefined && { channel: dto.channel as PrismaChannel }),
-          ...(dto.conversationId !== undefined && { conversationId: dto.conversationId }),
+          ...(dto.customerName !== undefined && {
+            customerName: dto.customerName,
+          }),
+          ...(dto.channel !== undefined && {
+            channel: dto.channel as PrismaChannel,
+          }),
+          ...(dto.conversationId !== undefined && {
+            conversationId: dto.conversationId,
+          }),
           ...(dto.assignee !== undefined && { assignee: dto.assignee }),
         },
       });

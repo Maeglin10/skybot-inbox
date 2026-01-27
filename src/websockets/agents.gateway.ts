@@ -179,11 +179,7 @@ export class AgentsGateway
   /**
    * Emit execution completed event
    */
-  emitExecutionCompleted(
-    accountId: string,
-    agentId: string,
-    execution: any,
-  ) {
+  emitExecutionCompleted(accountId: string, agentId: string, execution: any) {
     this.server
       .to(`tenant:${accountId}`)
       .to(`agent:${agentId}`)
@@ -194,11 +190,7 @@ export class AgentsGateway
   /**
    * Emit execution failed event
    */
-  emitExecutionFailed(
-    accountId: string,
-    agentId: string,
-    error: string,
-  ) {
+  emitExecutionFailed(accountId: string, agentId: string, error: string) {
     this.server
       .to(`tenant:${accountId}`)
       .to(`agent:${agentId}`)

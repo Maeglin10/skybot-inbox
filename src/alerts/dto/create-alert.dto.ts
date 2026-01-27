@@ -1,4 +1,10 @@
-import { IsString, IsEnum, IsOptional, IsNumber, MinLength } from 'class-validator';
+import {
+  IsString,
+  IsEnum,
+  IsOptional,
+  IsNumber,
+  MinLength,
+} from 'class-validator';
 
 export enum AlertType {
   PAYMENT = 'PAYMENT',

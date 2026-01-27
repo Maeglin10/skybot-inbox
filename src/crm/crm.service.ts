@@ -24,7 +24,9 @@ export class CrmService {
     });
 
     if (!config) {
-      throw new NotFoundException(`Client config not found for key: ${clientKey}`);
+      throw new NotFoundException(
+        `Client config not found for key: ${clientKey}`,
+      );
     }
 
     return config.accountId;
@@ -118,8 +120,12 @@ export class CrmService {
           ...(dto.company !== undefined && { company: dto.company }),
           ...(dto.email !== undefined && { email: dto.email }),
           ...(dto.phone !== undefined && { phone: dto.phone }),
-          ...(dto.status !== undefined && { status: dto.status as PrismaLeadStatus }),
-          ...(dto.temperature !== undefined && { temperature: dto.temperature as PrismaTemperature }),
+          ...(dto.status !== undefined && {
+            status: dto.status as PrismaLeadStatus,
+          }),
+          ...(dto.temperature !== undefined && {
+            temperature: dto.temperature as PrismaTemperature,
+          }),
           ...(dto.channel !== undefined && { channel: dto.channel }),
           ...(dto.assignedTo !== undefined && { assignedTo: dto.assignedTo }),
           ...(dto.tags !== undefined && { tags: dto.tags }),
@@ -232,11 +238,15 @@ export class CrmService {
       const feedback = await this.prisma.feedback.update({
         where: { id },
         data: {
-          ...(dto.customerName !== undefined && { customerName: dto.customerName }),
-          ...(dto.customerEmail !== undefined && { customerEmail: dto.customerEmail }),
+          ...(dto.customerName !== undefined && {
+            customerName: dto.customerName,
+          }),
+          ...(dto.customerEmail !== undefined && {
+            customerEmail: dto.customerEmail,
+          }),
           ...(dto.rating !== undefined && { rating: dto.rating }),
           ...((dto.fullText !== undefined || dto.snippet !== undefined) && {
-            message: dto.fullText || dto.snippet || existing.message
+            message: dto.fullText || dto.snippet || existing.message,
           }),
           ...(dto.channel !== undefined && { channel: dto.channel }),
         },
