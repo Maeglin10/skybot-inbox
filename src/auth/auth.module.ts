@@ -10,6 +10,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { RequireModuleGuard } from './guards/require-module.guard';
 import { ApiKeyGuard } from './api-key.guard';
+import { ApiKeysModule } from './api-keys/api-keys.module';
 import { APP_GUARD } from '@nestjs/core';
 
 const providers: any[] = [
@@ -37,6 +38,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
       secret: process.env.JWT_SECRET || 'your-secret-key',
       signOptions: { expiresIn: '15m' },
     }),
+    ApiKeysModule, // Phase 5: API key management
   ],
   controllers: [AuthController],
   providers,
