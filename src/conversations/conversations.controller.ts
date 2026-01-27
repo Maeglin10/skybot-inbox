@@ -36,6 +36,7 @@ export class ConversationsController {
     @Query('limit') limitQ?: string,
     @Query('cursor') cursorQ?: string,
     @Query('lite') liteQ?: string,
+    @Query('corporate') corporateQ?: string, // P1: Corporate filter
   ) {
     const status = asStatus(statusQ);
     const inboxId = asString(inboxIdQ);
@@ -43,6 +44,8 @@ export class ConversationsController {
     const limit = asInt(limitQ, 20);
     const cursor = asString(cursorQ);
     const lite = liteQ === '1' || liteQ === 'true';
+    const corporate = corporateQ === '1' || corporateQ === 'true' ? true :
+                      corporateQ === '0' || corporateQ === 'false' ? false : undefined;
 
     return this.conversationsService.findAll({
       status,
@@ -51,6 +54,7 @@ export class ConversationsController {
       limit,
       cursor,
       lite,
+      corporate,
     });
   }
 
