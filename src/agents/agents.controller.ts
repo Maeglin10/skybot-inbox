@@ -18,6 +18,11 @@ import { RequireModule } from '../auth/decorators/require-module.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { RequireModuleGuard } from '../auth/guards/require-module.guard';
 import { UserRole } from '@prisma/client';
+import {
+  StandardRateLimit,
+  RelaxedRateLimit,
+  SensitiveRateLimit,
+} from '../common/rate-limit/rate-limit.decorators';
 
 @Controller('agents')
 @UseGuards(RolesGuard, RequireModuleGuard)
@@ -28,7 +33,9 @@ export class AgentsController {
   /**
    * Create a new agent from template
    * Only admins can create agents
+   * Rate limit: 20 requests per minute
    */
+  @SensitiveRateLimit()
   @Post()
   @Roles(UserRole.CLIENT_ADMIN, UserRole.SUPER_ADMIN)
   async create(@CurrentUser() user: any, @Body() dto: CreateAgentDto) {
@@ -38,7 +45,9 @@ export class AgentsController {
   /**
    * List all agents for current tenant
    * All authenticated users can view agents
+   * Rate limit: 120 requests per minute
    */
+  @RelaxedRateLimit()
   @Get()
   @Roles(UserRole.AGENT_USER, UserRole.CLIENT_ADMIN, UserRole.SUPER_ADMIN)
   async findAll(@CurrentUser() user: any) {
@@ -47,7 +56,9 @@ export class AgentsController {
 
   /**
    * Get a single agent by ID
+   * Rate limit: 120 requests per minute
    */
+  @RelaxedRateLimit()
   @Get(':id')
   @Roles(UserRole.AGENT_USER, UserRole.CLIENT_ADMIN, UserRole.SUPER_ADMIN)
   async findOne(@CurrentUser() user: any, @Param('id') id: string) {
@@ -57,7 +68,9 @@ export class AgentsController {
   /**
    * Update agent configuration
    * Only admins can update agents
+   * Rate limit: 60 requests per minute
    */
+  @StandardRateLimit()
   @Put(':id')
   @Roles(UserRole.CLIENT_ADMIN, UserRole.SUPER_ADMIN)
   async update(
@@ -71,7 +84,9 @@ export class AgentsController {
   /**
    * Delete agent (soft delete)
    * Only admins can delete agents
+   * Rate limit: 20 requests per minute
    */
+  @SensitiveRateLimit()
   @Delete(':id')
   @Roles(UserRole.CLIENT_ADMIN, UserRole.SUPER_ADMIN)
   async remove(@CurrentUser() user: any, @Param('id') id: string) {
@@ -80,7 +95,9 @@ export class AgentsController {
 
   /**
    * Activate an agent
+   * Rate limit: 20 requests per minute
    */
+  @SensitiveRateLimit()
   @Put(':id/activate')
   @Roles(UserRole.CLIENT_ADMIN, UserRole.SUPER_ADMIN)
   async activate(@CurrentUser() user: any, @Param('id') id: string) {
@@ -89,7 +106,9 @@ export class AgentsController {
 
   /**
    * Deactivate an agent
+   * Rate limit: 20 requests per minute
    */
+  @SensitiveRateLimit()
   @Put(':id/deactivate')
   @Roles(UserRole.CLIENT_ADMIN, UserRole.SUPER_ADMIN)
   async deactivate(@CurrentUser() user: any, @Param('id') id: string) {
@@ -100,7 +119,9 @@ export class AgentsController {
    * Deploy agent to SkyBot/N8N
    * Manually triggers deployment to SkyBot API
    * Only admins can trigger deployment
+   * Rate limit: 20 requests per minute
    */
+  @SensitiveRateLimit()
   @Post(':id/deploy-to-skybot')
   @Roles(UserRole.CLIENT_ADMIN, UserRole.SUPER_ADMIN)
   async deployToSkybot(@CurrentUser() user: any, @Param('id') id: string) {
@@ -110,7 +131,9 @@ export class AgentsController {
   /**
    * Get agent statistics
    * Returns execution metrics, success rate, costs, etc.
+   * Rate limit: 120 requests per minute (cached)
    */
+  @RelaxedRateLimit()
   @Get(':id/stats')
   @Roles(UserRole.AGENT_USER, UserRole.CLIENT_ADMIN, UserRole.SUPER_ADMIN)
   async getStats(@CurrentUser() user: any, @Param('id') id: string) {
@@ -120,7 +143,9 @@ export class AgentsController {
   /**
    * Get agent execution logs
    * Supports pagination via query params
+   * Rate limit: 120 requests per minute
    */
+  @RelaxedRateLimit()
   @Get(':id/logs')
   @Roles(UserRole.AGENT_USER, UserRole.CLIENT_ADMIN, UserRole.SUPER_ADMIN)
   async getLogs(
