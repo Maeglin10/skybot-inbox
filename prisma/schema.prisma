@@ -6,10 +6,6 @@ datasource db {
   provider = "postgresql"
 }
 
-// =========================
-// ACCOUNT
-// =========================
-
 model Account {
   id        String   @id @default(cuid())
   name      String
@@ -24,18 +20,17 @@ model Account {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  alerts           Alert[]
   clientConfigs    ClientConfig[]
-  routingLogs      RoutingLog[]
+  contacts         Contact[]
   externalAccounts ExternalAccount[]
 
   inboxes  Inbox[]
-  contacts Contact[]
 
   // New relations
   userAccounts       UserAccount[]
   leads              Lead[]
   feedbacks          Feedback[]
-  alerts             Alert[]
   channelConnections ChannelConnection[]
   modules            TenantModule[]
   integrations       Integration[]
@@ -47,6 +42,7 @@ model Account {
   knowledgeItems     KnowledgeItem[]
   agents             Agent[]
   apiKeys            ApiKey[] // Phase 5: API key management
+  routingLogs        RoutingLog[]
 
   @@index([createdAt])
   @@index([isDemo])
@@ -55,19 +51,16 @@ model Account {
 }
 
 model ExternalAccount {
-  id         String  @id @default(cuid())
+  id         String   @id @default(cuid())
   accountId  String
   channel    Channel
   externalId String
   clientKey  String
-
-  name     String?
-  isActive Boolean @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  name       String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  account    Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@unique([accountId, channel, externalId], name: "accountId_channel_externalId")
   @@index([accountId])
@@ -134,38 +127,30 @@ model AuditLog {
 // =========================
 
 model Inbox {
-  id         String  @id @default(cuid())
-  accountId  String
-  externalId String
-  name       String
-  channel    Channel @default(WHATSAPP)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  account       Account        @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  id            String         @id @default(cuid())
+  accountId     String
+  externalId    String
+  name          String
+  channel       Channel        @default(WHATSAPP)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   contacts      Contact[]
   conversations Conversation[]
+  account       Account        @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@unique([accountId, externalId], name: "accountId_externalId")
   @@index([accountId])
   @@index([channel])
 }
 
-// =========================
-// CONTACT
-// =========================
-
 model Contact {
-  id        String  @id @default(cuid())
-  accountId String
-  inboxId   String
-  phone     String
-  name      String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
+  id            String         @id @default(cuid())
+  accountId     String
+  inboxId       String
+  phone         String
+  name          String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   account       Account        @relation(fields: [accountId], references: [id], onDelete: Cascade)
   inbox         Inbox          @relation(fields: [inboxId], references: [id], onDelete: Cascade)
   conversations Conversation[]
@@ -175,26 +160,19 @@ model Contact {
   @@index([accountId])
 }
 
-// =========================
-// CONVERSATION
-// =========================
 model Conversation {
-  id String @id @default(cuid())
-
-  inboxId   String
-  contactId String
-
-  channel    Channel @default(WHATSAPP)
-  externalId String? // id conversation côté provider
-
+  id             String             @id @default(cuid())
+  inboxId        String
+  contactId      String
+  channel        Channel            @default(WHATSAPP)
+  externalId     String?
   status         ConversationStatus @default(OPEN)
   lastActivityAt DateTime           @default(now())
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
-
-  inbox    Inbox     @relation(fields: [inboxId], references: [id], onDelete: Cascade)
-  contact  Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  messages Message[]
+  contact        Contact            @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  inbox          Inbox              @relation(fields: [inboxId], references: [id], onDelete: Cascade)
+  messages       Message[]
 
   @@unique([channel, externalId], name: "conversation_channel_externalId_unique")
   @@index([inboxId])
@@ -205,25 +183,18 @@ model Conversation {
   @@index([status, lastActivityAt])
 }
 
-// =========================
-// MESSAGE
-// =========================
 model Message {
-  id String @id @default(cuid())
-
+  id             String           @id @default(cuid())
   conversationId String
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-
-  channel    Channel
-  externalId String? // id message provider
-
-  direction MessageDirection
-  from      String?
-  to        String?
-  text      String?
-
-  timestamp DateTime @default(now())
-  createdAt DateTime @default(now())
+  channel        Channel
+  externalId     String?
+  direction      MessageDirection
+  from           String?
+  to             String?
+  text           String?
+  timestamp      DateTime         @default(now())
+  createdAt      DateTime         @default(now())
+  conversation   Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@unique([channel, externalId], name: "message_channel_externalId_unique")
   @@index([conversationId])
@@ -233,38 +204,25 @@ model Message {
   @@index([conversationId, createdAt])
 }
 
-// =========================
-// CLIENT CONFIG
-// =========================
-
 model ClientConfig {
-  id String @id @default(cuid())
-
-  accountId String
-  account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
-
-  clientKey String
-  status    ClientStatus @default(ACTIVE)
-  name      String?
-
-  defaultAgentKey String @default("master-router")
-
+  id               String       @id @default(cuid())
+  accountId        String
+  clientKey        String
+  status           ClientStatus @default(ACTIVE)
+  name             String?
+  defaultAgentKey  String       @default("master-router")
   allowedAgents    Json
   channels         Json
   externalAccounts Json
   n8nOverrides     Json?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  account          Account      @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@unique([accountId, clientKey], name: "accountId_clientKey")
   @@index([accountId])
   @@index([status])
 }
-
-// =========================
-// ROUTING LOGS
-// =========================
 
 model RoutingLog {
   id                String        @id @default(cuid())
@@ -279,11 +237,9 @@ model RoutingLog {
   latencyMs         Int?
   error             String?
   source            String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  account           Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@index([accountId])
   @@index([clientKey])
@@ -291,39 +247,6 @@ model RoutingLog {
   @@index([createdAt])
   @@index([clientKey, createdAt])
   @@index([status, createdAt])
-}
-
-// =========================
-// ENUMS
-// =========================
-enum ConversationStatus {
-  OPEN
-  PENDING
-  CLOSED
-}
-
-enum Channel {
-  WHATSAPP
-  INSTAGRAM
-  FACEBOOK
-  EMAIL
-  WEB
-}
-
-enum MessageDirection {
-  IN
-  OUT
-}
-
-enum ClientStatus {
-  ACTIVE
-  SUSPENDED
-}
-
-enum RoutingStatus {
-  RECEIVED
-  FORWARDED
-  FAILED
 }
 
 // =========================
@@ -491,8 +414,39 @@ model Alert {
 }
 
 // =========================
-// NEW ENUMS
+// ENUMS
 // =========================
+
+enum ConversationStatus {
+  OPEN
+  PENDING
+  CLOSED
+}
+
+enum Channel {
+  WHATSAPP
+  INSTAGRAM
+  FACEBOOK
+  EMAIL
+  WEB
+}
+
+enum MessageDirection {
+  IN
+  OUT
+}
+
+enum ClientStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum RoutingStatus {
+  RECEIVED
+  FORWARDED
+  FAILED
+}
+
 enum UserRole {
   SUPER_ADMIN  // Can manage all tenants
   CLIENT_ADMIN // Can manage their tenant
@@ -507,17 +461,30 @@ enum AccountStatus {
   PENDING
 }
 
+enum TenantStatus {
+  TRIAL
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+}
+
+enum Tier {
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
 enum Theme {
-  DEFAULT   // The default shadcn/ui theme
-  NORD      // An arctic, north-bluish color palette
-  GOLD      // A warm and inviting color palette of rich browns and shimmering golds
-  NATURE    // A soothing palette of soft yellows, greens, and blues
-  NETFLIX   // A bold color palette of black, white, and fiery red
-  LARACON   // A vibrant color palette celebrating Laracon US 2023
-  DRACULA   // A dark theme using Dracula colors
-  LIGHT     // Legacy - kept for backward compatibility
-  DARK      // Legacy - kept for backward compatibility
-  SYSTEM    // Legacy - kept for backward compatibility
+  LIGHT
+  DARK
+  SYSTEM
+  DEFAULT
+  NORD
+  GOLD
+  NATURE
+  NETFLIX
+  LARACON
+  DRACULA
 }
 
 enum Language {
@@ -580,19 +547,6 @@ enum ChannelConnectionStatus {
   INACTIVE
   ERROR
   PENDING
-}
-
-enum TenantStatus {
-  TRIAL
-  ACTIVE
-  SUSPENDED
-  CANCELLED
-}
-
-enum Tier {
-  STARTER
-  PRO
-  ENTERPRISE
 }
 
 enum IntegrationProvider {
