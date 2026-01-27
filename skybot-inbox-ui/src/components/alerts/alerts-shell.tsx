@@ -81,7 +81,7 @@ export function AlertsShell() {
    );
 
   return (
-    <div className="h-[calc(100vh-1px)] w-full bg-transparent text-foreground">
+    <div className="h-full w-full bg-transparent text-foreground">
       <div className="grid h-full grid-cols-[380px_minmax(0,1fr)]">
         
         {/* Middle Column: List */}

@@ -111,100 +111,102 @@ export default function AgentDetailsPage() {
   if (!agent) return <div className="p-8">Agent Not found</div>;
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">{agent.name}</h1>
-        <p className="text-muted-foreground">{agent.description}</p>
-      </div>
+    <div className="h-full w-full overflow-y-auto">
+      <div className="container mx-auto p-6">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold">{agent.name}</h1>
+          <p className="text-muted-foreground">{agent.description}</p>
+        </div>
 
-      <Tabs defaultValue="overview">
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="metrics">Metrics</TabsTrigger>
-          <TabsTrigger value="logs">Logs</TabsTrigger>
-        </TabsList>
+        <Tabs defaultValue="overview">
+          <TabsList>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="metrics">Metrics</TabsTrigger>
+            <TabsTrigger value="logs">Logs</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="overview">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Total Executions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {stats?.stats?.totalExecutions ?? 0}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Success Rate</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {stats?.stats?.successRate?.toFixed(1) ?? '0.0'}%
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Avg Response Time</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {((stats?.stats?.avgResponseTime ?? 0) / 1000).toFixed(2)}s
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Total Cost</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  ${stats?.stats?.totalOpenAICost?.toFixed(2) ?? '0.00'}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="metrics">
-          <Card>
-            <CardHeader>
-              <CardTitle>Metric Stream</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">Real-time charts will appear here when connected to live backend.</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="logs">
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Executions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {stats?.executions?.map((exec: any) => (
-                  <div key={exec.id || Math.random()} className="border-b pb-2 animate-in slide-in-from-top-2 fade-in">
-                    <div className="flex justify-between">
-                      <span className="text-sm">{exec.status}</span>
-                      <span className="text-sm text-muted-foreground">
-                        {exec.createdAt ? new Date(exec.createdAt).toLocaleString() : 'Just now'}
-                      </span>
-                    </div>
+          <TabsContent value="overview">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm">Total Executions</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {stats?.stats?.totalExecutions ?? 0}
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm">Success Rate</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {stats?.stats?.successRate?.toFixed(1) ?? '0.0'}%
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm">Avg Response Time</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {((stats?.stats?.avgResponseTime ?? 0) / 1000).toFixed(2)}s
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm">Total Cost</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    ${stats?.stats?.totalOpenAICost?.toFixed(2) ?? '0.00'}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="metrics">
+            <Card>
+              <CardHeader>
+                <CardTitle>Metric Stream</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">Real-time charts will appear here when connected to live backend.</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="logs">
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Executions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {stats?.executions?.map((exec: any) => (
+                    <div key={exec.id || Math.random()} className="border-b pb-2 animate-in slide-in-from-top-2 fade-in">
+                      <div className="flex justify-between">
+                        <span className="text-sm">{exec.status}</span>
+                        <span className="text-sm text-muted-foreground">
+                          {exec.createdAt ? new Date(exec.createdAt).toLocaleString() : 'Just now'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 }
