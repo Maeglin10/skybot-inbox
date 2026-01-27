@@ -251,6 +251,256 @@ async function main() {
 
   console.log(`  ✅ ${leadsCount} leads created`);
 
+  // Add demo leads for all temperatures
+  console.log('\n🎯 Adding demo leads (HOT/WARM/COLD)...');
+  const firstAccountId = Array.from(accountsMap.values())[0];
+  const demoLeads = [
+    // HOT leads
+    {
+      accountId: firstAccountId,
+      name: 'Roberto Martinez',
+      company: 'TechStart Solutions',
+      email: 'roberto.martinez@techstart.com',
+      phone: '+506-8765-4321',
+      status: 'QUALIFIED',
+      temperature: 'HOT',
+      channel: 'whatsapp',
+      assignedTo: 'Agent 1',
+      tags: ['enterprise', 'urgent'],
+      notes: 'Ready to close, needs final proposal',
+      value: 50000.00,
+      currency: 'USD',
+    },
+    {
+      accountId: firstAccountId,
+      name: 'Sofia Ramirez',
+      company: 'Digital Innovators CR',
+      email: 'sofia@digitalcr.com',
+      phone: '+506-7654-3210',
+      status: 'CONTACTED',
+      temperature: 'HOT',
+      channel: 'email',
+      assignedTo: 'Agent 2',
+      tags: ['saas', 'high-value'],
+      notes: 'Very interested in premium plan',
+      value: 35000.00,
+      currency: 'USD',
+    },
+    {
+      accountId: firstAccountId,
+      name: 'Miguel Angel Torres',
+      company: 'CloudTech SA',
+      email: 'mtorres@cloudtech.cr',
+      phone: '+506-6543-2109',
+      status: 'NEW',
+      temperature: 'HOT',
+      channel: 'whatsapp',
+      tags: ['enterprise', 'referral'],
+      notes: 'CEO referral, schedule demo ASAP',
+      value: 75000.00,
+      currency: 'USD',
+    },
+    // WARM leads
+    {
+      accountId: firstAccountId,
+      name: 'Ana Lucia Gonzalez',
+      company: 'Marketing Plus',
+      email: 'ana@marketingplus.cr',
+      phone: '+506-5432-1098',
+      status: 'CONTACTED',
+      temperature: 'WARM',
+      channel: 'instagram',
+      assignedTo: 'Agent 1',
+      tags: ['smb', 'marketing'],
+      notes: 'Interested but needs budget approval',
+      value: 12000.00,
+      currency: 'USD',
+    },
+    {
+      accountId: firstAccountId,
+      name: 'Carlos Hernandez',
+      company: 'E-Commerce Pro',
+      email: 'carlos@ecommercepro.com',
+      phone: '+506-4321-0987',
+      status: 'NEW',
+      temperature: 'WARM',
+      channel: 'whatsapp',
+      tags: ['ecommerce', 'follow-up'],
+      notes: 'Downloaded whitepaper, schedule call',
+      value: 18000.00,
+      currency: 'USD',
+    },
+    {
+      accountId: firstAccountId,
+      name: 'Patricia Morales',
+      company: 'Retail Solutions',
+      email: 'patricia@retail.cr',
+      phone: '+506-3210-9876',
+      status: 'QUALIFIED',
+      temperature: 'WARM',
+      channel: 'email',
+      assignedTo: 'Agent 2',
+      tags: ['retail', 'demo-scheduled'],
+      notes: 'Demo scheduled for next week',
+      value: 22000.00,
+      currency: 'USD',
+    },
+    // COLD leads
+    {
+      accountId: firstAccountId,
+      name: 'Luis Fernando Vargas',
+      company: 'Small Business Inc',
+      email: 'luis@smallbiz.cr',
+      phone: '+506-2109-8765',
+      status: 'NEW',
+      temperature: 'COLD',
+      channel: 'email',
+      tags: ['inbound', 'low-priority'],
+      notes: 'Requested info, not urgent',
+      value: 5000.00,
+      currency: 'USD',
+    },
+    {
+      accountId: firstAccountId,
+      name: 'Isabella Rodriguez',
+      company: 'Startup Ventures',
+      email: 'isabella@startup.cr',
+      phone: '+506-1098-7654',
+      status: 'CONTACTED',
+      temperature: 'COLD',
+      channel: 'whatsapp',
+      tags: ['startup', 'low-budget'],
+      notes: 'Price-sensitive, may not convert',
+      value: 3000.00,
+      currency: 'USD',
+    },
+    {
+      accountId: firstAccountId,
+      name: 'Eduardo Jimenez',
+      company: 'Freelance Consulting',
+      email: 'eduardo@freelance.com',
+      phone: '+506-9876-5432',
+      status: 'NEW',
+      temperature: 'COLD',
+      channel: 'instagram',
+      tags: ['freelancer', 'exploring'],
+      notes: 'Just browsing, no immediate need',
+      value: 2000.00,
+      currency: 'USD',
+    },
+  ];
+
+  for (const leadData of demoLeads) {
+    await prisma.lead.create({ data: leadData as any });
+  }
+
+  console.log(`  ✅ Added ${demoLeads.length} demo leads (3 HOT, 3 WARM, 3 COLD)`);
+
+  // Add demo feedbacks
+  console.log('\n💬 Adding demo feedbacks...');
+  const demoFeedbacks = [
+    {
+      accountId: firstAccountId,
+      customerName: 'Maria Fernandez',
+      customerEmail: 'maria@example.com',
+      customerPhone: '+506-1234-5678',
+      type: 'GENERAL',
+      status: 'PENDING',
+      rating: 5,
+      message: 'Excellent service! The AI assistant was very helpful and resolved my issue quickly. Highly recommend!',
+      channel: 'whatsapp',
+    },
+    {
+      accountId: firstAccountId,
+      customerName: 'Juan Carlos Perez',
+      customerEmail: 'jc@example.com',
+      customerPhone: '+506-2345-6789',
+      type: 'COMPLAINT',
+      status: 'RESOLVED',
+      rating: 2,
+      message: 'The response time was slow and I had to wait too long. Please improve your customer service.',
+      response: 'We apologize for the delay and are working on improving our response times. Thank you for your feedback.',
+      respondedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
+      respondedBy: 'Support Team',
+      channel: 'email',
+    },
+    {
+      accountId: firstAccountId,
+      customerName: 'Laura Sanchez',
+      customerEmail: 'laura@example.com',
+      type: 'PRAISE',
+      status: 'CLOSED',
+      rating: 5,
+      message: 'Amazing platform! Very intuitive and easy to use. The WhatsApp integration works perfectly.',
+      channel: 'whatsapp',
+    },
+    {
+      accountId: firstAccountId,
+      customerName: 'Diego Rojas',
+      customerEmail: 'diego@example.com',
+      customerPhone: '+506-3456-7890',
+      type: 'SUGGESTION',
+      status: 'PENDING',
+      rating: 4,
+      message: 'Great service overall. Would be nice to have more customization options for automated responses.',
+      channel: 'instagram',
+    },
+    {
+      accountId: firstAccountId,
+      customerName: 'Valentina Castro',
+      customerEmail: 'valentina@example.com',
+      type: 'GENERAL',
+      status: 'RESOLVED',
+      rating: 5,
+      message: 'The team was super responsive and helped me set everything up. Very satisfied with the product!',
+      response: 'Thank you for your kind words! We\'re glad we could help.',
+      respondedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
+      respondedBy: 'Agent 1',
+      channel: 'email',
+    },
+    {
+      accountId: firstAccountId,
+      customerName: 'Andres Gutierrez',
+      customerEmail: 'andres@example.com',
+      customerPhone: '+506-4567-8901',
+      type: 'COMPLAINT',
+      status: 'PENDING',
+      rating: 3,
+      message: 'Some features are confusing. Need better documentation and tutorials.',
+      channel: 'whatsapp',
+    },
+    {
+      accountId: firstAccountId,
+      customerName: 'Carolina Mendez',
+      customerEmail: 'carolina@example.com',
+      type: 'PRAISE',
+      status: 'CLOSED',
+      rating: 5,
+      message: 'Best customer service platform I\'ve used! The AI is incredibly smart and saves us so much time.',
+      channel: 'instagram',
+    },
+    {
+      accountId: firstAccountId,
+      customerName: 'Ricardo Flores',
+      customerEmail: 'ricardo@example.com',
+      customerPhone: '+506-5678-9012',
+      type: 'SUGGESTION',
+      status: 'RESOLVED',
+      rating: 4,
+      message: 'Would love to see analytics dashboard improvements. More detailed metrics would be helpful.',
+      response: 'Thank you for the suggestion! We\'re working on enhanced analytics features in our next release.',
+      respondedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
+      respondedBy: 'Product Team',
+      channel: 'email',
+    },
+  ];
+
+  for (const feedbackData of demoFeedbacks) {
+    await prisma.feedback.create({ data: feedbackData as any });
+  }
+
+  console.log(`  ✅ Added ${demoFeedbacks.length} demo feedbacks`);
+
   // ====================
   // 5. CREATE ALERTS
   // ====================
@@ -271,10 +521,11 @@ async function main() {
     if (priorityLower === 'low') priority = 'LOW';
 
     // Parse type
-    let type: 'PAYMENT' | 'HANDOFF' | 'SYSTEM' | 'CUSTOM' = 'CUSTOM';
+    let type: 'PAYMENT' | 'HANDOFF' | 'CORPORATE' | 'SYSTEM' | 'CUSTOM' = 'CUSTOM';
     const typeLower = (notification.type || '').toLowerCase();
     if (typeLower.includes('payment')) type = 'PAYMENT';
     if (typeLower.includes('escalation') || typeLower.includes('ticket')) type = 'HANDOFF';
+    if (typeLower.includes('corporate') || typeLower.includes('business') || typeLower.includes('enterprise')) type = 'CORPORATE';
     if (typeLower.includes('system')) type = 'SYSTEM';
 
     // Parse status
@@ -302,6 +553,96 @@ async function main() {
   }
 
   console.log(`  ✅ ${alertsCount} alerts created`);
+
+  // Add demo alerts for each type
+  console.log('\n🎯 Adding demo alerts for all types...');
+  const demoAccountId = Array.from(accountsMap.values())[0];
+
+  const demoAlerts = [
+    // PAYMENT alerts
+    {
+      accountId: firstAccountId,
+      type: 'PAYMENT',
+      title: 'Pending Payment - Invoice #12345',
+      subtitle: 'Customer Maria García has a pending payment of $250.00',
+      status: 'OPEN',
+      priority: 'HIGH',
+      amount: 250.00,
+      currency: 'USD',
+      customerName: 'Maria García',
+      channel: 'WHATSAPP',
+    },
+    {
+      accountId: firstAccountId,
+      type: 'PAYMENT',
+      title: 'Payment Reminder - Order #67890',
+      subtitle: 'Payment due in 3 days for Carlos Mendez',
+      status: 'OPEN',
+      priority: 'MEDIUM',
+      amount: 150.00,
+      currency: 'USD',
+      customerName: 'Carlos Mendez',
+      channel: 'EMAIL',
+    },
+    // HANDOFF alerts
+    {
+      accountId: firstAccountId,
+      type: 'HANDOFF',
+      title: 'AI Escalation - Complex Query',
+      subtitle: 'Customer needs human assistance with technical issue',
+      status: 'OPEN',
+      priority: 'HIGH',
+      customerName: 'Ana Rodriguez',
+      channel: 'WHATSAPP',
+    },
+    {
+      accountId: firstAccountId,
+      type: 'HANDOFF',
+      title: 'Agent Transfer Required',
+      subtitle: 'Customer requested to speak with a manager',
+      status: 'PENDING',
+      priority: 'MEDIUM',
+      customerName: 'Luis Fernandez',
+      channel: 'INSTAGRAM',
+    },
+    // CORPORATE alerts
+    {
+      accountId: firstAccountId,
+      type: 'CORPORATE',
+      title: 'Enterprise Account - Contract Renewal',
+      subtitle: 'TechCorp SA needs contract review for Q2 2026',
+      status: 'OPEN',
+      priority: 'HIGH',
+      customerName: 'TechCorp SA',
+      channel: 'EMAIL',
+    },
+    {
+      accountId: firstAccountId,
+      type: 'CORPORATE',
+      title: 'Corporate Client - Volume Discount Request',
+      subtitle: 'GlobalSolutions Inc requesting bulk pricing',
+      status: 'OPEN',
+      priority: 'MEDIUM',
+      customerName: 'GlobalSolutions Inc',
+      channel: 'WHATSAPP',
+    },
+    {
+      accountId: firstAccountId,
+      type: 'CORPORATE',
+      title: 'B2B Partnership Inquiry',
+      subtitle: 'MegaCorp International interested in strategic partnership',
+      status: 'PENDING',
+      priority: 'HIGH',
+      customerName: 'MegaCorp International',
+      channel: 'EMAIL',
+    },
+  ];
+
+  for (const alertData of demoAlerts) {
+    await prisma.alert.create({ data: alertData as any });
+  }
+
+  console.log(`  ✅ Added ${demoAlerts.length} demo alerts`);
 
   // ====================
   // 6. CREATE ROUTING LOGS

@@ -528,6 +528,7 @@ enum FeedbackStatus {
 enum AlertType {
   PAYMENT
   HANDOFF
+  CORPORATE
   SYSTEM
   CUSTOM
 }

@@ -9,9 +9,7 @@ import {
   Users,
   BarChart3,
   Settings,
-  Calendar,
-  Bot,
-  Store
+  Calendar
 } from 'lucide-react';
 
 const LOCALE = 'es'; // Hardcoded locale
@@ -22,8 +20,9 @@ const NAV_ITEMS = [
   { href: '/crm', key: 'crm', icon: Users },
   { href: '/calendar', key: 'calendar', icon: Calendar },
   { href: '/analytics', key: 'analytics', icon: BarChart3 },
-  { href: '/agents', key: 'agents', icon: Bot },
-  { href: '/marketplace', key: 'marketplace', icon: Store },
+  // Temporarily hidden - keeping code for future development
+  // { href: '/agents', key: 'agents', icon: Bot },
+  // { href: '/marketplace', key: 'marketplace', icon: Store },
   { href: '/settings', key: 'settings', icon: Settings },
 ];
 

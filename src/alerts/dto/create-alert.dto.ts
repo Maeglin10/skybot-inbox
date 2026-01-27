@@ -9,6 +9,7 @@ import {
 export enum AlertType {
   PAYMENT = 'PAYMENT',
   HANDOFF = 'HANDOFF',
+  CORPORATE = 'CORPORATE',
   SYSTEM = 'SYSTEM',
   CUSTOM = 'CUSTOM',
 }

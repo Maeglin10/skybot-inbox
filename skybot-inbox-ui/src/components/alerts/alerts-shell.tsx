@@ -16,7 +16,7 @@ import { AlertDetail } from './alert-detail';
 // but we might need to adjust them if they are too specific in ui.css.
 // Luckily ui.css definitions like .ui-inboxHeader are generic enough.
 
-type Tab = 'PAYMENT' | 'HANDOFF';
+type Tab = 'PAYMENT' | 'HANDOFF' | 'CORPORATE';
 
 export function AlertsShell() {
   const router = useRouter();
@@ -98,6 +98,7 @@ export function AlertsShell() {
               <div className="ui-inboxHeader__tabs">
                 <TabBtn v="PAYMENT" label="Pending Payments" />
                 <TabBtn v="HANDOFF" label="AI Handoff" />
+                <TabBtn v="CORPORATE" label="Corporativo" />
               </div>
               
               {/* Optional Search */}
