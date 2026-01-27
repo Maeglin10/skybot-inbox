@@ -14,7 +14,7 @@ async function createAdmin() {
       create: {
         id: 'acc_demo',
         name: 'Demo Account',
-        tier: "GROWTH",
+        tier: "PRO",
         status: 'ACTIVE',
       },
     });
