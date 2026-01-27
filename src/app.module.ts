@@ -38,6 +38,7 @@ import { TemplatesModule } from './templates/templates.module';
 import { WebsocketsModule } from './websockets/websockets.module';
 import { AppController } from './app.controller';
 import { TenantContextMiddleware } from './common/middleware/tenant-context.middleware';
+import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 
 @Module({
   imports: [
@@ -88,6 +89,6 @@ import { TenantContextMiddleware } from './common/middleware/tenant-context.midd
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(TenantContextMiddleware).forRoutes('*');
+    consumer.apply(RequestIdMiddleware, TenantContextMiddleware).forRoutes('*');
   }
 }

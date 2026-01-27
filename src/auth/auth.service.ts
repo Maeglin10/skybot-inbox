@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   ConflictException,
   BadRequestException,
+  Inject,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
@@ -11,6 +12,8 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { MagicLinkDto } from './dto/magic-link.dto';
 import { randomBytes } from 'crypto';
+import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
+import { Logger } from 'winston';
 
 export interface JwtPayload {
   sub: string; // userAccountId
@@ -39,6 +42,7 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
+    @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
   ) {}
 
   /**
@@ -115,7 +119,10 @@ export class AuthService {
     }
 
     // Verify password
-    const isPasswordValid = await bcrypt.compare(dto.password, user.passwordHash);
+    const isPasswordValid = await bcrypt.compare(
+      dto.password,
+      user.passwordHash,
+    );
 
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
@@ -196,7 +203,8 @@ export class AuthService {
     if (!user || !user.email) {
       // Don't reveal if user exists or not (security)
       return {
-        message: 'If an account exists, a magic link has been sent to your email',
+        message:
+          'If an account exists, a magic link has been sent to your email',
       };
     }
 
@@ -217,8 +225,11 @@ export class AuthService {
     // const magicLinkUrl = `${process.env.FRONTEND_URL}/auth/verify?token=${token}&email=${user.email}`;
     // await this.emailService.sendMagicLink(user.email, magicLinkUrl);
 
-    console.log(`🔗 Magic link token for ${user.email}: ${token}`);
-    console.log(`🔗 Expires at: ${expiresAt.toISOString()}`);
+    this.logger.info('Magic link generated', {
+      email: user.email,
+      token,
+      expiresAt: expiresAt.toISOString(),
+    });
 
     return {
       message: 'If an account exists, a magic link has been sent to your email',
@@ -228,10 +239,7 @@ export class AuthService {
   /**
    * Verify magic link token
    */
-  async verifyMagicLink(
-    email: string,
-    token: string,
-  ): Promise<AuthResponse> {
+  async verifyMagicLink(email: string, token: string): Promise<AuthResponse> {
     const magicLink = await this.prisma.magicLink.findFirst({
       where: {
         email,
@@ -331,14 +339,19 @@ export class AuthService {
       }
 
       // Generate username from email (part before @)
-      const baseUsername = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+      const baseUsername = email
+        .split('@')[0]
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '');
       let username = baseUsername;
       let suffix = 1;
 
       // Ensure username is unique within account
-      while (await this.prisma.userAccount.findFirst({
-        where: { accountId: demoAccount.id, username }
-      })) {
+      while (
+        await this.prisma.userAccount.findFirst({
+          where: { accountId: demoAccount.id, username },
+        })
+      ) {
         username = `${baseUsername}${suffix}`;
         suffix++;
       }
