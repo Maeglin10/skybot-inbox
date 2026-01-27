@@ -94,44 +94,44 @@ export class AnalyticsService {
         }
       });
 
-      // For LEADS, query Airtable
+      // For LEADS, query Prisma
       if (metric === MetricGroup.LEADS) {
-        const leads = await this.airtable.query<LeadRecord>(
-          'leads',
-          clientKey,
-          `IS_AFTER({created_at}, '${startDate.toISOString()}')`,
-          { maxRecords: 1000, pageSize: 100 },
-        );
+        const accountId = await this.getAccountId(clientKey);
+        const leads = await this.prisma.lead.findMany({
+          where: {
+            accountId,
+            createdAt: { gte: startDate },
+          },
+          select: {
+            createdAt: true,
+          },
+        });
 
         leads.forEach((lead) => {
-          if (lead.fields.created_at) {
-            const key = new Date(lead.fields.created_at).toLocaleDateString(
-              'en-US',
-            );
-            if (dataMap.has(key)) {
-              dataMap.set(key, (dataMap.get(key) || 0) + 1);
-            }
+          const key = new Date(lead.createdAt).toLocaleDateString('en-US');
+          if (dataMap.has(key)) {
+            dataMap.set(key, (dataMap.get(key) || 0) + 1);
           }
         });
       }
 
-      // For FEEDBACK, query Airtable
+      // For FEEDBACK, query Prisma
       if (metric === MetricGroup.FEEDBACK) {
-        const feedbacks = await this.airtable.query<FeedbackRecord>(
-          'feedbacks',
-          clientKey,
-          `IS_AFTER({created_at}, '${startDate.toISOString()}')`,
-          { maxRecords: 1000, pageSize: 100 },
-        );
+        const accountId = await this.getAccountId(clientKey);
+        const feedbacks = await this.prisma.feedback.findMany({
+          where: {
+            accountId,
+            createdAt: { gte: startDate },
+          },
+          select: {
+            createdAt: true,
+          },
+        });
 
         feedbacks.forEach((fb) => {
-          if (fb.fields.created_at) {
-            const key = new Date(fb.fields.created_at).toLocaleDateString(
-              'en-US',
-            );
-            if (dataMap.has(key)) {
-              dataMap.set(key, (dataMap.get(key) || 0) + 1);
-            }
+          const key = new Date(fb.createdAt).toLocaleDateString('en-US');
+          if (dataMap.has(key)) {
+            dataMap.set(key, (dataMap.get(key) || 0) + 1);
           }
         });
       }
@@ -193,6 +193,19 @@ export class AnalyticsService {
 
   // ==================== PRIVATE HELPERS ====================
 
+  private async getAccountId(clientKey: string): Promise<string> {
+    const config = await this.prisma.clientConfig.findFirst({
+      where: { clientKey },
+      select: { accountId: true },
+    });
+
+    if (!config) {
+      throw new Error(`Client config not found for key: ${clientKey}`);
+    }
+
+    return config.accountId;
+  }
+
   private getRangeDays(range: TimeRange): number {
     switch (range) {
       case TimeRange.SEVEN_DAYS:
@@ -207,18 +220,18 @@ export class AnalyticsService {
   }
 
   private async getLeadKpis(clientKey: string) {
-    const leads = await this.airtable.query<LeadRecord>(
-      'leads',
-      clientKey,
-      undefined,
-      { maxRecords: 1000, pageSize: 100 },
-    );
-    const total = leads.length;
-    const qualified = leads.filter(
-      (l) => l.fields.status === 'QUALIFIED',
-    ).length;
-    const lost = leads.filter((l) => l.fields.status === 'LOST').length;
-    const newLeads = leads.filter((l) => l.fields.status === 'NEW').length;
+    const accountId = await this.getAccountId(clientKey);
+
+    const total = await this.prisma.lead.count({ where: { accountId } });
+    const qualified = await this.prisma.lead.count({
+      where: { accountId, status: 'QUALIFIED' },
+    });
+    const lost = await this.prisma.lead.count({
+      where: { accountId, status: 'LOST' },
+    });
+    const newLeads = await this.prisma.lead.count({
+      where: { accountId, status: 'NEW' },
+    });
 
     return [
       {
@@ -315,23 +328,24 @@ export class AnalyticsService {
   }
 
   private async getFeedbackKpis(clientKey: string) {
-    const feedbacks = await this.airtable.query<FeedbackRecord>(
-      'feedbacks',
-      clientKey,
-      undefined,
-      { maxRecords: 1000, pageSize: 100 },
-    );
-    const total = feedbacks.length;
+    const accountId = await this.getAccountId(clientKey);
+
+    const total = await this.prisma.feedback.count({ where: { accountId } });
+    const feedbacks = await this.prisma.feedback.findMany({
+      where: { accountId },
+      select: { rating: true },
+    });
+
     const avgRating =
       total > 0
         ? (
-            feedbacks.reduce((sum, f) => sum + (f.fields.rating || 0), 0) /
-            total
+            feedbacks.reduce((sum, f) => sum + (f.rating || 0), 0) / total
           ).toFixed(1)
         : '0';
-    const positiveCount = feedbacks.filter((f) => f.fields.rating >= 4).length;
+    const positiveCount = feedbacks.filter((f) => (f.rating || 0) >= 4).length;
     const positiveRate =
       total > 0 ? ((positiveCount / total) * 100).toFixed(0) : '0';
+
     return [
       {
         label: 'Total Feedback',
@@ -361,16 +375,16 @@ export class AnalyticsService {
   }
 
   private async getChannelBreakdown(clientKey: string) {
-    const leads = await this.airtable.query<LeadRecord>(
-      'leads',
-      clientKey,
-      undefined,
-      { maxRecords: 1000, pageSize: 100 },
-    );
+    const accountId = await this.getAccountId(clientKey);
+    const leads = await this.prisma.lead.findMany({
+      where: { accountId },
+      select: { channel: true },
+    });
+
     const channelCounts = new Map<string, number>();
 
     leads.forEach((lead) => {
-      const channel = lead.fields.channel || 'OTHER';
+      const channel = lead.channel || 'OTHER';
       channelCounts.set(channel, (channelCounts.get(channel) || 0) + 1);
     });
 
@@ -381,16 +395,16 @@ export class AnalyticsService {
   }
 
   private async getTemperatureBreakdown(clientKey: string) {
-    const leads = await this.airtable.query<LeadRecord>(
-      'leads',
-      clientKey,
-      undefined,
-      { maxRecords: 1000, pageSize: 100 },
-    );
+    const accountId = await this.getAccountId(clientKey);
+    const leads = await this.prisma.lead.findMany({
+      where: { accountId },
+      select: { temperature: true },
+    });
+
     const tempCounts = new Map<string, number>();
 
     leads.forEach((lead) => {
-      const temp = lead.fields.temperature || 'COLD';
+      const temp = lead.temperature || 'COLD';
       tempCounts.set(temp, (tempCounts.get(temp) || 0) + 1);
     });
 
@@ -401,20 +415,21 @@ export class AnalyticsService {
   }
 
   private async getRatingBreakdown(clientKey: string) {
-    const feedbacks = await this.airtable.query<FeedbackRecord>(
-      'feedbacks',
-      clientKey,
-      undefined,
-      { maxRecords: 1000, pageSize: 100 },
-    );
+    const accountId = await this.getAccountId(clientKey);
+    const feedbacks = await this.prisma.feedback.findMany({
+      where: { accountId },
+      select: { rating: true },
+    });
+
     const ratingCounts = { '5': 0, '4': 0, '3': 0, '1-2': 0 };
     feedbacks.forEach((fb) => {
-      const rating = fb.fields.rating || 0;
+      const rating = fb.rating || 0;
       if (rating === 5) ratingCounts['5']++;
       else if (rating === 4) ratingCounts['4']++;
       else if (rating === 3) ratingCounts['3']++;
       else if (rating <= 2) ratingCounts['1-2']++;
     });
+
     return [
       { label: '5 Stars', value: ratingCounts['5'] },
       { label: '4 Stars', value: ratingCounts['4'] },
