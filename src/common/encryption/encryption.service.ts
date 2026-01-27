@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import * as crypto from 'crypto';
+import { winstonLogger } from '../logger/winston.config';
 
 interface EncryptedData {
   encrypted: string;
@@ -17,14 +18,12 @@ export class EncryptionService {
     const keyHex = process.env.TOKENS_ENCRYPTION_KEY;
 
     if (!keyHex) {
-      console.warn(
-        '⚠️  TOKENS_ENCRYPTION_KEY not set. Using development key. DO NOT USE IN PRODUCTION!'
+      winstonLogger.warn(
+        'TOKENS_ENCRYPTION_KEY not set - using development key',
+        { warning: 'DO NOT USE IN PRODUCTION' },
       );
       // Default dev key (64 hex chars = 32 bytes)
-      this.encryptionKey = Buffer.from(
-        'a'.repeat(64),
-        'hex'
-      );
+      this.encryptionKey = Buffer.from('a'.repeat(64), 'hex');
     } else {
       this.encryptionKey = Buffer.from(keyHex, 'hex');
     }
@@ -32,7 +31,7 @@ export class EncryptionService {
     // Validate key length (must be 32 bytes for AES-256)
     if (this.encryptionKey.length !== 32) {
       throw new Error(
-        `Invalid TOKENS_ENCRYPTION_KEY: Expected 32 bytes (64 hex chars), got ${this.encryptionKey.length} bytes`
+        `Invalid TOKENS_ENCRYPTION_KEY: Expected 32 bytes (64 hex chars), got ${this.encryptionKey.length} bytes`,
       );
     }
   }
@@ -47,7 +46,11 @@ export class EncryptionService {
     const iv = crypto.randomBytes(12);
 
     // Create cipher
-    const cipher = crypto.createCipheriv(this.algorithm, this.encryptionKey, iv);
+    const cipher = crypto.createCipheriv(
+      this.algorithm,
+      this.encryptionKey,
+      iv,
+    );
 
     // Encrypt the plaintext
     let encrypted = cipher.update(plaintext, 'utf8', 'hex');
@@ -76,7 +79,7 @@ export class EncryptionService {
       const decipher = crypto.createDecipheriv(
         this.algorithm,
         this.encryptionKey,
-        Buffer.from(iv, 'hex')
+        Buffer.from(iv, 'hex'),
       );
 
       // Set the authentication tag
@@ -88,7 +91,8 @@ export class EncryptionService {
 
       return decrypted;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       throw new Error(`Decryption failed: ${errorMessage}`);
     }
   }

@@ -1,7 +1,16 @@
-import { Controller, Post, Body, Headers, UnauthorizedException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Headers,
+  UnauthorizedException,
+  Inject,
+} from '@nestjs/common';
 import { Public } from '../auth/decorators/public.decorator';
 import { AgentsService } from '../agents/agents.service';
 import { ExecutionStatus } from '@prisma/client';
+import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
+import { Logger } from 'winston';
 
 /**
  * Webhook endpoints for SkyBot integration
@@ -16,7 +25,10 @@ import { ExecutionStatus } from '@prisma/client';
  */
 @Controller('webhooks/skybot')
 export class SkybotWebhooksController {
-  constructor(private readonly agentsService: AgentsService) {}
+  constructor(
+    private readonly agentsService: AgentsService,
+    @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
+  ) {}
 
   /**
    * Verify webhook secret
@@ -53,7 +65,8 @@ export class SkybotWebhooksController {
   @Public()
   async handleAgentExecution(
     @Headers('x-skybot-secret') secret: string | undefined,
-    @Body() payload: {
+    @Body()
+    payload: {
       agentId: string;
       executionStatus: ExecutionStatus;
       inputMessage?: string;
@@ -95,7 +108,8 @@ export class SkybotWebhooksController {
   @Public()
   async handleAgentLog(
     @Headers('x-skybot-secret') secret: string | undefined,
-    @Body() payload: {
+    @Body()
+    payload: {
       agentId: string;
       level: string;
       message: string;
@@ -106,7 +120,12 @@ export class SkybotWebhooksController {
 
     // For now, just log it
     // In the future, could store logs in a separate table
-    console.log(`[SkyBot Agent ${payload.agentId}] ${payload.level.toUpperCase()}: ${payload.message}`, payload.metadata);
+    this.logger.info('SkyBot agent log received', {
+      agentId: payload.agentId,
+      level: payload.level,
+      message: payload.message,
+      metadata: payload.metadata,
+    });
 
     return { ok: true };
   }
@@ -127,7 +146,8 @@ export class SkybotWebhooksController {
   @Public()
   async handleAgentStatus(
     @Headers('x-skybot-secret') secret: string | undefined,
-    @Body() payload: {
+    @Body()
+    payload: {
       agentId: string;
       status: string;
       message?: string;
@@ -137,7 +157,11 @@ export class SkybotWebhooksController {
 
     // TODO: Update agent status in database if needed
     // For now, just acknowledge
-    console.log(`[SkyBot] Agent ${payload.agentId} status changed to ${payload.status}`, payload.message);
+    this.logger.info('SkyBot agent status changed', {
+      agentId: payload.agentId,
+      status: payload.status,
+      message: payload.message,
+    });
 
     return { ok: true };
   }
@@ -150,9 +174,7 @@ export class SkybotWebhooksController {
    */
   @Post('health')
   @Public()
-  async health(
-    @Headers('x-skybot-secret') secret: string | undefined,
-  ) {
+  async health(@Headers('x-skybot-secret') secret: string | undefined) {
     this.verifyWebhookSecret(secret);
 
     return {

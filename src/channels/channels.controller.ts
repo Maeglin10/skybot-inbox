@@ -10,11 +10,14 @@ import {
   Res,
   HttpCode,
   HttpStatus,
+  Inject,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { ChannelsService } from './channels.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
+import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
+import { Logger } from 'winston';
 
 /**
  * Channels API Controller
@@ -63,13 +66,13 @@ export class ChannelsController {
   ) {
     if (error) {
       return res.redirect(
-        `/settings/channels?error=${encodeURIComponent(error)}&description=${encodeURIComponent(errorDescription || '')}`
+        `/settings/channels?error=${encodeURIComponent(error)}&description=${encodeURIComponent(errorDescription || '')}`,
       );
     }
 
     if (!code || !state) {
       return res.redirect(
-        `/settings/channels?error=missing_params&description=Missing code or state parameter`
+        `/settings/channels?error=missing_params&description=Missing code or state parameter`,
       );
     }
 
@@ -82,12 +85,12 @@ export class ChannelsController {
 
       // Redirect to success page
       return res.redirect(
-        `/settings/channels?success=true&connectionId=${connectionId}`
+        `/settings/channels?success=true&connectionId=${connectionId}`,
       );
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       return res.redirect(
-        `/settings/channels?error=callback_failed&description=${encodeURIComponent(errorMessage)}`
+        `/settings/channels?error=callback_failed&description=${encodeURIComponent(errorMessage)}`,
       );
     }
   }
@@ -135,7 +138,10 @@ export class ChannelsController {
     @Body() message: any,
     @CurrentUser() user: any,
   ) {
-    const messageId = await this.channelsService.sendMessage(connectionId, message);
+    const messageId = await this.channelsService.sendMessage(
+      connectionId,
+      message,
+    );
     return { messageId, success: true };
   }
 }
@@ -145,7 +151,10 @@ export class ChannelsController {
  */
 @Controller('webhooks')
 export class WebhooksController {
-  constructor(private readonly channelsService: ChannelsService) {}
+  constructor(
+    private readonly channelsService: ChannelsService,
+    @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
+  ) {}
 
   /**
    * Meta webhook verification (GET)
@@ -159,7 +168,8 @@ export class WebhooksController {
     @Query('hub.verify_token') verifyToken: string,
     @Query('hub.challenge') challenge: string,
   ) {
-    const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'verify_token_default';
+    const VERIFY_TOKEN =
+      process.env.WHATSAPP_VERIFY_TOKEN || 'verify_token_default';
 
     if (mode === 'subscribe' && verifyToken === VERIFY_TOKEN) {
       return challenge; // Return challenge as plain text
@@ -189,12 +199,19 @@ export class WebhooksController {
 
       // TODO: Route messages to Master Router (N8N)
       // For now, just log them
-      console.log(`📨 Received ${messages.length} messages from Meta`);
+      this.logger.info('Meta webhook messages received', {
+        count: messages.length,
+        provider: 'meta',
+      });
 
       return { success: true, received: messages.length };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('Meta webhook error:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error('Meta webhook error', {
+        error: errorMessage,
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       return { success: false, error: errorMessage };
     }
   }
