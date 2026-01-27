@@ -1,14 +1,16 @@
 import CalendarShell from '@/components/calendar/CalendarShell';
+import { useTranslations } from '@/lib/translations';
 
 export const dynamic = "force-dynamic";
 
 export default function CalendarPage() {
+  const t = useTranslations('calendar');
   return (
     <div className="ui-page p-6 h-full flex flex-col">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="ui-pageTitle">Calendar</h1>
-          <p className="ui-pageSubtitle">Manage your schedule and events.</p>
+          <h1 className="ui-pageTitle">{t('title')}</h1>
+          <p className="ui-pageSubtitle">{t('subtitle')}</p>
         </div>
       </div>
       

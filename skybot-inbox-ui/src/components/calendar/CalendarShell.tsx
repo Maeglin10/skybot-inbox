@@ -8,10 +8,15 @@ import { ErrorState } from '@/components/ui/error-state';
 import CalendarMonthView from '@/components/calendar/CalendarMonthView';
 import CalendarWeekView from './CalendarWeekView';
 import EventDialog from './EventDialog';
+import { useTranslations } from '@/lib/translations';
 
 export default function CalendarShell() {
+  const t = useTranslations('calendar');
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [view, setView] = useState<CalendarViewType>('month');
+  
+  // Changed default view to 'week' as requested
+  const [view, setView] = useState<CalendarViewType>('week');
+  
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -23,7 +28,7 @@ export default function CalendarShell() {
 
   useEffect(() => {
     fetchEvents();
-  }, [currentDate]); // specific fields not needed if we just refetch on date change
+  }, [currentDate]); 
 
   const fetchEvents = async () => {
     setLoading(true);
@@ -128,7 +133,9 @@ export default function CalendarShell() {
       }
   };
 
-  const monthName = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+  const monthName = currentDate.toLocaleString('es-ES', { month: 'long', year: 'numeric' });
+  // Capitalize first letter
+  const formattedMonthName = monthName.charAt(0).toUpperCase() + monthName.slice(1);
 
   return (
     <div className="flex flex-col h-full bg-surface">
@@ -137,8 +144,8 @@ export default function CalendarShell() {
         <div className="flex items-center gap-4">
           <h2 className="text-xl font-semibold w-64">
             {view === 'week' 
-                ? `Week of ${currentDate.toLocaleDateString()}` 
-                : monthName
+                ? `${t('week')} ${currentDate.toLocaleDateString()}` 
+                : formattedMonthName
             }
           </h2>
           <div className="flex items-center bg-muted rounded-md p-1 border border-border">
@@ -152,7 +159,7 @@ export default function CalendarShell() {
               onClick={today}
               className="px-3 py-1 text-sm font-medium hover:bg-surface rounded-sm transition-colors"
             >
-              Today
+              {t('today')}
             </button>
             <button 
               onClick={nextPeriod}
@@ -169,13 +176,13 @@ export default function CalendarShell() {
               onClick={() => setView('month')}
               className={`px-3 py-1 text-sm rounded-sm transition-colors ${view === 'month' ? 'bg-surface shadow-sm' : 'hover:bg-surface/50'}`}
             >
-              Month
+              {t('month')}
             </button>
             <button
               onClick={() => setView('week')}
               className={`px-3 py-1 text-sm rounded-sm transition-colors ${view === 'week' ? 'bg-surface shadow-sm' : 'hover:bg-surface/50'}`}
             >
-              Week
+              {t('week')}
             </button>
           </div>
           

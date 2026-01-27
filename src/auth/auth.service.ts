@@ -69,6 +69,7 @@ export class AuthService {
       data: {
         username: dto.username,
         email: dto.email,
+        username: dto.email.split('@')[0], // Use email prefix as username
         passwordHash: hashedPassword,
         name: dto.name || 'User',
         accountId: dto.accountId,
@@ -215,7 +216,7 @@ export class AuthService {
     // Store token in database
     await this.prisma.magicLink.create({
       data: {
-        email: user.email,
+        email: dto.email, // Use dto.email since that's what we searched for
         token,
         expiresAt,
       },

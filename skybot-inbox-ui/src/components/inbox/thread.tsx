@@ -1,9 +1,10 @@
 'use client';
 
 import * as React from 'react';
-import type { InboxConversation } from './inbox-shell';
+import type { InboxConversation, InboxConversationStatus } from './inbox-shell';
 import { sendMessage, listMessages } from '@/lib/messages.client';
 import { fetchConversation } from '@/lib/inbox.client';
+import { useTranslations } from '@/lib/translations';
 
 function fmt(ts?: string) {
   if (!ts) return '';
@@ -57,6 +58,13 @@ function toThreadMsg(m: {
   };
 }
 
+function getStatusLabelKey(status?: InboxConversationStatus) {
+  if (status === 'OPEN') return 'statusOpen';
+  if (status === 'PENDING') return 'statusPending';
+  if (status === 'CLOSED') return 'statusClosed';
+  return 'statusOpen';
+}
+
 export function InboxThread({
   conversation,
   loading,
@@ -66,6 +74,7 @@ export function InboxThread({
   loading?: boolean;
   onRefresh?: (full: InboxConversation) => void;
 }) {
+  const t = useTranslations('inbox');
   const [text, setText] = React.useState('');
   const [sending, setSending] = React.useState(false);
 
@@ -273,34 +282,40 @@ export function InboxThread({
           </div>
         </div>
 
-        <div className="text-xs text-muted-foreground">
-          {loading ? 'Loading…' : (conversation?.status ?? '')}
+        <div className="ui-statusPill">
+          <span className="ui-dot" />
+          {/* @ts-ignore */}
+          <span className="font-medium">{conversation ? t(getStatusLabelKey(conversation.status)) : ''}</span>
         </div>
       </div>
 
       <div ref={listRef} className="ui-thread__list">
         {conversation == null ? (
-          <div className="text-sm text-muted-foreground">
-            No conversation selected.
+          <div className="text-sm text-muted-foreground flex items-center justify-center h-full">
+            {t('noConversations')}
           </div>
         ) : msgs.length === 0 ? (
-          <div className="text-sm text-muted-foreground">No messages.</div>
+          <div className="text-sm text-muted-foreground flex items-center justify-center h-full">
+            {t('newMessagesWillAppear')}
+          </div>
         ) : (
           <>
             {olderCursor ? (
               <div className="ui-thread__older">
                 <button
                   type="button"
-                  className="ui-btn"
+                  className="ui-btn ui-btn--secondary rounded-full px-6 text-xs h-8 shadow-sm"
                   disabled={loadingOlder}
                   onClick={() => void loadOlder()}
                 >
-                  {loadingOlder ? 'Loading…' : 'Load older'}
+                  {loadingOlder ? 'Loading…' : t('loadOlder')}
                 </button>
               </div>
             ) : (
-              <div className="text-[11px] text-muted-foreground pb-2">
-                Start of conversation
+              <div className="text-center py-6">
+                <div className="inline-block px-3 py-1 bg-muted rounded-full text-[11px] text-muted-foreground font-medium">
+                  {t('startOfConversation')}
+                </div>
               </div>
             )}
 
@@ -326,26 +341,35 @@ export function InboxThread({
       </div>
 
       <div className="ui-composer">
-        <input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          className="ui-input"
-          placeholder="Type a message…"
-          disabled={!conversation?.id || sending}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              void send();
-            }
-          }}
-        />
+        <div className="flex-1 flex gap-2">
+            <button
+               type="button"
+               title={t('corporateMessage')}
+               className="ui-btn ui-btn--secondary w-10 flex-shrink-0 flex items-center justify-center"
+            >
+               🏢
+            </button>
+            <input
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            className="ui-input"
+            placeholder={t('typeMessage')}
+            disabled={!conversation?.id || sending}
+            onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                void send();
+                }
+            }}
+            />
+        </div>
         <button
           type="button"
-          className="ui-btn ui-btn--primary"
+          className="ui-btn ui-btn--primary min-w-[5rem]"
           disabled={!conversation?.id || sending || !text.trim() || !to}
           onClick={() => void send()}
         >
-          {sending ? 'Sending…' : 'Send'}
+          {sending ? '...' : t('send')}
         </button>
       </div>
     </div>
