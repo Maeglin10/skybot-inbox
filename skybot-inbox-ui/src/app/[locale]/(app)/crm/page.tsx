@@ -81,7 +81,7 @@ export default function CrmPage() {
            Loading data...
         </div>
       ) : (
-        <div className="flex-1 min-h-0 flex flex-col overflow-y-auto">
+        <div className="flex-1 min-h-0 flex flex-col overflow-auto">
            {view === 'LEADS' ? (
               <LeadsTable leads={leads} onSelect={handleSelectLead} />
            ) : (
