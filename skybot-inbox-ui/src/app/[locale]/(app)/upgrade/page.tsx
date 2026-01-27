@@ -1,10 +1,10 @@
-import { Link } from '@/i18n/navigation';
+'use client';
+
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ShieldAlert, CreditCard } from 'lucide-react';
-import { useTranslations } from 'next-intl';
 
 export default function UpgradePage() {
-  const t = useTranslations('common'); // Assuming common exists or fallback
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] p-4 text-center">
@@ -18,16 +18,16 @@ export default function UpgradePage() {
       </p>
 
       <div className="flex gap-4">
-        <Link href="/settings/billing">
-           <Button className="gap-2">
-             <CreditCard size={16} />
-             Go to Billing
-           </Button>
+        <Link href="/es/settings/billing">
+          <Button className="gap-2">
+            <CreditCard size={16} />
+            Go to Billing
+          </Button>
         </Link>
-        <Link href="/dashboard">
-           <Button variant="outline">
-             Back to Dashboard
-           </Button>
+        <Link href="/es">
+          <Button variant="outline">
+            Back to Dashboard
+          </Button>
         </Link>
       </div>
     </div>
