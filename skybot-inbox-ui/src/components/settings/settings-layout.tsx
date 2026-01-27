@@ -1,8 +1,10 @@
 'use client';
 
-import { Link, usePathname } from '@/i18n/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from '@/lib/translations';
 import { User, Shield, Palette, Languages, FileText, CreditCard, Plug, ChevronRight } from 'lucide-react';
+
+const LOCALE = 'es'; // Hardcoded locale
 
 const SETTINGS_NAV = [
   { href: '/settings/profile', key: 'profile', icon: User },
@@ -14,8 +16,18 @@ const SETTINGS_NAV = [
   { href: '/settings/legal', key: 'legal', icon: FileText },
 ];
 
+function buildHref(path: string): string {
+  return `/${LOCALE}${path}`;
+}
+
+function isActive(pathname: string, href: string): boolean {
+  const fullHref = buildHref(href);
+  return pathname === fullHref || pathname.startsWith(fullHref + '/');
+}
+
 export function SettingsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const t = useTranslations('settings');
   // Removed tNav since we only use 'settings' namespace keys now for navigation items
 
@@ -30,15 +42,15 @@ export function SettingsLayout({ children }: { children: React.ReactNode }) {
         <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
           {SETTINGS_NAV.map((it) => {
              const Icon = it.icon;
-             const active = pathname === it.href;
+             const active = isActive(pathname, it.href);
 
              return (
-               <Link
+               <button
                  key={it.href}
-                 href={it.href}
-                 className={`flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-lg transition-all group ${
-                    active 
-                      ? 'bg-background text-foreground shadow-sm border border-border/40' 
+                 onClick={() => router.push(buildHref(it.href))}
+                 className={`w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-lg transition-all group ${
+                    active
+                      ? 'bg-background text-foreground shadow-sm border border-border/40'
                       : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
                  }`}
                >
@@ -48,7 +60,7 @@ export function SettingsLayout({ children }: { children: React.ReactNode }) {
                     {t(it.key)}
                  </div>
                  {active && <ChevronRight size={14} className="text-muted-foreground" />}
-               </Link>
+               </button>
              );
           })}
         </nav>
