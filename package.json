@@ -22,6 +22,7 @@
     "db:down": "docker stop skybot-postgres",
     "db:migrate": "prisma migrate dev",
     "db:seed": "ts-node prisma/seed.ts",
+    "seed:demo": "ts-node scripts/seed-demo.ts",
     "db:reset": "prisma migrate reset --force",
     "migrate:fix": "npx prisma migrate resolve --rolled-back 20260124063500_remove_legacy_themes || true",
     "dev": "nest start --watch"
