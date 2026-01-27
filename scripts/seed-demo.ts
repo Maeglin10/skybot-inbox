@@ -3,6 +3,7 @@ import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
+import * as bcrypt from 'bcrypt';
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error('DATABASE_URL missing');
@@ -71,7 +72,10 @@ async function seedDemo() {
 
   const accountId = demoAccount.id;
 
-  // 3. Seed Alertas (30 alerts over 14 days)
+  // 3. Create demo admin user
+  await createDemoAdmin(accountId);
+
+  // 4. Seed Alertas (30 alerts over 14 days)
   await seedAlertas(accountId);
 
   // 4. Seed CRM (60 leads)
@@ -88,6 +92,47 @@ async function seedDemo() {
   console.log(`  - Leads: 60`);
   console.log(`  - Feedbacks: 15`);
   console.log(`  - Routing Logs: 90 days`);
+  console.log(`\n🔐 Login credentials:`);
+  console.log(`  - Email: demo@skybot.com`);
+  console.log(`  - Password: DemoAdmin2024!`);
+}
+
+async function createDemoAdmin(accountId: string) {
+  console.log('\n👤 Creating demo admin user...');
+
+  const existingAdmin = await prisma.userAccount.findFirst({
+    where: { accountId, role: 'ADMIN' },
+  });
+
+  if (existingAdmin) {
+    console.log(`  ⏭️  Admin user already exists: ${existingAdmin.email}`);
+    return;
+  }
+
+  const passwordHash = await bcrypt.hash('DemoAdmin2024!', 10);
+
+  const adminUser = await prisma.userAccount.create({
+    data: {
+      accountId,
+      username: 'demo',
+      email: 'demo@skybot.com',
+      passwordHash,
+      name: 'Demo Admin',
+      role: 'ADMIN',
+      status: 'ACTIVE',
+    },
+  });
+
+  await prisma.userPreference.create({
+    data: {
+      userAccountId: adminUser.id,
+      theme: 'DEFAULT',
+      language: 'ES',
+      timezone: 'UTC',
+    },
+  });
+
+  console.log(`  ✅ Demo admin created: ${adminUser.email} / password: DemoAdmin2024!`);
 }
 
 async function seedAlertas(accountId: string) {
