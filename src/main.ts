@@ -6,8 +6,12 @@ import * as express from 'express';
 import helmet from 'helmet';
 import type { Request } from 'express';
 import { winstonLogger } from './common/logger/winston.config';
+import { initializeSentry } from './common/sentry/sentry.config';
 
 async function bootstrap() {
+  // Initialize Sentry as early as possible to catch all errors
+  initializeSentry();
+
   const app = await NestFactory.create(AppModule);
 
   // Apply security headers with Helmet
