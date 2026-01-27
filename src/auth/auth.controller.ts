@@ -18,6 +18,12 @@ import { MagicLinkDto } from './dto/magic-link.dto';
 import { Public } from './decorators/public.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { Request, Response } from 'express';
+import {
+  AuthRateLimit,
+  StandardRateLimit,
+  RelaxedRateLimit,
+  PasswordResetRateLimit,
+} from '../common/rate-limit/rate-limit.decorators';
 
 @Controller('auth')
 export class AuthController {
@@ -37,8 +43,10 @@ export class AuthController {
   /**
    * POST /api/auth/login
    * Login with email and password
+   * Rate limit: 5 requests per minute (prevent brute force)
    */
   @Public()
+  @AuthRateLimit()
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(@Body() dto: LoginDto) {
@@ -48,8 +56,10 @@ export class AuthController {
   /**
    * POST /api/auth/refresh
    * Refresh access token using refresh token
+   * Rate limit: 60 requests per minute
    */
   @Public()
+  @StandardRateLimit()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   async refresh(@Body() body: { refreshToken: string }) {
@@ -59,8 +69,10 @@ export class AuthController {
   /**
    * POST /api/auth/magic-link
    * Request a magic link for passwordless login
+   * Rate limit: 3 requests per 5 minutes (prevent abuse)
    */
   @Public()
+  @PasswordResetRateLimit()
   @Post('magic-link')
   @HttpCode(HttpStatus.OK)
   async requestMagicLink(@Body() dto: MagicLinkDto) {
@@ -70,8 +82,10 @@ export class AuthController {
   /**
    * GET /api/auth/magic-link/verify
    * Verify magic link token
+   * Rate limit: 5 requests per minute
    */
   @Public()
+  @AuthRateLimit()
   @Get('magic-link/verify')
   async verifyMagicLink(
     @Query('email') email: string,
@@ -94,8 +108,10 @@ export class AuthController {
   /**
    * GET /api/auth/google/callback
    * Google OAuth callback
+   * Rate limit: 60 requests per minute
    */
   @Public()
+  @StandardRateLimit()
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
   async googleAuthCallback(@Req() req: Request, @Res() res: Response) {
@@ -112,7 +128,9 @@ export class AuthController {
   /**
    * GET /api/auth/me
    * Get current user info (protected route example)
+   * Rate limit: 120 requests per minute (read-only)
    */
+  @RelaxedRateLimit()
   @Get('me')
   async getMe(@CurrentUser() user: any) {
     return {
@@ -128,7 +146,9 @@ export class AuthController {
   /**
    * POST /api/auth/logout
    * Logout (invalidate tokens - client-side for JWT)
+   * Rate limit: 60 requests per minute
    */
+  @StandardRateLimit()
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   async logout() {

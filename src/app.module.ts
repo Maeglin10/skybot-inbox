@@ -39,6 +39,7 @@ import { WebsocketsModule } from './websockets/websockets.module';
 import { AppController } from './app.controller';
 import { TenantContextMiddleware } from './common/middleware/tenant-context.middleware';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
+import { AppCacheModule } from './common/cache/cache.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
       instance: winstonLogger,
     }),
 
+    AppCacheModule,
     PrismaModule,
     EncryptionModule,
     LegalModule,

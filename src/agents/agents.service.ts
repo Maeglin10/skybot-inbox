@@ -13,6 +13,8 @@ import { AgentStatus, ExecutionStatus } from '@prisma/client';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { Logger } from 'winston';
 import { SkybotApiClient } from './skybot-api.client';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 
 @Injectable()
 export class AgentsService {
@@ -22,6 +24,7 @@ export class AgentsService {
     private prisma: PrismaService,
     private skybotClient: SkybotApiClient,
     @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
   // Lazy injection to avoid circular dependency
@@ -406,6 +409,16 @@ export class AgentsService {
    * Optimized with database aggregations
    */
   async getStats(accountId: string, agentId: string) {
+    // Check cache first
+    const cacheKey = `agent-stats:${agentId}`;
+    const cached = await this.cacheManager.get(cacheKey);
+    if (cached) {
+      this.logger.debug('Agent stats cache hit', { agentId, cacheKey });
+      return cached;
+    }
+
+    this.logger.debug('Agent stats cache miss', { agentId, cacheKey });
+
     const agent = await this.findOne(accountId, agentId);
 
     const last24HoursDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -459,7 +472,7 @@ export class AgentsService {
       ? parseFloat(aggregations._sum.openaiCostUsd.toString())
       : 0;
 
-    return {
+    const stats = {
       agentId,
       agentName: agent.agentName,
       status: agent.status,
@@ -475,6 +488,11 @@ export class AgentsService {
         totalCostUsd: totalCost.toFixed(4),
       },
     };
+
+    // Cache for 2 minutes (120 seconds)
+    await this.cacheManager.set(cacheKey, stats, 120000);
+
+    return stats;
   }
 
   /**

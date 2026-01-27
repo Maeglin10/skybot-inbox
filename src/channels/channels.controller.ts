@@ -18,6 +18,10 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { Logger } from 'winston';
+import {
+  StandardRateLimit,
+  SensitiveRateLimit,
+} from '../common/rate-limit/rate-limit.decorators';
 
 /**
  * Channels API Controller
@@ -159,7 +163,9 @@ export class WebhooksController {
   /**
    * Meta webhook verification (GET)
    * GET /webhooks/meta?hub.mode=subscribe&hub.verify_token=...&hub.challenge=...
+   * Rate limit: 60 requests per minute
    */
+  @StandardRateLimit()
   @Get('meta')
   @Public()
   @HttpCode(HttpStatus.OK)
@@ -182,7 +188,9 @@ export class WebhooksController {
    * Meta webhook receiver (POST)
    * POST /webhooks/meta
    * Receives Instagram DM + Facebook Messenger messages
+   * Rate limit: 20 requests per minute
    */
+  @SensitiveRateLimit()
   @Post('meta')
   @Public()
   @HttpCode(HttpStatus.OK)
