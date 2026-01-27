@@ -172,6 +172,44 @@ async function main() {
   // ====================
   // 3. CREATE CLIENT CONFIGS
   // ====================
+  // Create a default account if none exist
+  if (accountsMap.size === 0) {
+    console.log('\n📦 No CSV data found, creating default demo account...');
+    const demoAccount = await prisma.account.create({
+      data: {
+        name: 'Demo Account',
+        isDemo: true,
+        features: {
+          inbox: true,
+          crm: true,
+          analytics: true,
+          alerts: true,
+          settings: true,
+          orders: true,
+        },
+      },
+    });
+
+    accountsMap.set('demo', demoAccount.id);
+    console.log(`  ✅ Demo Account created (${demoAccount.id})`);
+
+    // Create demo client config
+    await prisma.clientConfig.create({
+      data: {
+        accountId: demoAccount.id,
+        clientKey: 'demo',
+        name: 'Demo Client',
+        status: 'ACTIVE',
+        defaultAgentKey: 'master-router',
+        allowedAgents: ['master-router', 'setter', 'closer', 'crm', 'orders', 'aftersale'],
+        channels: ['WHATSAPP'],
+        externalAccounts: {},
+        n8nOverrides: undefined,
+      },
+    });
+    console.log(`  ✅ demo client config created`);
+  }
+
   console.log('\n⚙️  Creating Client Configs...');
   for (const config of clientsConfig) {
     if (!config.client_id) continue;
