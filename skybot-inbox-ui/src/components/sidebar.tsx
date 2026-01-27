@@ -3,27 +3,30 @@
 import Image from 'next/image';
 import { Link, usePathname } from '@/i18n/navigation';
 import { useTranslations } from '@/lib/translations';
-import { 
-  Inbox, 
-  Bell, 
-  Users, 
-  BarChart3, 
-  Settings, 
+import {
+  Inbox,
+  Bell,
+  Users,
+  BarChart3,
+  Settings,
   LayoutDashboard,
   Calendar,
-  User
+  Bot,
+  Store
 } from 'lucide-react';
 // ThemeSwitcher removed from Sidebar footer
 
 const NAV_ITEMS = [
-  // { href: '/es/dashboard', key: 'dashboard', icon: LayoutDashboard },
-  { href: '/es/inbox', key: 'inbox', icon: Inbox },
-  { href: '/es/alerts', key: 'alerts', icon: Bell },
-  { href: '/es/crm', key: 'crm', icon: Users },
-  { href: '/es/calendar', key: 'calendar', icon: Calendar },
-  { href: '/es/analytics', key: 'analytics', icon: BarChart3 },
-  { href: '/es/account/login', key: 'account', icon: User },
-  { href: '/es/settings', key: 'settings', icon: Settings },
+  // { href: '/dashboard', key: 'dashboard', icon: LayoutDashboard },
+  { href: '/inbox', key: 'inbox', icon: Inbox },
+  { href: '/alerts', key: 'alerts', icon: Bell },
+  { href: '/crm', key: 'crm', icon: Users },
+  { href: '/calendar', key: 'calendar', icon: Calendar },
+  { href: '/analytics', key: 'analytics', icon: BarChart3 },
+  { href: '/agents', key: 'agents', icon: Bot },
+  { href: '/marketplace', key: 'marketplace', icon: Store },
+  { href: '/settings', key: 'settings', icon: Settings },
+  // Removed: account/login - moved to Settings > Profile (P2)
 ];
 
 function isActive(pathname: string, href: string) {

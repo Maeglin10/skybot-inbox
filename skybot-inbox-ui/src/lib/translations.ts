@@ -7,6 +7,8 @@ const translations = {
     analytics: 'Analíticas',
     calendar: 'Calendario',
     crm: 'CRM',
+    agents: 'Agentes',
+    marketplace: 'Mercado',
     settings: 'Configuración',
     account: 'Cuenta',
   },
