@@ -36,6 +36,7 @@ import { IngestionModule } from './ingestion/ingestion.module';
 import { KnowledgeModule } from './knowledge/knowledge.module';
 import { TemplatesModule } from './templates/templates.module';
 import { WebsocketsModule } from './websockets/websockets.module';
+import { UsersModule } from './users/users.module';
 import { AppController } from './app.controller';
 import { TenantContextMiddleware } from './common/middleware/tenant-context.middleware';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
@@ -78,6 +79,7 @@ import { AppCacheModule } from './common/cache/cache.module';
     UserPreferencesModule,
     PreferencesModule,
     ChannelsModule,
+    UsersModule,
     AccountsModule,
     InboxesModule,
     ContactsModule,

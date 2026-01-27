@@ -374,6 +374,7 @@ async function main() {
         accountId,
         username: `${clientId.toLowerCase()}.admin`,
         email: `admin@${clientId.toLowerCase()}.com`,
+        username: `${clientId.toLowerCase()}-admin`,
         name: `${config.client_name} Admin`,
         role: 'ADMIN',
         status: 'ACTIVE',

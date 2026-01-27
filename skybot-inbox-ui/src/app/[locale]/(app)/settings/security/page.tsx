@@ -10,11 +10,16 @@ export default function SecurityPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
-  // Form state
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+
+  const [formData, setFormData] = useState({
+     currentPassword: '',
+     newPassword: '',
+     confirmPassword: ''
+  });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,29 +27,29 @@ export default function SecurityPage() {
     setError(null);
     setSuccess(false);
 
-    if (newPassword !== confirmPassword) {
-      setError('Las contraseñas no coinciden'); // Simple spanish error
-      setLoading(false);
-      return;
+    if(formData.newPassword !== formData.confirmPassword) {
+       setError('Passwords do not match');
+       setLoading(false);
+       return;
+    }
+
+    if(formData.newPassword.length < 6) {
+       setError('Password must be at least 6 characters');
+       setLoading(false);
+       return;
     }
 
     try {
       await apiPostClient('users/me/change-password', {
-        currentPassword,
-        newPassword
+         currentPassword: formData.currentPassword,
+         newPassword: formData.newPassword
       });
-      
       setSuccess(true);
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      
-      // Auto-hide success message
+      setFormData({ currentPassword: '', newPassword: '', confirmPassword: '' });
       setTimeout(() => setSuccess(false), 5000);
-      
     } catch (err: any) {
       console.error(err);
-      setError('Error al actualizar la contraseña. Verifique su contraseña actual.');
+      setError('Failed to update password. Please check your current password.');
     } finally {
       setLoading(false);
     }
@@ -82,38 +87,41 @@ export default function SecurityPage() {
                 <label className="text-xs font-medium mb-1.5 block text-muted-foreground">{t('currentPassword')}</label>
                 <div className="relative">
                    <Key size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                   <input 
-                      required 
-                      type="password" 
-                      className="ui-input pl-9 w-full" 
-                      placeholder="••••••••" 
-                      value={currentPassword}
-                      onChange={(e) => setCurrentPassword(e.target.value)}
+                   <input
+                      required
+                      type="password"
+                      name="currentPassword"
+                      value={formData.currentPassword}
+                      onChange={handleChange}
+                      className="ui-input pl-9 w-full"
+                      placeholder="••••••••"
                    />
                 </div>
              </div>
-             
+
              <div className="grid grid-cols-2 gap-4">
                <div>
                   <label className="text-xs font-medium mb-1.5 block text-muted-foreground">{t('newPassword')}</label>
-                  <input 
-                      required 
-                      type="password" 
-                      className="ui-input w-full" 
-                      placeholder="••••••••" 
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
+                  <input
+                     required
+                     type="password"
+                     name="newPassword"
+                     value={formData.newPassword}
+                     onChange={handleChange}
+                     className="ui-input w-full"
+                     placeholder="••••••••"
                   />
                </div>
                <div>
                   <label className="text-xs font-medium mb-1.5 block text-muted-foreground">{t('confirmPassword')}</label>
-                  <input 
-                      required 
-                      type="password" 
-                      className="ui-input w-full" 
-                      placeholder="••••••••" 
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
+                  <input
+                     required
+                     type="password"
+                     name="confirmPassword"
+                     value={formData.confirmPassword}
+                     onChange={handleChange}
+                     className="ui-input w-full"
+                     placeholder="••••••••"
                   />
                </div>
              </div>
