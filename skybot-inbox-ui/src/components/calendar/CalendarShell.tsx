@@ -142,26 +142,23 @@ export default function CalendarShell() {
       {/* Calendar Header */}
       <div className="flex items-center justify-between p-4 border-b border-border">
         <div className="flex items-center gap-4">
-          <h2 className="text-xl font-semibold w-64">
-            {view === 'week' 
-                ? `${t('week')} ${currentDate.toLocaleDateString()}` 
-                : formattedMonthName
-            }
-          </h2>
           <div className="flex items-center bg-muted rounded-md p-1 border border-border">
-            <button 
+            <button
               onClick={prevPeriod}
               className="p-1 hover:bg-surface rounded-sm transition-colors"
             >
               <ChevronLeft size={18} />
             </button>
-            <button 
+            <button
               onClick={today}
-              className="px-3 py-1 text-sm font-medium hover:bg-surface rounded-sm transition-colors"
+              className="px-4 py-1 text-sm font-medium hover:bg-surface rounded-sm transition-colors min-w-[180px]"
             >
-              {t('today')}
+              {view === 'week'
+                ? `${t('week')} ${currentDate.toLocaleDateString()}`
+                : formattedMonthName
+              }
             </button>
-            <button 
+            <button
               onClick={nextPeriod}
               className="p-1 hover:bg-surface rounded-sm transition-colors"
             >
