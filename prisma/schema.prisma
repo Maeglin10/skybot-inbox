@@ -149,6 +149,7 @@ model Contact {
   inboxId       String
   phone         String
   name          String?
+  isCorporate   Boolean        @default(false) // P1: Corporate filter
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   account       Account        @relation(fields: [accountId], references: [id], onDelete: Cascade)
@@ -158,6 +159,7 @@ model Contact {
   @@unique([inboxId, phone], name: "inboxId_phone")
   @@index([inboxId])
   @@index([accountId])
+  @@index([isCorporate])
 }
 
 model Conversation {
