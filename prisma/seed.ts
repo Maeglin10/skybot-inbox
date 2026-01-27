@@ -190,14 +190,14 @@ async function main() {
       },
     });
 
-    accountsMap.set('demo', demoAccount.id);
+    accountsMap.set('demo-client', demoAccount.id);
     console.log(`  ✅ Demo Account created (${demoAccount.id})`);
 
     // Create demo client config
     await prisma.clientConfig.create({
       data: {
         accountId: demoAccount.id,
-        clientKey: 'demo',
+        clientKey: 'demo-client',
         name: 'Demo Client',
         status: 'ACTIVE',
         defaultAgentKey: 'master-router',
@@ -207,7 +207,7 @@ async function main() {
         n8nOverrides: undefined,
       },
     });
-    console.log(`  ✅ demo client config created`);
+    console.log(`  ✅ demo-client config created`);
   }
 
   console.log('\n⚙️  Creating Client Configs...');
