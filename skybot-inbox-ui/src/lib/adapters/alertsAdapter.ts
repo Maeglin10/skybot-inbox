@@ -1,4 +1,4 @@
-export type AlertType = 'PAYMENT' | 'HANDOFF';
+export type AlertType = 'PAYMENT' | 'HANDOFF' | 'CORPORATE';
 export type AlertStatus = 'OPEN' | 'RESOLVED' | 'PENDING';
 export type AlertPriority = 'HIGH' | 'MEDIUM' | 'LOW';
 
