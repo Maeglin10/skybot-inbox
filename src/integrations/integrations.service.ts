@@ -8,7 +8,13 @@ export class IntegrationsService {
   async listIntegrations(tenantId: string) {
     return this.prisma.integration.findMany({
       where: { tenantId },
-      select: { id: true, provider: true, status: true, lastHealthCheck: true, healthStatus: true },
+      select: {
+        id: true,
+        provider: true,
+        status: true,
+        lastHealthCheck: true,
+        healthStatus: true,
+      },
     });
   }
 
@@ -18,6 +24,9 @@ export class IntegrationsService {
       where: { id: integrationId },
       data: { lastHealthCheck: new Date(), healthStatus: 'healthy' },
     });
-    return { status: 'healthy', message: 'Health check - provider-specific logic needed' };
+    return {
+      status: 'healthy',
+      message: 'Health check - provider-specific logic needed',
+    };
   }
 }

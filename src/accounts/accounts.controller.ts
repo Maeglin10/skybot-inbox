@@ -14,7 +14,11 @@ import {
 import { ApiKeyGuard } from '../auth/api-key.guard';
 import { Public } from '../auth/decorators/public.decorator';
 import { AccountsService } from './accounts.service';
-import { CreateAccountDto, AccountRole, AccountStatus } from './dto/create-account.dto';
+import {
+  CreateAccountDto,
+  AccountRole,
+  AccountStatus,
+} from './dto/create-account.dto';
 import { UpdateAccountDto } from './dto/update-account.dto';
 import { ListAccountsDto } from './dto/list-accounts.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
@@ -33,7 +37,9 @@ export class AccountsController {
     @Headers('x-client-key') clientKey: string,
     @Query() query: ListAccountsDto,
   ) {
-    this.logger.log(`GET /accounts clientKey=${clientKey} role=${query.role} status=${query.status}`);
+    this.logger.log(
+      `GET /accounts clientKey=${clientKey} role=${query.role} status=${query.status}`,
+    );
     return this.accountsService.findAll(clientKey, query.role, query.status);
   }
 
@@ -128,7 +134,9 @@ export class AccountsController {
     @Param('id') id: string,
     @Body() dto: ChangePasswordDto,
   ) {
-    this.logger.log(`POST /accounts/${id}/change-password clientKey=${clientKey}`);
+    this.logger.log(
+      `POST /accounts/${id}/change-password clientKey=${clientKey}`,
+    );
     return this.accountsService.changePassword(clientKey, id, dto);
   }
 
@@ -137,8 +145,14 @@ export class AccountsController {
     @Headers('x-client-key') clientKey: string,
     @Body() body: { email: string; password: string },
   ) {
-    this.logger.log(`POST /accounts/verify clientKey=${clientKey} email=${body.email}`);
-    const account = await this.accountsService.verifyPassword(clientKey, body.email, body.password);
+    this.logger.log(
+      `POST /accounts/verify clientKey=${clientKey} email=${body.email}`,
+    );
+    const account = await this.accountsService.verifyPassword(
+      clientKey,
+      body.email,
+      body.password,
+    );
     if (!account) {
       return { success: false, message: 'Invalid credentials' };
     }

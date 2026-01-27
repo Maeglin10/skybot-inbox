@@ -283,14 +283,22 @@ export class AgentsService {
     }
 
     if (!agent.n8nWorkflowId) {
-      throw new BadRequestException('Agent has no deployed workflow to activate');
+      throw new BadRequestException(
+        'Agent has no deployed workflow to activate',
+      );
     }
 
-    this.logger.info('Activating agent', { agentId, accountId, workflowId: agent.n8nWorkflowId });
+    this.logger.info('Activating agent', {
+      agentId,
+      accountId,
+      workflowId: agent.n8nWorkflowId,
+    });
 
     // Call SkyBot API to activate N8N workflow
     try {
-      const result = await this.skybotClient.activateWorkflow(agent.n8nWorkflowId);
+      const result = await this.skybotClient.activateWorkflow(
+        agent.n8nWorkflowId,
+      );
 
       if (!result.success) {
         throw new BadRequestException('Failed to activate workflow on SkyBot');
@@ -304,11 +312,18 @@ export class AgentsService {
         },
       });
 
-      this.logger.info('Agent activated successfully', { agentId, workflowId: agent.n8nWorkflowId });
+      this.logger.info('Agent activated successfully', {
+        agentId,
+        workflowId: agent.n8nWorkflowId,
+      });
 
       // Emit WebSocket event
       if (this.gateway) {
-        this.gateway.emitAgentStatusChanged(accountId, agentId, AgentStatus.ACTIVE);
+        this.gateway.emitAgentStatusChanged(
+          accountId,
+          agentId,
+          AgentStatus.ACTIVE,
+        );
       }
 
       return updated;
@@ -333,17 +348,27 @@ export class AgentsService {
     }
 
     if (!agent.n8nWorkflowId) {
-      throw new BadRequestException('Agent has no deployed workflow to deactivate');
+      throw new BadRequestException(
+        'Agent has no deployed workflow to deactivate',
+      );
     }
 
-    this.logger.info('Deactivating agent', { agentId, accountId, workflowId: agent.n8nWorkflowId });
+    this.logger.info('Deactivating agent', {
+      agentId,
+      accountId,
+      workflowId: agent.n8nWorkflowId,
+    });
 
     // Call SkyBot API to deactivate N8N workflow
     try {
-      const result = await this.skybotClient.deactivateWorkflow(agent.n8nWorkflowId);
+      const result = await this.skybotClient.deactivateWorkflow(
+        agent.n8nWorkflowId,
+      );
 
       if (!result.success) {
-        throw new BadRequestException('Failed to deactivate workflow on SkyBot');
+        throw new BadRequestException(
+          'Failed to deactivate workflow on SkyBot',
+        );
       }
 
       const updated = await this.prisma.agent.update({
@@ -351,11 +376,18 @@ export class AgentsService {
         data: { status: AgentStatus.INACTIVE },
       });
 
-      this.logger.info('Agent deactivated successfully', { agentId, workflowId: agent.n8nWorkflowId });
+      this.logger.info('Agent deactivated successfully', {
+        agentId,
+        workflowId: agent.n8nWorkflowId,
+      });
 
       // Emit WebSocket event
       if (this.gateway) {
-        this.gateway.emitAgentStatusChanged(accountId, agentId, AgentStatus.INACTIVE);
+        this.gateway.emitAgentStatusChanged(
+          accountId,
+          agentId,
+          AgentStatus.INACTIVE,
+        );
       }
 
       return updated;
@@ -379,47 +411,48 @@ export class AgentsService {
     const last24HoursDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
     // Use database aggregations for better performance
-    const [totalCount, successCount, errorCount, aggregations] = await Promise.all([
-      // Total count of executions in last 24 hours
-      this.prisma.agentLog.count({
-        where: {
-          agentId,
-          timestamp: { gte: last24HoursDate },
-        },
-      }),
+    const [totalCount, successCount, errorCount, aggregations] =
+      await Promise.all([
+        // Total count of executions in last 24 hours
+        this.prisma.agentLog.count({
+          where: {
+            agentId,
+            timestamp: { gte: last24HoursDate },
+          },
+        }),
 
-      // Success count
-      this.prisma.agentLog.count({
-        where: {
-          agentId,
-          timestamp: { gte: last24HoursDate },
-          executionStatus: ExecutionStatus.SUCCESS,
-        },
-      }),
+        // Success count
+        this.prisma.agentLog.count({
+          where: {
+            agentId,
+            timestamp: { gte: last24HoursDate },
+            executionStatus: ExecutionStatus.SUCCESS,
+          },
+        }),
 
-      // Error count
-      this.prisma.agentLog.count({
-        where: {
-          agentId,
-          timestamp: { gte: last24HoursDate },
-          executionStatus: ExecutionStatus.ERROR,
-        },
-      }),
+        // Error count
+        this.prisma.agentLog.count({
+          where: {
+            agentId,
+            timestamp: { gte: last24HoursDate },
+            executionStatus: ExecutionStatus.ERROR,
+          },
+        }),
 
-      // Aggregate processing time and cost
-      this.prisma.agentLog.aggregate({
-        where: {
-          agentId,
-          timestamp: { gte: last24HoursDate },
-        },
-        _avg: {
-          processingTimeMs: true,
-        },
-        _sum: {
-          openaiCostUsd: true,
-        },
-      }),
-    ]);
+        // Aggregate processing time and cost
+        this.prisma.agentLog.aggregate({
+          where: {
+            agentId,
+            timestamp: { gte: last24HoursDate },
+          },
+          _avg: {
+            processingTimeMs: true,
+          },
+          _sum: {
+            openaiCostUsd: true,
+          },
+        }),
+      ]);
 
     const avgProcessingTime = aggregations._avg.processingTimeMs || 0;
     const totalCost = aggregations._sum.openaiCostUsd
@@ -447,12 +480,7 @@ export class AgentsService {
   /**
    * Get agent logs with pagination
    */
-  async getLogs(
-    accountId: string,
-    agentId: string,
-    limit = 50,
-    offset = 0,
-  ) {
+  async getLogs(accountId: string, agentId: string, limit = 50, offset = 0) {
     await this.findOne(accountId, agentId);
 
     const logs = await this.prisma.agentLog.findMany({

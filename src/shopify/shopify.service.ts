@@ -10,6 +10,9 @@ export class ShopifyService {
   }
 
   async getAbandonedCarts(tenantId: string) {
-    return { message: 'Shopify abandoned carts - API integration needed', tenantId };
+    return {
+      message: 'Shopify abandoned carts - API integration needed',
+      tenantId,
+    };
   }
 }

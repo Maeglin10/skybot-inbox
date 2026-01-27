@@ -1,4 +1,10 @@
-import { IsString, IsEmail, IsOptional, IsEnum, IsArray } from 'class-validator';
+import {
+  IsString,
+  IsEmail,
+  IsOptional,
+  IsEnum,
+  IsArray,
+} from 'class-validator';
 import { LeadStatus, Temperature } from './create-lead.dto';
 
 export class UpdateLeadDto {

@@ -24,7 +24,9 @@ export class SettingsController {
     @Headers('x-client-key') clientKey: string,
     @Query('accountId') accountId: string,
   ) {
-    this.logger.log(`GET /settings clientKey=${clientKey} accountId=${accountId}`);
+    this.logger.log(
+      `GET /settings clientKey=${clientKey} accountId=${accountId}`,
+    );
     return this.settingsService.getSettings(accountId, clientKey);
   }
 
@@ -34,7 +36,9 @@ export class SettingsController {
     @Query('accountId') accountId: string,
     @Body() dto: UpdateSettingsDto,
   ) {
-    this.logger.log(`PATCH /settings clientKey=${clientKey} accountId=${accountId}`);
+    this.logger.log(
+      `PATCH /settings clientKey=${clientKey} accountId=${accountId}`,
+    );
     return this.settingsService.updateSettings(accountId, clientKey, dto);
   }
 
