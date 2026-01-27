@@ -255,13 +255,21 @@ export function InboxShell({
 
     setByTab((prev) => {
       const next = { ...prev };
+      const newStatus = full.status as Tab;
+
+      // Remove from all tabs first
       (Object.keys(next) as Tab[]).forEach((t) => {
-        next[t] = (next[t] ?? []).map((c) =>
-          c.id === full.id
-            ? { ...c, ...full, preview: preview ?? c.preview }
-            : c,
-        );
+        next[t] = (next[t] ?? []).filter((c) => c.id !== full.id);
       });
+
+      // Add to correct tab based on current status
+      if (newStatus && (newStatus === 'OPEN' || newStatus === 'PENDING' || newStatus === 'CLOSED')) {
+        const exists = next[newStatus]?.some((c) => c.id === full.id);
+        if (!exists) {
+          next[newStatus] = [...(next[newStatus] ?? []), { ...full, preview: preview ?? full.preview }];
+        }
+      }
+
       return next;
     });
   }, []);
@@ -292,16 +300,28 @@ export function InboxShell({
 
   const toggleStatus = React.useCallback(
     async (id: string, nextStatus: InboxConversationStatus) => {
-      
+
       const isMock = id.startsWith('demo-');
 
+      // Optimistic update: move conversation from old tab to new tab
       setByTab((prev) => {
         const next = { ...prev };
+        let targetConvo: InboxConversation | null = null;
+
+        // Find the conversation and remove it from its current tab
         (Object.keys(next) as Tab[]).forEach((t) => {
-          next[t] = (next[t] ?? []).map((c) =>
-            c.id === id ? { ...c, status: nextStatus } : c,
-          );
+          const found = next[t]?.find((c) => c.id === id);
+          if (found) {
+            targetConvo = { ...found, status: nextStatus };
+            next[t] = next[t]?.filter((c) => c.id !== id) ?? [];
+          }
         });
+
+        // Add it to the new tab if found
+        if (targetConvo) {
+          next[nextStatus] = [...(next[nextStatus] ?? []), targetConvo];
+        }
+
         return next;
       });
 
