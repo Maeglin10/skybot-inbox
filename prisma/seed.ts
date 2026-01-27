@@ -372,9 +372,8 @@ async function main() {
     const userAccount = await prisma.userAccount.create({
       data: {
         accountId,
-        username: `${clientId.toLowerCase()}.admin`,
-        email: `admin@${clientId.toLowerCase()}.com`,
         username: `${clientId.toLowerCase()}-admin`,
+        email: `admin@${clientId.toLowerCase()}.com`,
         name: `${config.client_name} Admin`,
         role: 'ADMIN',
         status: 'ACTIVE',
