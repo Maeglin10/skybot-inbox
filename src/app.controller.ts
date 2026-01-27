@@ -89,4 +89,34 @@ export class AppController {
       };
     }
   }
+
+  /**
+   * TEMPORARY: List demo accounts
+   * Protected by secret key
+   */
+  @Public()
+  @SkipThrottle()
+  @Get('list-demo-accounts')
+  async listDemoAccounts(@Query('key') key: string) {
+    const secretKey = process.env.SEED_SECRET_KEY || 'demo-seed-2024';
+
+    if (key !== secretKey) {
+      throw new UnauthorizedException('Invalid seed key');
+    }
+
+    try {
+      const { stdout } = await execAsync('npx ts-node scripts/fix-demo-account.ts');
+      return {
+        status: 'success',
+        output: stdout,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      return {
+        status: 'error',
+        error: error instanceof Error ? error.message : String(error),
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
 }
