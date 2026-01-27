@@ -46,6 +46,7 @@ model Account {
   ingestionJobs      IngestionJob[]
   knowledgeItems     KnowledgeItem[]
   agents             Agent[]
+  apiKeys            ApiKey[] // Phase 5: API key management
 
   @@index([createdAt])
   @@index([isDemo])
@@ -895,6 +896,31 @@ model AgentLog {
   @@index([executionStatus])
   @@index([agentId, timestamp])
   @@index([accountId, timestamp])
+}
+
+// =========================
+// API KEYS (Phase 5)
+// =========================
+
+model ApiKey {
+  id        String   @id @default(cuid())
+  accountId String
+  name      String // Human-readable name for the key (e.g., "Production API", "Zapier Integration")
+  key       String   @unique // The actual API key (sk_accountId_randomHex)
+  lastUsedAt DateTime?
+  expiresAt DateTime? // Optional expiration date
+  isActive  Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@index([key])
+  @@index([isActive])
+  @@index([accountId, isActive])
 }
 
 enum AgentType {
