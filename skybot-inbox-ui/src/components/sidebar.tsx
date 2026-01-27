@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { Link, usePathname } from '@/i18n/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from '@/lib/translations';
 import {
   Inbox,
@@ -9,15 +9,14 @@ import {
   Users,
   BarChart3,
   Settings,
-  LayoutDashboard,
   Calendar,
   Bot,
   Store
 } from 'lucide-react';
-// ThemeSwitcher removed from Sidebar footer
+
+const LOCALE = 'es'; // Hardcoded locale
 
 const NAV_ITEMS = [
-  // { href: '/dashboard', key: 'dashboard', icon: LayoutDashboard },
   { href: '/inbox', key: 'inbox', icon: Inbox },
   { href: '/alerts', key: 'alerts', icon: Bell },
   { href: '/crm', key: 'crm', icon: Users },
@@ -26,17 +25,26 @@ const NAV_ITEMS = [
   { href: '/agents', key: 'agents', icon: Bot },
   { href: '/marketplace', key: 'marketplace', icon: Store },
   { href: '/settings', key: 'settings', icon: Settings },
-  // Removed: account/login - moved to Settings > Profile (P2)
 ];
 
-function isActive(pathname: string, href: string) {
-  // Check if current pathname matches the href
-  return pathname === href || pathname.startsWith(href + '/');
+function buildHref(path: string): string {
+  return `/${LOCALE}${path}`;
+}
+
+function isActive(pathname: string, href: string): boolean {
+  const fullHref = buildHref(href);
+  return pathname === fullHref || pathname.startsWith(fullHref + '/');
 }
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const t = useTranslations('navigation');
+
+  const handleNavClick = (href: string) => {
+    const fullHref = buildHref(href);
+    router.push(fullHref);
+  };
 
   return (
     <aside className="ui-sidebar">
@@ -58,19 +66,18 @@ export function Sidebar() {
           const active = isActive(pathname, it.href);
           const Icon = it.icon;
           return (
-            <Link
+            <button
               key={it.href}
-              href={it.href}
-              className={`ui-sidebar__link flex items-center gap-3 ${active ? 'is-active' : ''}`}
+              onClick={() => handleNavClick(it.href)}
+              className={`ui-sidebar__link flex items-center gap-3 w-full text-left ${active ? 'is-active' : ''}`}
             >
-               {/* 
-                 Updated alignment: Icon and Text now properly aligned on the same visual line (flex items-center handles this but ensure no extra margins are breaking it).
-                 Current class "flex items-center gap-3" handles row alignment.
-                 The previous issue might have been logo scaling or different implementation.
-               */}
-              <Icon size={18} strokeWidth={2} className={`flex-shrink-0 ${active ? 'text-foreground' : 'text-muted-foreground'}`} />
+              <Icon
+                size={18}
+                strokeWidth={2}
+                className={`flex-shrink-0 ${active ? 'text-foreground' : 'text-muted-foreground'}`}
+              />
               <span className="font-medium leading-none">{t(it.key)}</span>
-            </Link>
+            </button>
           );
         })}
       </nav>
@@ -80,7 +87,6 @@ export function Sidebar() {
           <div className="ui-sidebar__footerTitle">Nexxa Agent System</div>
           <div className="ui-sidebar__footerVersion">V1</div>
         </div>
-        {/* ThemeSwitcher moved to Settings -> Appearance */}
       </div>
     </aside>
   );
