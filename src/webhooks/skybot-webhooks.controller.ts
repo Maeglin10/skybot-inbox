@@ -11,6 +11,7 @@ import { AgentsService } from '../agents/agents.service';
 import { ExecutionStatus } from '@prisma/client';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { Logger } from 'winston';
+import { SensitiveRateLimit } from '../common/rate-limit/rate-limit.decorators';
 
 /**
  * Webhook endpoints for SkyBot integration
@@ -60,7 +61,9 @@ export class SkybotWebhooksController {
    *   openaiTokensUsed?: number,
    *   errorMessage?: string
    * }
+   * Rate limit: 20 requests per minute
    */
+  @SensitiveRateLimit()
   @Post('agent-execution')
   @Public()
   async handleAgentExecution(
@@ -103,7 +106,9 @@ export class SkybotWebhooksController {
    *   message: string,
    *   metadata?: any
    * }
+   * Rate limit: 20 requests per minute
    */
+  @SensitiveRateLimit()
   @Post('agent-log')
   @Public()
   async handleAgentLog(
@@ -141,7 +146,9 @@ export class SkybotWebhooksController {
    *   status: 'ACTIVE' | 'INACTIVE' | 'ERROR',
    *   message?: string
    * }
+   * Rate limit: 20 requests per minute
    */
+  @SensitiveRateLimit()
   @Post('agent-status')
   @Public()
   async handleAgentStatus(
@@ -171,7 +178,9 @@ export class SkybotWebhooksController {
    * Allows SkyBot to verify webhook connectivity
    *
    * GET /api/webhooks/skybot/health
+   * Rate limit: 20 requests per minute
    */
+  @SensitiveRateLimit()
   @Post('health')
   @Public()
   async health(@Headers('x-skybot-secret') secret: string | undefined) {
