@@ -1,7 +1,11 @@
-import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
+import { Controller, Get, Post, Query, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import { PrismaService } from './prisma/prisma.service';
 import { Public } from './auth/decorators/public.decorator';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 
 @Controller()
 export class AppController {
@@ -49,6 +53,40 @@ export class AppController {
         error: error instanceof Error ? error.message : String(error),
         timestamp: new Date().toISOString(),
       });
+    }
+  }
+
+  /**
+   * TEMPORARY: Seed demo data endpoint
+   * Protected by secret key, to be removed after initial setup
+   */
+  @Public()
+  @SkipThrottle()
+  @Post('seed-demo')
+  async seedDemo(@Query('key') key: string) {
+    const secretKey = process.env.SEED_SECRET_KEY || 'demo-seed-2024';
+
+    if (key !== secretKey) {
+      throw new UnauthorizedException('Invalid seed key');
+    }
+
+    try {
+      const { stdout, stderr } = await execAsync('npm run seed:demo');
+
+      return {
+        status: 'success',
+        message: 'Demo data seeded successfully',
+        output: stdout,
+        errors: stderr || undefined,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      return {
+        status: 'error',
+        message: 'Failed to seed demo data',
+        error: error instanceof Error ? error.message : String(error),
+        timestamp: new Date().toISOString(),
+      };
     }
   }
 }
