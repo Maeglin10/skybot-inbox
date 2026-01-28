@@ -198,16 +198,21 @@ export class TestLoginController {
 
       // 2. Create ExternalAccount
       let externalAccount = await this.prisma.externalAccount.findFirst({
-        where: { phoneNumberId: GOODLIFE_CONFIG.phoneNumberId },
+        where: {
+          accountId: account.id,
+          channel: 'WHATSAPP',
+          externalId: GOODLIFE_CONFIG.phoneNumberId,
+        },
       });
 
       if (!externalAccount) {
         externalAccount = await this.prisma.externalAccount.create({
           data: {
             accountId: account.id,
-            phoneNumberId: GOODLIFE_CONFIG.phoneNumberId,
-            businessPhoneNumber: GOODLIFE_CONFIG.businessNumber,
-            displayPhoneNumber: GOODLIFE_CONFIG.businessNumber,
+            channel: 'WHATSAPP',
+            externalId: GOODLIFE_CONFIG.phoneNumberId,
+            clientKey: 'goodlife',
+            name: GOODLIFE_CONFIG.displayName,
           },
         });
       }
@@ -222,8 +227,8 @@ export class TestLoginController {
           data: {
             accountId: account.id,
             channel: 'WHATSAPP',
+            externalId: GOODLIFE_CONFIG.phoneNumberId,
             name: `${GOODLIFE_CONFIG.displayName} - WhatsApp`,
-            phoneNumberId: GOODLIFE_CONFIG.phoneNumberId,
           },
         });
       }
