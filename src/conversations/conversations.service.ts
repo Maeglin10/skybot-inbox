@@ -109,6 +109,7 @@ export class ConversationsService {
             id: c.contact.id,
             name: c.contact.name,
             phone: c.contact.phone,
+            isCorporate: c.contact.isCorporate,
           },
           preview: last
             ? { text: last.text ?? '', timestamp: last.timestamp.toISOString() }
