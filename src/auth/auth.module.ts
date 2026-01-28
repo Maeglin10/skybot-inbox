@@ -16,12 +16,13 @@ import { APP_GUARD } from '@nestjs/core';
 const providers: any[] = [
   AuthService,
   JwtStrategy,
+  JwtAuthGuard,
   ApiKeyGuard,
   RolesGuard,
   RequireModuleGuard,
   {
     provide: APP_GUARD,
-    useClass: JwtAuthGuard,
+    useExisting: JwtAuthGuard,
   },
 ];
 
