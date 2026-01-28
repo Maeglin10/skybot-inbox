@@ -170,6 +170,138 @@ export class TestLoginController {
 
   @Public()
   @SkipThrottle()
+  @Post('setup-goodlife-complete')
+  async setupGoodLifeComplete() {
+    try {
+      const GOODLIFE_CONFIG = {
+        phoneNumberId: '60925012724039335',
+        businessNumber: '+50660213707',
+        displayName: 'Goodlife Costa Rica',
+        accountName: 'Goodlife Costa Rica',
+      };
+
+      // 1. Find or create account
+      let account = await this.prisma.account.findFirst({
+        where: { name: { contains: 'Goodlife', mode: 'insensitive' } },
+      });
+
+      if (!account) {
+        account = await this.prisma.account.create({
+          data: {
+            name: GOODLIFE_CONFIG.accountName,
+            isDemo: false,
+            tier: 'STARTER',
+            status: 'ACTIVE',
+          },
+        });
+      }
+
+      // 2. Create ExternalAccount
+      let externalAccount = await this.prisma.externalAccount.findFirst({
+        where: { phoneNumberId: GOODLIFE_CONFIG.phoneNumberId },
+      });
+
+      if (!externalAccount) {
+        externalAccount = await this.prisma.externalAccount.create({
+          data: {
+            accountId: account.id,
+            phoneNumberId: GOODLIFE_CONFIG.phoneNumberId,
+            businessPhoneNumber: GOODLIFE_CONFIG.businessNumber,
+            displayPhoneNumber: GOODLIFE_CONFIG.businessNumber,
+          },
+        });
+      }
+
+      // 3. Create Inbox
+      let inbox = await this.prisma.inbox.findFirst({
+        where: { accountId: account.id, channel: 'WHATSAPP' },
+      });
+
+      if (!inbox) {
+        inbox = await this.prisma.inbox.create({
+          data: {
+            accountId: account.id,
+            channel: 'WHATSAPP',
+            name: `${GOODLIFE_CONFIG.displayName} - WhatsApp`,
+            phoneNumberId: GOODLIFE_CONFIG.phoneNumberId,
+          },
+        });
+      }
+
+      // 4. Create ClientConfig
+      let clientConfig = await this.prisma.clientConfig.findFirst({
+        where: { accountId: account.id },
+      });
+
+      if (!clientConfig) {
+        clientConfig = await this.prisma.clientConfig.create({
+          data: {
+            accountId: account.id,
+            clientKey: 'goodlife',
+            status: 'ACTIVE',
+            name: GOODLIFE_CONFIG.displayName,
+            defaultAgentKey: 'master-router',
+            allowedAgents: [
+              'master-router',
+              'setter',
+              'closer',
+              'crm',
+              'orders',
+              'aftersale',
+            ],
+            channels: {
+              whatsapp: {
+                enabled: true,
+                phoneNumberId: GOODLIFE_CONFIG.phoneNumberId,
+                businessNumber: GOODLIFE_CONFIG.businessNumber,
+              },
+            },
+            externalAccounts: {
+              whatsapp: GOODLIFE_CONFIG.phoneNumberId,
+            },
+          },
+        });
+      }
+
+      // 5. Create user
+      let user = await this.prisma.userAccount.findFirst({
+        where: { username: 'goodlife.nexxaagents' },
+      });
+
+      if (!user) {
+        const passwordHash = await bcrypt.hash('4qFEZPjc8f', 10);
+        user = await this.prisma.userAccount.create({
+          data: {
+            accountId: account.id,
+            username: 'goodlife.nexxaagents',
+            email: 'ventas@goodlifecr.com',
+            passwordHash,
+            name: 'GoodLife Agent',
+            role: 'USER',
+            status: 'ACTIVE',
+          },
+        });
+      }
+
+      return {
+        success: true,
+        accountId: account.id,
+        externalAccountId: externalAccount.id,
+        inboxId: inbox.id,
+        clientConfigId: clientConfig.id,
+        userId: user.id,
+        message: 'GoodLife setup completed',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  @Public()
+  @SkipThrottle()
   @Post('create-goodlife')
   async createGoodLife() {
     try {
