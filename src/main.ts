@@ -46,9 +46,9 @@ async function bootstrap() {
       // Reject others
       callback(new Error('Not allowed by CORS'));
     },
-    credentials: false,
-    allowedHeaders: ['Content-Type', 'x-api-key'],
-    methods: ['GET', 'POST', 'PATCH', 'OPTIONS'],
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'],
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
   });
 
   // JSON global + capture rawBody uniquement pour le webhook
