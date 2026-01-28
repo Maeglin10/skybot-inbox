@@ -33,7 +33,7 @@ Vérifier que le master router renvoie bien les messages WhatsApp de GoodLife ve
 - [ ] Va dans WhatsApp > Numéros de téléphone
 - [ ] Note le `phone_number_id` de Nexxa (si pas déjà fait)
 - [ ] Vérifie que le webhook est actif (voyant vert)
-- [ ] Status : `https://skybot-inbox.onrender.com/webhooks/whatsapp`
+- [ ] Status : `https://skybot-inbox.onrender.com/api/webhooks/whatsapp`
 
 ### 2. Ajouter le numéro GoodLife dans Meta (3 min)
 
@@ -109,7 +109,7 @@ Va dans ton App Meta et vérifie :
 
 ### Webhook Configuration
 ```
-Callback URL: https://skybot-inbox.onrender.com/webhooks/whatsapp
+Callback URL: https://skybot-inbox.onrender.com/api/webhooks/whatsapp
 Verify Token: 3e8e83f4540e6849940c2998c7d4d182b7771498bb62d8b46183f78b1c58e8a7
 Subscribe to: messages
 Status: Active ✅
@@ -158,7 +158,7 @@ npm run setup:goodlife
 ```
 Message WhatsApp → Numéro GoodLife
    ↓
-Meta envoie webhook → skybot-inbox.onrender.com/webhooks/whatsapp
+Meta envoie webhook → skybot-inbox.onrender.com/api/webhooks/whatsapp
    ↓
 Webhook contient: { "from": "phone_number_id" }
    ↓

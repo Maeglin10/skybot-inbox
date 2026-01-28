@@ -58,7 +58,7 @@ LOG_LEVEL=info
 
 4. **Verifie le Webhook** (deja configure):
    ```
-   Callback URL: https://skybot-inbox.onrender.com/webhooks/whatsapp
+   Callback URL: https://skybot-inbox.onrender.com/api/webhooks/whatsapp
    Verify Token: <voir WHATSAPP_VERIFY_TOKEN dans .env>
    Champs: messages
    ```
