@@ -44,7 +44,7 @@ async function setupGoodlifeUser() {
       where: { id: existingUser.id },
       data: {
         passwordHash,
-        email: 'goodlife.agents@nexxa.com',
+        email: 'ventas@goodlifecr.com',
         status: 'ACTIVE',
         accountId: goodLifeAccount.id,
       },
@@ -58,7 +58,7 @@ async function setupGoodlifeUser() {
       data: {
         accountId: goodLifeAccount.id,
         username: 'goodlife.nexxaagents',
-        email: 'goodlife.agents@nexxa.com',
+        email: 'ventas@goodlifecr.com',
         passwordHash,
         name: 'GoodLife Agent',
         role: 'USER',
