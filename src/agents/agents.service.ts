@@ -627,4 +627,72 @@ export class AgentsService {
       }
     }
   }
+
+  /**
+   * Trigger N8N master router with incoming message
+   * Called by webhook when new message arrives
+   */
+  async trigger(triggerData: {
+    requestId: string;
+    conversationId: string;
+    messageId: string;
+    agentKey: string;
+    inputText: string;
+  }) {
+    const n8nUrl = process.env.N8N_MASTER_ROUTER_URL;
+    const n8nSecret = process.env.N8N_MASTER_ROUTER_SECRET;
+
+    if (!n8nUrl) {
+      throw new Error('N8N_MASTER_ROUTER_URL not configured');
+    }
+
+    this.logger.info('Triggering N8N master router', {
+      requestId: triggerData.requestId,
+      conversationId: triggerData.conversationId,
+      messageId: triggerData.messageId,
+      agentKey: triggerData.agentKey,
+    });
+
+    try {
+      const response = await fetch(n8nUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(n8nSecret && { 'x-webhook-secret': n8nSecret }),
+        },
+        body: JSON.stringify({
+          requestId: triggerData.requestId,
+          conversationId: triggerData.conversationId,
+          messageId: triggerData.messageId,
+          agentKey: triggerData.agentKey,
+          inputText: triggerData.inputText,
+          timestamp: new Date().toISOString(),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'No error body');
+        throw new Error(
+          `N8N returned ${response.status}: ${errorText}`,
+        );
+      }
+
+      const result = await response.json().catch(() => ({ success: true }));
+
+      this.logger.info('N8N trigger successful', {
+        requestId: triggerData.requestId,
+        messageId: triggerData.messageId,
+        status: response.status,
+      });
+
+      return result;
+    } catch (error) {
+      this.logger.error('N8N trigger failed', {
+        requestId: triggerData.requestId,
+        messageId: triggerData.messageId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
 }

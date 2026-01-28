@@ -32,8 +32,6 @@ export class WebhooksService {
 
     if (events.length === 0) return { ok: true, stored: 0 };
 
-    const accountId = await this.getDemoAccountId();
-
     let stored = 0;
 
     for (const ev of events) {
@@ -41,21 +39,39 @@ export class WebhooksService {
       const externalAccountId = ev.inboxExternalId ?? 'demo-whatsapp';
       const channel = 'WHATSAPP' as const;
 
-      // resolve clientKey via ExternalAccount -> ClientConfig
+      // Resolve accountId from ExternalAccount (by phone_number_id)
+      let accountId: string;
       let clientKey = 'demo';
+
       try {
-        const cfg = await this.clients.resolveClient({
-          accountId,
-          channel,
-          externalAccountId,
+        // Find ExternalAccount by channel + externalId to get the correct accountId
+        const externalAccount = await this.prisma.externalAccount.findFirst({
+          where: {
+            channel,
+            externalId: externalAccountId,
+            isActive: true,
+          },
         });
-        clientKey = cfg.clientKey;
+
+        if (externalAccount) {
+          accountId = externalAccount.accountId;
+          clientKey = externalAccount.clientKey;
+          this.logger.log(
+            `Resolved accountId=${accountId} clientKey=${clientKey} for phone_number_id=${externalAccountId}`,
+          );
+        } else {
+          // Fallback to Demo account
+          accountId = await this.getDemoAccountId();
+          this.logger.warn(
+            `No ExternalAccount found for ${externalAccountId}, using Demo account`,
+          );
+        }
       } catch (resolveErr) {
-        // Log l'erreur de résolution client - important pour le debug
+        // Fallback to Demo account in case of error
+        accountId = await this.getDemoAccountId();
         this.logger.warn(
-          `Client resolution failed for externalAccountId=${externalAccountId}, using fallback 'demo': ${resolveErr instanceof Error ? resolveErr.message : String(resolveErr)}`,
+          `ExternalAccount resolution failed for ${externalAccountId}, using Demo account: ${resolveErr instanceof Error ? resolveErr.message : String(resolveErr)}`,
         );
-        clientKey = 'demo';
       }
 
       const requestId = `wa_${Date.now()}_${Math.random().toString(16).slice(2)}`;
@@ -179,20 +195,18 @@ export class WebhooksService {
         if (txResult.stored) {
           stored += 1;
 
-          // TODO: Migrate to new agents system (Agent model + SkyBot API deployment)
-          // Temporarily disabled during agents system refactor
           // Trigger n8n APRÈS la transaction (synchrone, pas fire-and-forget)
-          // if (txResult.triggerData) {
-          //   try {
-          //     await this.agents.trigger(txResult.triggerData);
-          //   } catch (triggerErr) {
-          //     // Log l'erreur mais ne fait pas échouer le webhook
-          //     // Le message est déjà stocké, n8n sera retry plus tard si besoin
-          //     this.logger.error(
-          //       `n8n trigger failed for message ${txResult.triggerData.messageId}: ${triggerErr instanceof Error ? triggerErr.message : String(triggerErr)}`,
-          //     );
-          //   }
-          // }
+          if (txResult.triggerData) {
+            try {
+              await this.agents.trigger(txResult.triggerData);
+            } catch (triggerErr) {
+              // Log l'erreur mais ne fait pas échouer le webhook
+              // Le message est déjà stocké, n8n sera retry plus tard si besoin
+              this.logger.error(
+                `n8n trigger failed for message ${txResult.triggerData.messageId}: ${triggerErr instanceof Error ? triggerErr.message : String(triggerErr)}`,
+              );
+            }
+          }
         }
 
         await this.prisma.routingLog.update({

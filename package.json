@@ -30,6 +30,7 @@
     "goodlife:clean-inbox": "ts-node scripts/clean-goodlife-inbox.ts",
     "goodlife:add-contacts": "ts-node scripts/add-goodlife-contacts.ts",
     "goodlife:create-corporate": "ts-node scripts/create-goodlife-corporate-contacts.ts",
+    "goodlife:seed-whatsapp": "ts-node scripts/seed-goodlife-whatsapp.ts",
     "db:reset": "prisma migrate reset --force",
     "migrate:fix": "npx prisma migrate resolve --rolled-back 20260124063500_remove_legacy_themes || true",
     "dev": "nest start --watch"
