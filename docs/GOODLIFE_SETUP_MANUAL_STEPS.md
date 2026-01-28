@@ -11,7 +11,11 @@
 
 ```bash
 # CRITIQUE - Authentification utilisateurs
-JWT_SECRET=***REMOVED***
+# Utilise la valeur de JWT_SECRET depuis ton .env local
+JWT_SECRET=<voir .env>
+
+# Seed secret key pour les endpoints de seed demo
+SEED_SECRET_KEY=<genere une clé aléatoire sécurisée>
 
 # URL du portail de facturation (remplace par ton URL Stripe si applicable)
 BILLING_PORTAL_URL=https://billing.nexxa.com
@@ -55,7 +59,7 @@ LOG_LEVEL=info
 4. **Verifie le Webhook** (deja configure):
    ```
    Callback URL: https://skybot-inbox.onrender.com/webhooks/whatsapp
-   Verify Token: ***REMOVED***
+   Verify Token: <voir WHATSAPP_VERIFY_TOKEN dans .env>
    Champs: messages
    ```
 
@@ -130,7 +134,7 @@ Le systeme devrait automatiquement:
 ```
 URL: https://skybot-inbox-ui.onrender.com
 Username: goodlife.nexxaagents
-Password: ***REMOVED***
+Password: <voir credentials stockées de manière sécurisée>
 ```
 - [ ] Connexion reussie
 - [ ] Dashboard affiche (vide, normal)
@@ -179,7 +183,7 @@ Password: ***REMOVED***
 | Champ | Valeur |
 |-------|--------|
 | Username | `goodlife.nexxaagents` |
-| Password | `***REMOVED***` |
+| Password | `<credentials sécurisées - voir 1Password/vault>` |
 | Role | USER |
 | Account | GoodLife |
 | Features | inbox, crm, analytics, channels, calendar, alerts |
