@@ -63,6 +63,114 @@ export class TestLoginController {
 
   @Public()
   @SkipThrottle()
+  @Post('create-corporate-contacts')
+  async createCorporateContacts() {
+    const corporateContacts = [
+      { name: 'Pamela Chavarria', phone: '+50688284915', role: 'Team' },
+      { name: 'Marcello Allegra', phone: '+50687057802', role: 'Management' },
+      { name: 'Marcela Robles', phone: '+50683878226', role: 'Team' },
+      { name: 'Team Administración', phone: '+50683419449', role: 'Administration' },
+      { name: 'Bodega', phone: '+50663472858', role: 'Bodega' },
+      { name: 'Goodlife Sabana', phone: '+50689784900', role: 'Team' },
+      { name: 'Goodlife Lindora', phone: '+50689784910', role: 'Team' },
+      { name: 'Michael Streda', phone: '+50671315444', role: 'Management' },
+      { name: 'Erick Marchena', phone: '+50686815653', role: 'Team' },
+      { name: 'Yeudy Araya Herrera', phone: '+50685323054', role: 'Team' },
+      { name: 'Brandon Cookhorn Etiplast', phone: '+50661386837', role: 'Team' },
+    ];
+
+    const messages = [
+      'Hola, buenos días! 👋',
+      'Necesito acceso al sistema por favor',
+      'Reportándome desde mi ubicación 📱',
+      'Buenos días equipo! Listo para trabajar ✅',
+      'Tengo una consulta sobre el inventario',
+    ];
+
+    try {
+      // Find GoodLife account
+      const account = await this.prisma.account.findFirst({
+        where: { name: { contains: 'Goodlife', mode: 'insensitive' } },
+      });
+
+      if (!account) {
+        return { success: false, error: 'GoodLife account not found' };
+      }
+
+      // Find GoodLife inbox
+      const inbox = await this.prisma.inbox.findFirst({
+        where: { accountId: account.id, channel: 'WHATSAPP' },
+      });
+
+      if (!inbox) {
+        return { success: false, error: 'GoodLife inbox not found' };
+      }
+
+      const results = [];
+
+      for (const contactData of corporateContacts) {
+        // Check if contact exists
+        let contact = await this.prisma.contact.findFirst({
+          where: { accountId: account.id, phone: contactData.phone },
+        });
+
+        if (contact) {
+          results.push({ name: contactData.name, status: 'already_exists' });
+          continue;
+        }
+
+        // Create contact as corporate
+        contact = await this.prisma.contact.create({
+          data: {
+            accountId: account.id,
+            inboxId: inbox.id,
+            phone: contactData.phone,
+            name: contactData.name,
+            isCorporate: true,
+          },
+        });
+
+        // Create conversation
+        const conversation = await this.prisma.conversation.create({
+          data: {
+            inboxId: inbox.id,
+            contactId: contact.id,
+            status: 'OPEN',
+            lastActivityAt: new Date(),
+          },
+        });
+
+        // Create initial message
+        const message = messages[Math.floor(Math.random() * messages.length)];
+        await this.prisma.message.create({
+          data: {
+            conversationId: conversation.id,
+            direction: 'INCOMING',
+            channel: 'WHATSAPP',
+            text: message,
+            status: 'DELIVERED',
+          },
+        });
+
+        results.push({ name: contactData.name, status: 'created' });
+      }
+
+      return {
+        success: true,
+        accountId: account.id,
+        inboxId: inbox.id,
+        results,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  @Public()
+  @SkipThrottle()
   @Post('create-goodlife')
   async createGoodLife() {
     try {
