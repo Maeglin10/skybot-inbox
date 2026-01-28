@@ -60,4 +60,64 @@ export class TestLoginController {
       role: user.role,
     };
   }
+
+  @Public()
+  @SkipThrottle()
+  @Post('create-goodlife')
+  async createGoodLife() {
+    try {
+      // Check if GoodLife account exists
+      let account = await this.prisma.account.findFirst({
+        where: {
+          OR: [
+            { name: { contains: 'Goodlife', mode: 'insensitive' } },
+            { name: { contains: 'GoodLife', mode: 'insensitive' } },
+          ],
+        },
+      });
+
+      if (!account) {
+        account = await this.prisma.account.create({
+          data: {
+            name: 'Goodlife Costa Rica',
+            isDemo: false,
+            tier: 'STARTER',
+            status: 'ACTIVE',
+          },
+        });
+      }
+
+      // Check if user exists
+      let user = await this.prisma.userAccount.findFirst({
+        where: { username: 'goodlife.nexxaagents' },
+      });
+
+      if (!user) {
+        const passwordHash = await bcrypt.hash('4qFEZPjc8f', 10);
+        user = await this.prisma.userAccount.create({
+          data: {
+            accountId: account.id,
+            username: 'goodlife.nexxaagents',
+            email: 'ventas@goodlifecr.com',
+            passwordHash,
+            name: 'GoodLife Agent',
+            role: 'USER',
+            status: 'ACTIVE',
+          },
+        });
+      }
+
+      return {
+        success: true,
+        accountId: account.id,
+        userId: user.id,
+        message: 'GoodLife created successfully',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
 }
