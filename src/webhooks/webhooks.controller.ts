@@ -36,6 +36,22 @@ export class WebhooksController {
   }
 
   @Public()
+  @Post('debug')
+  async debugPost(@Req() req: Request, @Body() body: any) {
+    this.logger.log('[WEBHOOK-DEBUG] Received webhook from Meta');
+    this.logger.log(`[WEBHOOK-DEBUG] IP: ${req.ip}`);
+    this.logger.log(`[WEBHOOK-DEBUG] Body: ${JSON.stringify(body).substring(0, 500)}`);
+
+    try {
+      await this.webhooksService.handleWhatsAppWebhook(body);
+      return { received: true, processed: true };
+    } catch (error) {
+      this.logger.error('[WEBHOOK-DEBUG] Error:', error);
+      return { received: true, processed: false, error: String(error) };
+    }
+  }
+
+  @Public()
   @Post()
   @UseGuards(WhatsAppSignatureGuard)
   post(@Req() _req: Request, @Body() body: WhatsAppCloudWebhook) {
