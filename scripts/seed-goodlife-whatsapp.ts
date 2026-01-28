@@ -130,7 +130,7 @@ async function main() {
         externalAccounts: {
           whatsapp: GOODLIFE_WHATSAPP_CONFIG.phoneNumberId,
         },
-        n8nOverrides: null, // Uses default N8N configuration from .env
+        // n8nOverrides omitted - uses default N8N configuration from .env
       },
     });
     console.log(

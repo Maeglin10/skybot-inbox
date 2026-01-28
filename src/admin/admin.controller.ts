@@ -267,7 +267,7 @@ export class AdminController {
             externalAccounts: {
               whatsapp: GOODLIFE_CONFIG.phoneNumberId,
             },
-            n8nOverrides: null,
+            // n8nOverrides omitted - uses default N8N configuration
           },
         });
         results.clientConfig = { status: 'created', id: clientConfig.id };
