@@ -92,9 +92,85 @@ async function ensureGoodLifeExists() {
       },
     });
 
-    console.log('✅ GoodLife recréé avec succès');
+    // Recréer les 6 conversations de test
+    const corporateContacts = [
+      { name: 'Ana García - Ventas', phone: '+50688881111' },
+      { name: 'Carlos Rodríguez - Administración', phone: '+50688882222' },
+      { name: 'María López - Servicio al Cliente', phone: '+50688883333' },
+      { name: 'José Hernández - Gerente', phone: '+50688884444' },
+      { name: 'Laura Martínez - Recursos Humanos', phone: '+50688885555' },
+    ];
+
+    for (const contactData of corporateContacts) {
+      const contact = await prisma.contact.create({
+        data: {
+          accountId: newAccount.id,
+          inboxId: inbox.id,
+          phone: contactData.phone,
+          name: contactData.name,
+          isCorporate: true,
+        },
+      });
+
+      const conversation = await prisma.conversation.create({
+        data: {
+          inboxId: inbox.id,
+          contactId: contact.id,
+          channel: 'WHATSAPP',
+          status: 'OPEN',
+          lastActivityAt: new Date(),
+        },
+      });
+
+      await prisma.message.create({
+        data: {
+          conversationId: conversation.id,
+          channel: 'WHATSAPP',
+          direction: 'IN',
+          from: contact.phone,
+          to: '+50660213707',
+          text: `Hola! Soy ${contactData.name.split(' - ')[0]} del equipo GoodLife.`,
+          timestamp: new Date(),
+        },
+      });
+    }
+
+    // Contact de test
+    const testContact = await prisma.contact.create({
+      data: {
+        accountId: newAccount.id,
+        inboxId: inbox.id,
+        phone: '+50612345678',
+        name: 'Cliente Test',
+      },
+    });
+
+    const testConv = await prisma.conversation.create({
+      data: {
+        inboxId: inbox.id,
+        contactId: testContact.id,
+        channel: 'WHATSAPP',
+        status: 'OPEN',
+        lastActivityAt: new Date(),
+      },
+    });
+
+    await prisma.message.create({
+      data: {
+        conversationId: testConv.id,
+        channel: 'WHATSAPP',
+        direction: 'IN',
+        from: '+50612345678',
+        to: '+50660213707',
+        text: '🧪 Mensaje de prueba - SkyBot Inbox funcionando correctamente! ✅',
+        timestamp: new Date(),
+      },
+    });
+
+    console.log('✅ GoodLife recréé avec succès (avec 6 conversations)');
     console.log(`   Account ID: ${newAccount.id}`);
     console.log(`   User: goodlife.nexxaagents / 4qFEZPjc8f`);
+    console.log(`   Conversations: 6 (5 corporatives + 1 test)`);
 
     await prisma.$disconnect();
     await pool.end();
