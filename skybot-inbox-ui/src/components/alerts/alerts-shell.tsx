@@ -107,7 +107,7 @@ export function AlertsShell() {
               </div>
            </div>
 
-           <div className="flex-1 min-h-0 overflow-y-auto">
+           <div className="flex-1 min-h-0 overflow-hidden">
               {loading ? (
                  <div className="p-8 text-center text-sm text-muted-foreground animate-pulse">
                     Loading alerts...
@@ -123,7 +123,7 @@ export function AlertsShell() {
         </div>
 
         {/* Right Column: Detail */}
-        <div className="min-w-0 bg-background/30">
+        <div className="min-w-0 bg-background/30 h-full overflow-hidden">
            <AlertDetail 
               alert={activeItem} 
               onResolve={handleResolve}
