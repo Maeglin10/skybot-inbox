@@ -341,11 +341,7 @@ export class TestLoginController {
       // Get recent routing logs
       const routingLogs = await this.prisma.routingLog.findMany({
         where: {
-          conversation: {
-            inbox: {
-              accountId: account.id,
-            },
-          },
+          accountId: account.id,
         },
         orderBy: { createdAt: 'desc' },
         take: 10,
