@@ -2,9 +2,8 @@ export const dynamic = "force-dynamic"; // Ensure proxy is not cached
 
 import { NextRequest, NextResponse } from "next/server";
 
-const API_BASE = process.env.API_URL || (process.env.NODE_ENV === "production"
-  ? "https://skybot-inbox.onrender.com/api"
-  : "http://127.0.0.1:3001");
+// Production backend URL - always use Render backend unless explicitly overridden
+const API_BASE = process.env.API_URL || "https://skybot-inbox.onrender.com/api";
 const API_KEY = process.env.API_KEY || "";
 
 async function forward(
