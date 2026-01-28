@@ -1,0 +1,31 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [{
+    "id": "123456",
+    "changes": [{
+      "value": {
+        "messaging_product": "whatsapp",
+        "metadata": {
+          "display_phone_number": "50660213707",
+          "phone_number_id": "966520989876579"
+        },
+        "contacts": [{
+          "profile": {
+            "name": "Test Client"
+          },
+          "wa_id": "50612345678"
+        }],
+        "messages": [{
+          "from": "50612345678",
+          "id": "wamid.test_" + Date.now(),
+          "timestamp": Math.floor(Date.now() / 1000).toString(),
+          "text": {
+            "body": "Hola! Quiero información sobre membresías"
+          },
+          "type": "text"
+        }]
+      },
+      "field": "messages"
+    }]
+  }]
+}

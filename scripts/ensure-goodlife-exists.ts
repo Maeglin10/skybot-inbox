@@ -63,7 +63,7 @@ async function ensureGoodLifeExists() {
     const inbox = await prisma.inbox.create({
       data: {
         accountId: newAccount.id,
-        externalId: '60925012724039335',
+        externalId: '966520989876579',
         name: 'WhatsApp GoodLife',
         channel: 'WHATSAPP',
       },
@@ -85,7 +85,7 @@ async function ensureGoodLifeExists() {
       data: {
         accountId: newAccount.id,
         channel: 'WHATSAPP',
-        externalId: '60925012724039335',
+        externalId: '966520989876579',
         clientKey: 'goodlife',
         name: 'GoodLife WhatsApp',
         isActive: true,

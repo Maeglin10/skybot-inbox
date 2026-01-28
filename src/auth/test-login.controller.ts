@@ -174,7 +174,7 @@ export class TestLoginController {
   async setupGoodLifeComplete() {
     try {
       const GOODLIFE_CONFIG = {
-        phoneNumberId: '60925012724039335',
+        phoneNumberId: '966520989876579',
         businessNumber: '+50660213707',
         displayName: 'Goodlife Costa Rica',
         accountName: 'Goodlife Costa Rica',
