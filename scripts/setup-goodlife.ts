@@ -32,7 +32,7 @@ async function setupGoodLife() {
   // 1. Vérifier que le compte GoodLife existe
   console.log('📦 Étape 1: Vérification du compte GoodLife...');
   const goodLifeAccount = await prisma.account.findFirst({
-    where: { name: 'GoodLife' },
+    where: { name: { contains: 'Goodlife', mode: 'insensitive' } },
   });
 
   if (!goodLifeAccount) {
