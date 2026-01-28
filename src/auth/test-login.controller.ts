@@ -307,6 +307,77 @@ export class TestLoginController {
 
   @Public()
   @SkipThrottle()
+  @Get('check-recent-messages')
+  async checkRecentMessages() {
+    try {
+      const account = await this.prisma.account.findFirst({
+        where: { name: { contains: 'Goodlife', mode: 'insensitive' } },
+      });
+
+      if (!account) {
+        return { error: 'GoodLife account not found' };
+      }
+
+      // Get recent messages (last 10)
+      const messages = await this.prisma.message.findMany({
+        where: {
+          conversation: {
+            inbox: {
+              accountId: account.id,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+        include: {
+          conversation: {
+            include: {
+              contact: true,
+            },
+          },
+        },
+      });
+
+      // Get recent routing logs
+      const routingLogs = await this.prisma.routingLog.findMany({
+        where: {
+          conversation: {
+            inbox: {
+              accountId: account.id,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      });
+
+      return {
+        accountId: account.id,
+        messagesCount: messages.length,
+        messages: messages.map(m => ({
+          id: m.id,
+          text: m.text?.substring(0, 50),
+          direction: m.direction,
+          from: m.conversation.contact.name,
+          createdAt: m.createdAt,
+        })),
+        routingLogsCount: routingLogs.length,
+        routingLogs: routingLogs.map(r => ({
+          id: r.id,
+          agentKey: r.agentKey,
+          status: r.status,
+          createdAt: r.createdAt,
+        })),
+      };
+    } catch (error) {
+      return {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  @Public()
+  @SkipThrottle()
   @Post('create-goodlife')
   async createGoodLife() {
     try {
