@@ -132,7 +132,7 @@ async function setupGoodLife() {
           externalId: phoneNumberId.trim(),
           clientKey: 'goodlife',
           name: 'GoodLife WhatsApp',
-          metadata: {},
+          isActive: true,
         },
       });
       console.log(`   ✅ ExternalAccount créé avec phone_number_id: ${phoneNumberId}`);
