@@ -145,7 +145,7 @@ export class TestLoginController {
         await this.prisma.message.create({
           data: {
             conversationId: conversation.id,
-            direction: 'INCOMING',
+            direction: 'IN',
             channel: 'WHATSAPP',
             text: message,
             status: 'DELIVERED',
