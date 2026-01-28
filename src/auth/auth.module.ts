@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
+import { TestLoginController } from './test-login.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { GoogleStrategy } from './strategies/google.strategy';
@@ -42,7 +43,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     }),
     ApiKeysModule, // Phase 5: API key management
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, TestLoginController],
   providers,
   exports: [AuthService, ApiKeyGuard, RolesGuard, RequireModuleGuard],
 })
