@@ -12,12 +12,23 @@ export async function apiClientFetch(path: string, init: RequestInit = {}) {
     ? `/api${normalized}`
     : `/api/proxy${normalized}`;
 
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...(init.headers ?? {}),
+  };
+
+  // Auto-attach Bearer token from cookie if available in browser
+  if (typeof document !== 'undefined') {
+    const match = document.cookie.match(new RegExp('(^| )accessToken=([^;]+)'));
+    if (match) {
+      // @ts-ignore
+      headers['Authorization'] = `Bearer ${match[2]}`;
+    }
+  }
+
   const res = await fetch(url, {
     ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init.headers ?? {}),
-    },
+    headers,
     cache: 'no-store',
   });
 

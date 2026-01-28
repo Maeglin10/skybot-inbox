@@ -14,6 +14,13 @@ interface LoginResponse {
   accessToken: string;
   refreshToken: string;
   expiresIn?: number;
+  user?: {
+    id: string;
+    username: string;
+    email: string;
+    accountId: string;
+    role: string;
+  };
 }
 
 export default function LoginForm() {
@@ -49,36 +56,47 @@ export default function LoginForm() {
   }, [success, router]);
 
   const onSubmit = async (data: LoginValues) => {
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    try {
+      // Use the proxy to call backend /auth/login
+      const res = await fetch('/api/proxy/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
 
-    // Mock response logic based on input
-    if (data.password === 'fail') {
+      if (!res.ok) {
+        if (res.status === 401) {
+           setError('root', { type: 'manual', message: t('invalidCredentials') });
+           return;
+        }
+        throw new Error('Login failed');
+      }
+
+      const body: LoginResponse = await res.json();
+      
+      // Store tokens in cookies
+      // Note: We use max-age as per the mock response or default to session
+      const maxAge = data.rememberMe ? 259200 : undefined;
+      const cookieOptions = maxAge 
+         ? `; max-age=${maxAge}; path=/; secure; samesite=strict`
+         : `; path=/; secure; samesite=strict`;
+
+      document.cookie = `accessToken=${body.accessToken}${cookieOptions}`;
+      document.cookie = `refreshToken=${body.refreshToken}${cookieOptions}`;
+      
+      // Also store user info if needed
+      if (body.user) {
+         localStorage.setItem('user', JSON.stringify(body.user));
+      }
+
+      setSuccess(true);
+    } catch (err) {
+      console.error(err);
       setError('root', {
         type: 'manual',
-        message: t('invalidCredentials'),
+        message: 'An error occurred during login. Please try again.',
       });
-      return;
     }
-
-    // Mock successful login response
-    // If rememberMe is true, return expiresIn
-    const mockResponse: LoginResponse = {
-      accessToken: 'mock_access_token_' + Math.random(),
-      refreshToken: 'mock_refresh_token_' + Math.random(),
-      expiresIn: data.rememberMe ? 259200 : undefined,
-    };
-
-    // Store cookies based on expiry
-    if (mockResponse.expiresIn) {
-      document.cookie = `accessToken=${mockResponse.accessToken}; max-age=${mockResponse.expiresIn}; path=/; secure; samesite=strict`;
-      document.cookie = `refreshToken=${mockResponse.refreshToken}; max-age=${mockResponse.expiresIn}; path=/; secure; samesite=strict`;
-    } else {
-      document.cookie = `accessToken=${mockResponse.accessToken}; path=/; secure; samesite=strict`;
-      document.cookie = `refreshToken=${mockResponse.refreshToken}; path=/; secure; samesite=strict`;
-    }
-
-    setSuccess(true);
   };
 
   if (success) {

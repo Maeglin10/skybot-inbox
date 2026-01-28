@@ -96,7 +96,7 @@ export function InboxShell({
   const router = useRouter();
   const t = useTranslations('inbox');
 
-  const effectiveInitialItems = initialItems.length > 0 ? initialItems : MOCK_CONVERSATIONS;
+  const effectiveInitialItems = initialItems;
 
   const [tab, setTab] = React.useState<Tab>('OPEN');
 
@@ -230,7 +230,11 @@ export function InboxShell({
             : null;
 
         const more = (
-          Array.isArray(data?.items) ? data.items : []
+          Array.isArray(data?.items) 
+            ? data.items 
+            : Array.isArray(data?.data) 
+              ? data.data 
+              : []
         ) as InboxConversation[];
 
         setByTab((prev) => ({ ...prev, [tab]: more }));
@@ -364,9 +368,13 @@ export function InboxShell({
           ? data.nextCursor
           : null;
 
-      const more = (
-        Array.isArray(data?.items) ? data.items : []
-      ) as InboxConversation[];
+        const more = (
+          Array.isArray(data?.items) 
+            ? data.items 
+            : Array.isArray(data?.data) 
+              ? data.data 
+              : []
+        ) as InboxConversation[];
 
       setByTab((prev) => {
         const cur = prev[tab] ?? [];

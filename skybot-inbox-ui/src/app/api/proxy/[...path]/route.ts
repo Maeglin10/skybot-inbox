@@ -22,6 +22,10 @@ async function forward(
   const clientKey = req.headers.get("x-client-key");
   if (clientKey) headers["x-client-key"] = clientKey;
 
+  // Forward Authorization header
+  const auth = req.headers.get("authorization");
+  if (auth) headers["authorization"] = auth;
+
   const init: RequestInit = { method: req.method, headers, cache: "no-store" };
   if (req.method !== "GET" && req.method !== "HEAD") {
     init.body = await req.text();
