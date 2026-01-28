@@ -13,7 +13,11 @@ export type InboxConversationStatus = 'OPEN' | 'PENDING' | 'CLOSED';
 export type InboxConversation = {
   id: string;
   status?: InboxConversationStatus;
-  contact?: { name?: string | null; phone?: string | null };
+  contact?: {
+    name?: string | null;
+    phone?: string | null;
+    isCorporate?: boolean;
+  };
   lastActivityAt?: string;
 
   messages?: Array<{
