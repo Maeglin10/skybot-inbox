@@ -63,6 +63,45 @@ export class AlertsService {
     try {
       const accountId = await this.getAccountId(clientKey);
 
+      // Special handling for CORPORATE type: fetch from conversations instead of alerts
+      if (type === 'CORPORATE') {
+        const conversations = await this.prisma.conversation.findMany({
+          where: {
+            inbox: { accountId },
+            contact: { isCorporate: true },
+            status: status === 'OPEN' ? 'OPEN' : status === 'PENDING' ? 'PENDING' : status === 'RESOLVED' ? 'CLOSED' : undefined,
+          },
+          include: {
+            contact: true,
+            messages: {
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+            },
+          },
+          orderBy: { lastActivityAt: 'desc' },
+        });
+
+        const items: AlertItem[] = conversations.map((conv) => ({
+          id: conv.id,
+          type: 'CORPORATE' as AlertType,
+          title: conv.contact.name || 'Unknown Contact',
+          subtitle: conv.messages[0]?.text?.substring(0, 100) || 'No messages',
+          status: (conv.status === 'CLOSED' ? 'RESOLVED' : conv.status) as AlertStatus,
+          priority: 'MEDIUM' as AlertPriority,
+          customerName: conv.contact.name || undefined,
+          channel: conv.channel as string,
+          conversationId: conv.id,
+          createdAt: conv.createdAt.toISOString(),
+          updatedAt: conv.updatedAt?.toISOString(),
+        }));
+
+        return {
+          items,
+          total: items.length,
+        };
+      }
+
+      // Standard alert handling
       const where: any = { accountId };
       if (status) where.status = status as PrismaAlertStatus;
       if (type) where.type = type as PrismaAlertType;
