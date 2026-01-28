@@ -109,29 +109,41 @@ export class AuthService {
    * Login with username and password
    */
   async login(dto: LoginDto): Promise<AuthResponse> {
+    console.log('[AUTH] Login attempt for username:', dto.username);
+
     // Find user by username
     const user = await this.prisma.userAccount.findFirst({
       where: { username: dto.username },
     });
 
+    console.log('[AUTH] User found:', !!user, 'Has passwordHash:', !!user?.passwordHash);
+
     if (!user || !user.passwordHash) {
+      console.log('[AUTH] FAILED: User not found or no password hash');
       throw new UnauthorizedException('Invalid credentials');
     }
 
     // Verify password
+    console.log('[AUTH] Testing password...');
     const isPasswordValid = await bcrypt.compare(
       dto.password,
       user.passwordHash,
     );
+    console.log('[AUTH] Password valid:', isPasswordValid);
 
     if (!isPasswordValid) {
+      console.log('[AUTH] FAILED: Invalid password');
       throw new UnauthorizedException('Invalid credentials');
     }
 
     // Check if user is active
+    console.log('[AUTH] User status:', user.status);
     if (user.status !== 'ACTIVE') {
+      console.log('[AUTH] FAILED: Account not active');
       throw new UnauthorizedException('Account is not active');
     }
+
+    console.log('[AUTH] Login successful for user:', user.id);
 
     // Generate tokens with rememberMe setting
     const tokens = await this.generateTokens(user, dto.rememberMe);
