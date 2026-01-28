@@ -13,6 +13,7 @@ import type { Request, Response } from 'express';
 import type { WhatsAppCloudWebhook } from './dto/whatsapp-cloud.dto';
 import { WebhooksService } from './webhooks.service';
 import { WhatsAppSignatureGuard } from './whatsapp-signature.guard';
+import { Public } from '../auth/decorators/public.decorator';
 
 @Controller('webhooks/whatsapp')
 export class WebhooksController {
@@ -20,6 +21,7 @@ export class WebhooksController {
 
   constructor(private readonly webhooksService: WebhooksService) {}
 
+  @Public()
   @Get()
   verify(
     @Query('hub.mode') mode: string,
@@ -33,6 +35,7 @@ export class WebhooksController {
     return res.sendStatus(403);
   }
 
+  @Public()
   @Post()
   @UseGuards(WhatsAppSignatureGuard)
   post(@Req() _req: Request, @Body() body: WhatsAppCloudWebhook) {
