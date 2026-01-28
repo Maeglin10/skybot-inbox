@@ -23,6 +23,8 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "ts-node prisma/seed.ts",
     "seed:demo": "ts-node scripts/seed-demo.ts",
+    "setup:goodlife": "ts-node scripts/setup-goodlife.ts",
+    "test:goodlife": "ts-node scripts/test-goodlife.ts",
     "db:reset": "prisma migrate reset --force",
     "migrate:fix": "npx prisma migrate resolve --rolled-back 20260124063500_remove_legacy_themes || true",
     "dev": "nest start --watch"
