@@ -20,10 +20,11 @@ const providers: any[] = [
   ApiKeyGuard,
   RolesGuard,
   RequireModuleGuard,
-  {
-    provide: APP_GUARD,
-    useExisting: JwtAuthGuard,
-  },
+  // TEMPORARILY DISABLED: Global guard causing issues with @Public() decorator
+  // {
+  //   provide: APP_GUARD,
+  //   useExisting: JwtAuthGuard,
+  // },
 ];
 
 // Only add GoogleStrategy if credentials are configured
