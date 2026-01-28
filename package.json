@@ -27,6 +27,7 @@
     "test:goodlife": "ts-node scripts/test-goodlife.ts",
     "test:webhook-routing": "ts-node scripts/test-webhook-routing.ts",
     "goodlife:disable-calendar": "ts-node scripts/disable-calendar-goodlife.ts",
+    "goodlife:clean-inbox": "ts-node scripts/clean-goodlife-inbox.ts",
     "db:reset": "prisma migrate reset --force",
     "migrate:fix": "npx prisma migrate resolve --rolled-back 20260124063500_remove_legacy_themes || true",
     "dev": "nest start --watch"
