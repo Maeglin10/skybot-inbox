@@ -75,7 +75,8 @@ async function testGoodLife() {
     console.log(`   ✅ ClientConfig trouvé: ${clientConfig.name}`);
     console.log(`      - ClientKey: ${clientConfig.clientKey}`);
     console.log(`      - Status: ${clientConfig.status}`);
-    console.log(`      - Channels: ${clientConfig.channels.join(', ')}`);
+    const channels = Array.isArray(clientConfig.channels) ? clientConfig.channels.join(', ') : JSON.stringify(clientConfig.channels);
+    console.log(`      - Channels: ${channels}`);
     console.log(`      - Account: ${clientConfig.accountId === account.id ? '✅ Correct' : '❌ Incorrect'}`);
   }
 
