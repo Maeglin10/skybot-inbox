@@ -1,11 +1,12 @@
 services:
-  # SkyBot Inbox API
+  # SkyBot Inbox API - Updated 2026-01-28
   - type: web
     name: skybot-inbox
     env: node
     region: oregon
     plan: free
     buildCommand: npm install --include=dev && npx prisma generate && npm run build
+    # CRITICAL: NO db:seed - it deletes all data!
     startCommand: npx prisma migrate deploy && npx ts-node scripts/ensure-goodlife-exists.ts && node dist/src/main
     # healthCheckPath: /health  # Temporarily disabled
     envVars:
