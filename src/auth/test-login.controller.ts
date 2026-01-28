@@ -148,7 +148,6 @@ export class TestLoginController {
             direction: 'IN',
             channel: 'WHATSAPP',
             text: message,
-            status: 'DELIVERED',
           },
         });
 
