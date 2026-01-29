@@ -14,7 +14,7 @@ import {
 import { AlertsService } from './alerts.service';
 import { ApiKeyGuard } from '../auth/api-key.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { CreateAlertDto } from './dto/create-alert.dto';
+import { CreateAlertDto, AlertType } from './dto/create-alert.dto';
 import { UpdateAlertDto } from './dto/update-alert.dto';
 import { ListAlertsDto } from './dto/list-alerts.dto';
 import { AssignAlertDto } from './dto/assign-alert.dto';
@@ -102,6 +102,6 @@ export class CorporateAlertsController {
   @Get()
   async listCorporate(@CurrentUser() user: any, @Query() query: ListAlertsDto) {
     this.logger.log(`GET /alerts/corporate userId=${user.id} accountId=${user.accountId}`);
-    return this.alertsService.findAllByAccount(user.accountId, query.status, 'CORPORATE');
+    return this.alertsService.findAllByAccount(user.accountId, query.status, AlertType.CORPORATE);
   }
 }

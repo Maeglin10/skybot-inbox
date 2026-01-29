@@ -7,10 +7,10 @@ export enum StoryMediaType {
 
 export class CreateStoryDto {
   @IsUrl()
-  mediaUrl: string;
+  mediaUrl!: string;
 
   @IsEnum(StoryMediaType)
-  mediaType: StoryMediaType;
+  mediaType!: StoryMediaType;
 
   @IsString()
   @IsOptional()
@@ -21,7 +21,7 @@ export class CreateStoryDto {
   link?: string;
 
   @IsString()
-  phoneNumberId: string;
+  phoneNumberId!: string;
 
   @IsDateString()
   @IsOptional()
