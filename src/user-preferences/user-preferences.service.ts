@@ -2,6 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 import { Theme, Language } from '@prisma/client';
+import {
+  UserNotFoundError,
+  ResourceNotOwnedError,
+  AccountNotFoundError,
+} from '../common/errors/known-error';
 
 export interface UserPreferences {
   id: string;
@@ -29,10 +34,43 @@ export class UserPreferencesService {
 
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * SECURITY FIX: Validate that userId belongs to the client's account
+   * Prevents cross-account access to user preferences
+   */
+  private async validateUserAccess(
+    clientKey: string,
+    userId: string,
+  ): Promise<string> {
+    // Get accountId from clientKey
+    const clientConfig = await this.prisma.clientConfig.findFirst({
+      where: { clientKey },
+      select: { accountId: true },
+    });
+
+    if (!clientConfig) {
+      throw new AccountNotFoundError(clientKey);
+    }
+
+    // Verify userId belongs to this account
+    const user = await this.prisma.userAccount.findFirst({
+      where: { id: userId, accountId: clientConfig.accountId },
+      select: { id: true },
+    });
+
+    if (!user) {
+      throw new ResourceNotOwnedError('user', userId);
+    }
+
+    return clientConfig.accountId;
+  }
+
   async getPreferences(
     clientKey: string,
     userId: string,
   ): Promise<UserPreferences> {
+    // CRITICAL: Validate user belongs to client's account
+    await this.validateUserAccess(clientKey, userId);
     try {
       const prefs = await this.prisma.userPreference.findUnique({
         where: { userAccountId: userId },
@@ -67,6 +105,9 @@ export class UserPreferencesService {
     userId: string,
     dto: UpdatePreferencesDto,
   ): Promise<UserPreferences> {
+    // CRITICAL: Validate user belongs to client's account
+    await this.validateUserAccess(clientKey, userId);
+
     try {
       const existing = await this.prisma.userPreference.findUnique({
         where: { userAccountId: userId },
@@ -114,6 +155,9 @@ export class UserPreferencesService {
     clientKey: string,
     userId: string,
   ): Promise<UserPreferences> {
+    // CRITICAL: Validate user belongs to client's account
+    await this.validateUserAccess(clientKey, userId);
+
     try {
       await this.prisma.userPreference.deleteMany({
         where: { userAccountId: userId },

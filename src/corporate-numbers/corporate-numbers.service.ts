@@ -5,20 +5,35 @@ import { PrismaService } from '../prisma/prisma.service';
 export class CorporateNumbersService {
   constructor(private prisma: PrismaService) {}
 
-  async listNumbers(tenantId: string) {
+  /**
+   * SECURITY FIX: Now requires accountId parameter for multi-tenancy
+   */
+  async listNumbers(accountId: string) {
     return this.prisma.corporateNumber.findMany({
-      where: { tenantId },
+      where: { tenantId: accountId }, // CRITICAL: Filter by account
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  async addNumber(tenantId: string, dto: any) {
+  /**
+   * SECURITY FIX: Now requires accountId parameter for multi-tenancy
+   */
+  async addNumber(accountId: string, dto: any) {
     return this.prisma.corporateNumber.create({
-      data: { tenantId, ...dto },
+      data: { tenantId: accountId, ...dto }, // CRITICAL: Associate with account
     });
   }
 
-  async checkIfCorporate(phone: string) {
-    return this.prisma.corporateNumber.findFirst({ where: { phone } });
+  /**
+   * CRITICAL P0 FIX: Check if phone is corporate within specific account
+   * Previously this had NO tenant filtering - allowed cross-account data leaks
+   */
+  async checkIfCorporate(accountId: string, phone: string) {
+    return this.prisma.corporateNumber.findFirst({
+      where: {
+        phone,
+        tenantId: accountId, // CRITICAL: Filter by account to prevent cross-account data leaks
+      },
+    });
   }
 }
