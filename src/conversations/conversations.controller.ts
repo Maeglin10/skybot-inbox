@@ -2,66 +2,41 @@ import { Controller, Get, Param, Patch, Body, Query } from '@nestjs/common';
 import { ConversationsService } from './conversations.service';
 import type { ConversationStatus } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-
-function asString(v: unknown): string | undefined {
-  if (typeof v !== 'string') return undefined;
-  const s = v.trim();
-  if (!s || s === 'null' || s === 'undefined') return undefined;
-  return s;
-}
-
-function asInt(v: unknown, fallback: number): number {
-  if (typeof v === 'string' && v.trim()) {
-    const n = Number(v);
-    if (Number.isFinite(n)) return Math.trunc(n);
-  }
-  if (typeof v === 'number' && Number.isFinite(v)) return Math.trunc(v);
-  return fallback;
-}
-
-function asStatus(v: unknown): ConversationStatus | undefined {
-  const s = asString(v);
-  if (s === 'OPEN' || s === 'PENDING' || s === 'CLOSED') return s;
-  return undefined;
-}
+import { QueryConversationsDto } from './dto/query-conversations.dto';
 
 @Controller('conversations')
 export class ConversationsController {
   constructor(private readonly conversationsService: ConversationsService) {}
 
+  /**
+   * List conversations with proper pagination and validation
+   * P1 FIX: Now uses DTO with class-validator for type-safe query params
+   */
   @Get()
   findAll(
     @CurrentUser() user: any,
-    @Query('status') statusQ?: string,
-    @Query('inboxId') inboxIdQ?: string,
-    @Query('channel') channelQ?: string,
-    @Query('limit') limitQ?: string,
-    @Query('cursor') cursorQ?: string,
-    @Query('lite') liteQ?: string,
-    @Query('corporate') corporateQ?: string, // P1: Corporate filter
+    @Query() query: QueryConversationsDto,
+    @Query('inboxId') inboxId?: string,
+    @Query('channel') channel?: string,
+    @Query('corporate') corporate?: string,
   ) {
-    const status = asStatus(statusQ);
-    const inboxId = asString(inboxIdQ);
-    const channel = asString(channelQ); // 'WHATSAPP' | 'EMAIL' | ...
-    const limit = asInt(limitQ, 20);
-    const cursor = asString(cursorQ);
-    const lite = liteQ === '1' || liteQ === 'true';
-    const corporate =
-      corporateQ === '1' || corporateQ === 'true'
+    // Parse optional filters (not in main DTO to keep it simple)
+    const corporateFilter =
+      corporate === '1' || corporate === 'true'
         ? true
-        : corporateQ === '0' || corporateQ === 'false'
+        : corporate === '0' || corporate === 'false'
           ? false
           : undefined;
 
     return this.conversationsService.findAll({
       accountId: user.accountId, // CRITICAL: Filter by authenticated user's account
-      status,
+      status: query.status,
       inboxId,
       channel,
-      limit,
-      cursor,
-      lite,
-      corporate,
+      limit: query.limit,
+      cursor: query.cursor,
+      lite: query.lite,
+      corporate: corporateFilter,
     });
   }
 
@@ -91,8 +66,8 @@ export class ConversationsController {
     @Query('limit') limitQ?: string,
     @Query('cursor') cursorQ?: string,
   ) {
-    const limit = asInt(limitQ, 20);
-    const cursor = asString(cursorQ);
+    const limit = limitQ ? parseInt(limitQ, 10) : 20;
+    const cursor = cursorQ || undefined;
 
     return this.conversationsService.listMessages(user.accountId, id, {
       limit,

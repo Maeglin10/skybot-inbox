@@ -41,7 +41,7 @@ export class StripeWebhookController {
     }
 
     this.stripe = new Stripe(stripeSecretKey || '', {
-      apiVersion: '2024-12-18.acacia',
+      apiVersion: '2026-01-28.clover',
     });
   }
 
@@ -79,7 +79,7 @@ export class StripeWebhookController {
       );
 
       this.logger.log(`Verified Stripe webhook: ${event.type}`);
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error('Webhook signature verification failed:', error);
       throw new BadRequestException(
         `Webhook signature verification failed: ${error.message}`,
@@ -90,7 +90,7 @@ export class StripeWebhookController {
     try {
       await this.handleStripeEvent(event);
       return { received: true };
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error processing webhook ${event.type}:`, error);
       return { received: true, error: error.message };
     }

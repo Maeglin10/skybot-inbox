@@ -2,15 +2,18 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { IdempotencyService } from '../common/idempotency/idempotency.service';
+import { PresenceService } from '../websockets/presence.service';
 
 /**
  * Background job service for periodic cleanup tasks
  *
  * Cron jobs:
+ * - Every minute: Clean up stale presences (mark offline if no heartbeat)
+ * - Every 5 minutes: Collect health metrics
  * - Every hour: Clean up expired idempotency keys
  * - Every hour: Clean up expired refresh tokens
  * - Every day at 2 AM: Clean up expired magic links
- * - Every day at 3 AM: Archive old audit logs (if implemented)
+ * - Every day at 3 AM: Archive old revoked tokens
  */
 @Injectable()
 export class CleanupService {
@@ -19,6 +22,7 @@ export class CleanupService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly idempotencyService: IdempotencyService,
+    private readonly presenceService: PresenceService,
   ) {}
 
   /**
@@ -130,6 +134,23 @@ export class CleanupService {
       this.logger.debug(`Active sessions: ${activeSessionsCount}`);
     } catch (error) {
       this.logger.error('Failed to collect metrics:', error);
+    }
+  }
+
+  /**
+   * Clean up stale presences (mark users offline if no heartbeat in 2 minutes)
+   * Runs every minute for real-time accuracy
+   */
+  @Cron(CronExpression.EVERY_MINUTE)
+  async cleanupStalePresences() {
+    try {
+      const result = await this.presenceService.cleanupStale();
+
+      if (result.updated > 0) {
+        this.logger.log(`Marked ${result.updated} stale users as offline`);
+      }
+    } catch (error) {
+      this.logger.error('Failed to cleanup stale presences:', error);
     }
   }
 }

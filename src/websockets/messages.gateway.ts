@@ -11,6 +11,8 @@ import { Server, Socket } from 'socket.io';
 import { Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
+import { PresenceService } from './presence.service';
+import { ConversationParticipantService } from '../conversations/conversation-participant.service';
 
 /**
  * WebSocket Gateway for real-time message updates
@@ -46,7 +48,7 @@ export class MessagesGateway
   implements OnGatewayConnection, OnGatewayDisconnect
 {
   @WebSocketServer()
-  server: Server;
+  server!: Server;
 
   private readonly logger = new Logger(MessagesGateway.name);
   private authenticatedClients = new Map<
@@ -57,6 +59,8 @@ export class MessagesGateway
   constructor(
     private readonly jwtService: JwtService,
     private readonly prisma: PrismaService,
+    private readonly presenceService: PresenceService,
+    private readonly participantService: ConversationParticipantService,
   ) {}
 
   /**
@@ -77,14 +81,36 @@ export class MessagesGateway
 
   /**
    * Handle WebSocket disconnection
+   * Marks user as offline in presence system
    */
-  handleDisconnect(client: Socket) {
+  async handleDisconnect(client: Socket) {
     this.logger.log(`Client disconnected: ${client.id}`);
+
+    const authInfo = this.authenticatedClients.get(client.id);
+    if (authInfo) {
+      // Mark user as offline
+      try {
+        await this.presenceService.setOffline({
+          userAccountId: authInfo.userId,
+        });
+
+        // Broadcast presence update to account
+        this.server.to(`account:${authInfo.accountId}`).emit('presence:update', {
+          userId: authInfo.userId,
+          status: 'offline',
+          lastSeenAt: new Date(),
+        });
+      } catch (error) {
+        this.logger.error('Failed to update presence on disconnect:', error);
+      }
+    }
+
     this.authenticatedClients.delete(client.id);
   }
 
   /**
    * Authenticate WebSocket connection with JWT token
+   * Marks user as online in presence system
    */
   @SubscribeMessage('authenticate')
   async handleAuthenticate(
@@ -104,6 +130,24 @@ export class MessagesGateway
 
       // Join room for this account (for broadcast messages)
       client.join(`account:${payload.accountId}`);
+
+      // Mark user as online in presence system
+      const userAgent = client.handshake.headers['user-agent'];
+      await this.presenceService.setOnline({
+        userAccountId: payload.sub,
+        socketId: client.id,
+        deviceInfo: {
+          userAgent,
+          ip: client.handshake.address,
+        },
+      });
+
+      // Broadcast presence update to account
+      this.server.to(`account:${payload.accountId}`).emit('presence:update', {
+        userId: payload.sub,
+        status: 'online',
+        lastSeenAt: new Date(),
+      });
 
       this.logger.log(
         `Client ${client.id} authenticated as user ${payload.sub}`,
@@ -181,6 +225,7 @@ export class MessagesGateway
 
   /**
    * Send typing indicator
+   * Updates presence system with typing status
    */
   @SubscribeMessage('typing')
   async handleTyping(
@@ -193,12 +238,102 @@ export class MessagesGateway
       return;
     }
 
+    // Update presence typing status
+    await this.presenceService.setTyping({
+      userAccountId: authInfo.userId,
+      conversationId: data.isTyping ? data.conversationId : null,
+      isTyping: data.isTyping,
+    });
+
     // Broadcast typing indicator to others in the conversation
     client.to(`conversation:${data.conversationId}`).emit('typing', {
       conversationId: data.conversationId,
       userId: authInfo.userId,
       isTyping: data.isTyping,
     });
+  }
+
+  /**
+   * Mark messages as read (read receipts)
+   */
+  @SubscribeMessage('mark_read')
+  async handleMarkRead(
+    @MessageBody()
+    data: { conversationId: string; messageId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const authInfo = this.authenticatedClients.get(client.id);
+    if (!authInfo) {
+      client.emit('error', { message: 'Not authenticated' });
+      return;
+    }
+
+    try {
+      const result = await this.participantService.markAsRead({
+        conversationId: data.conversationId,
+        userAccountId: authInfo.userId,
+        messageId: data.messageId,
+        accountId: authInfo.accountId,
+      });
+
+      // Broadcast read receipt to conversation
+      this.server.to(`conversation:${data.conversationId}`).emit('message:read', {
+        conversationId: data.conversationId,
+        messageId: data.messageId,
+        userId: authInfo.userId,
+        readAt: new Date(),
+      });
+
+      client.emit('marked_read', {
+        conversationId: data.conversationId,
+        messageId: data.messageId,
+        unreadCount: result.unreadCount,
+      });
+    } catch (error) {
+      this.logger.error('Failed to mark message as read:', error);
+      client.emit('error', { message: 'Failed to mark as read' });
+    }
+  }
+
+  /**
+   * Update user presence status (online, away, busy)
+   */
+  @SubscribeMessage('presence:update_status')
+  async handlePresenceUpdate(
+    @MessageBody() data: { status: 'online' | 'away' | 'busy' | 'offline' },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const authInfo = this.authenticatedClients.get(client.id);
+    if (!authInfo) {
+      return;
+    }
+
+    await this.presenceService.updateStatus({
+      userAccountId: authInfo.userId,
+      status: data.status,
+    });
+
+    // Broadcast presence update to account
+    this.server.to(`account:${authInfo.accountId}`).emit('presence:update', {
+      userId: authInfo.userId,
+      status: data.status,
+      lastSeenAt: new Date(),
+    });
+  }
+
+  /**
+   * Heartbeat to keep user online
+   * Client should send this every 30 seconds
+   */
+  @SubscribeMessage('heartbeat')
+  async handleHeartbeat(@ConnectedSocket() client: Socket) {
+    const authInfo = this.authenticatedClients.get(client.id);
+    if (!authInfo) {
+      return;
+    }
+
+    await this.presenceService.heartbeat(authInfo.userId);
+    client.emit('heartbeat:ack', { timestamp: new Date() });
   }
 
   /**

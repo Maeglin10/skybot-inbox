@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
@@ -8,51 +8,46 @@ datasource db {
 }
 
 model Account {
-  id        String   @id @default(cuid())
-  name      String
-  isDemo    Boolean  @default(false) // Demo account flag
-  features  Json?    // Feature toggles: { crm: true, analytics: true, ... }
-
-  // Multi-tenant subscription fields
-  tier         Tier          @default(STARTER)
-  status       TenantStatus  @default(TRIAL)
-  trialEndsAt  DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  alerts           Alert[]
-  clientConfigs    ClientConfig[]
-  contacts         Contact[]
-  externalAccounts ExternalAccount[]
-
-  inboxes  Inbox[]
-
-  // New relations
-  userAccounts        UserAccount[]
-  refreshTokens       RefreshToken[] // Session management
-  idempotencyKeys     IdempotencyKey[] // Prevent duplicate operations
-  leads               Lead[]
-  feedbacks           Feedback[]
-  channelConnections  ChannelConnection[]
-  modules             TenantModule[]
-  integrations        Integration[]
-  corporateNumbers    CorporateNumber[]
-  subscription        Subscription?
-  usageTracking       UsageTracking[]
-  media               Media[]
-  ingestionJobs       IngestionJob[]
-  knowledgeItems      KnowledgeItem[]
+  id                  String                @id @default(cuid())
+  name                String
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  features            Json?
+  isDemo              Boolean               @default(false)
+  status              TenantStatus          @default(TRIAL)
+  tier                Tier                  @default(STARTER)
+  trialEndsAt         DateTime?
   agents              Agent[]
-  apiKeys             ApiKey[] // Phase 5: API key management
+  alerts              Alert[]
+  apiKeys             ApiKey[]
+  channelConnections  ChannelConnection[]
+  clientConfigs       ClientConfig[]
+  competitiveAnalyses CompetitiveAnalysis[]
+  contacts            Contact[]
+  corporateNumbers    CorporateNumber[]
+  externalAccounts    ExternalAccount[]
+  feedbacks           Feedback[]
+  idempotencyKeys     IdempotencyKey[]
+  inboxes             Inbox[]
+  ingestionJobs       IngestionJob[]
+  integrations        Integration[]
+  knowledgeItems      KnowledgeItem[]
+  leads               Lead[]
+  media               Media[]
+  refreshTokens       RefreshToken[]
   routingLogs         RoutingLog[]
   stories             Story[]
-  competitiveAnalyses CompetitiveAnalysis[]
+  subscription        Subscription?
+  modules             TenantModule[]
+  usageTracking       UsageTracking[]
+  userAccounts        UserAccount[]
 
   @@index([createdAt])
   @@index([isDemo])
   @@index([tier])
   @@index([status])
+  @@index([features], type: Gin)
+  @@index([features], map: "idx_account_features", type: Gin)
 }
 
 model ExternalAccount {
@@ -73,32 +68,21 @@ model ExternalAccount {
   @@index([channel])
 }
 
-// =========================
-// CHANNEL CONNECTIONS (Multi-Channel OAuth)
-// =========================
-
 model ChannelConnection {
-  id                String   @id @default(cuid())
+  id                String                  @id @default(cuid())
   accountId         String
-  channelType       Channel  // WHATSAPP, INSTAGRAM, FACEBOOK, etc.
-  channelIdentifier String   // phone number, page ID, IG account ID
-
-  // Encrypted token storage (AES-256-GCM)
-  encryptedToken    String   @db.Text
-  iv                String   // Initialization vector
-  authTag           String   // Authentication tag for GCM
-
-  // Metadata (page name, IG username, token expiry, etc.)
+  channelType       Channel
+  channelIdentifier String
+  encryptedToken    String
+  iv                String
+  authTag           String
   metadata          Json?
-
   status            ChannelConnectionStatus @default(ACTIVE)
   lastSync          DateTime?
   lastError         String?
-
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  account           Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  account           Account                 @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@unique([accountId, channelType, channelIdentifier])
   @@index([accountId])
@@ -106,30 +90,21 @@ model ChannelConnection {
   @@index([status])
 }
 
-// =========================
-// AUDIT LOGS (Security & Compliance)
-// =========================
-
 model AuditLog {
   id        String   @id @default(cuid())
   userId    String?
-  accountId String?
-  action    String   // login_success, user_created, channel_connected, etc.
+  action    String
   metadata  Json?
   ipAddress String?
   userAgent String?
-
   createdAt DateTime @default(now())
+  accountId String?
 
   @@index([userId])
   @@index([accountId])
   @@index([action])
   @@index([createdAt])
 }
-
-// =========================
-// INBOX
-// =========================
 
 model Inbox {
   id            String         @id @default(cuid())
@@ -148,15 +123,16 @@ model Inbox {
   @@index([channel])
 }
 
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
 model Contact {
   id            String         @id @default(cuid())
   accountId     String
   inboxId       String
   phone         String
   name          String?
-  isCorporate   Boolean        @default(false) // P1: Corporate filter
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
+  isCorporate   Boolean        @default(false)
   account       Account        @relation(fields: [accountId], references: [id], onDelete: Cascade)
   inbox         Inbox          @relation(fields: [inboxId], references: [id], onDelete: Cascade)
   conversations Conversation[]
@@ -168,25 +144,22 @@ model Contact {
 }
 
 model Conversation {
-  id             String             @id @default(cuid())
-  inboxId        String
-  contactId      String
-  channel        Channel            @default(WHATSAPP)
-  externalId     String?
-  status         ConversationStatus @default(OPEN)
-  lastActivityAt DateTime           @default(now())
-
-  // Cached metrics for performance
-  messageCount      Int            @default(0)
-  participantCount  Int            @default(0)
-  unreadCount       Int            @default(0)
-
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
-  contact        Contact            @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  inbox          Inbox              @relation(fields: [inboxId], references: [id], onDelete: Cascade)
-  messages       Message[]
-  participants   ConversationParticipant[]
+  id                String                    @id @default(cuid())
+  inboxId           String
+  contactId         String
+  channel           Channel                   @default(WHATSAPP)
+  externalId        String?
+  status            ConversationStatus        @default(OPEN)
+  lastActivityAt    DateTime                  @default(now())
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+  messageCount      Int                       @default(0)
+  participantCount  Int                       @default(0)
+  unreadCount       Int                       @default(0)
+  contact           Contact                   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  inbox             Inbox                     @relation(fields: [inboxId], references: [id], onDelete: Cascade)
+  participants      ConversationParticipant[]
+  messages          Message[]
 
   @@unique([channel, externalId], name: "conversation_channel_externalId_unique")
   @@index([inboxId])
@@ -195,47 +168,34 @@ model Conversation {
   @@index([externalId])
   @@index([lastActivityAt])
   @@index([status, lastActivityAt])
-  @@index([inboxId, status, lastActivityAt])
+  @@index([inboxId, status, lastActivityAt(sort: Desc)])
 }
 
 model Message {
-  id             String           @id @default(cuid())
-  conversationId String
-  channel        Channel
-  externalId     String?
-  direction      MessageDirection
-  from           String?
-  to             String?
-  text           String?
-  timestamp      DateTime         @default(now())
-
-  // Delivery tracking
-  status         MessageStatus    @default(SENT)
-  deliveredAt    DateTime?
-  readAt         DateTime?
-  failedReason   String?
-
-  // Editing support
-  editedAt       DateTime?
-  originalText   String?
-
-  // Soft deletion
-  deletedAt      DateTime?
-  deletedBy      String?
-
-  // Threading support
-  replyToMessageId String?
-  replyToMessage   Message?  @relation("MessageReplies", fields: [replyToMessageId], references: [id], onDelete: SetNull)
-  replies          Message[] @relation("MessageReplies")
-
-  // Optimistic locking
-  version        Int              @default(1)
-
-  // Full-text search (managed by trigger)
-  searchVector   Unsupported("tsvector")?
-
-  createdAt      DateTime         @default(now())
-  conversation   Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  id                                                 String                   @id @default(cuid())
+  conversationId                                     String
+  channel                                            Channel
+  externalId                                         String?
+  direction                                          MessageDirection
+  from                                               String?
+  to                                                 String?
+  text                                               String?
+  timestamp                                          DateTime                 @default(now())
+  createdAt                                          DateTime                 @default(now())
+  status                                             MessageStatus?           @default(SENT)
+  deliveredAt                                        DateTime?
+  readAt                                             DateTime?
+  failedReason                                       String?
+  editedAt                                           DateTime?
+  originalText                                       String?
+  deletedAt                                          DateTime?
+  deletedBy                                          String?
+  replyToMessageId                                   String?
+  version                                            Int                      @default(1)
+  search_vector                                      Unsupported("tsvector")?
+  conversation                                       Conversation             @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  replyToMessage                                     Message?                 @relation("MessageReplies", fields: [replyToMessageId], references: [id], onUpdate: NoAction)
+  replies                                            Message[]                @relation("MessageReplies")
 
   @@unique([channel, externalId], name: "message_channel_externalId_unique")
   @@index([conversationId])
@@ -243,40 +203,28 @@ model Message {
   @@index([channel])
   @@index([timestamp])
   @@index([conversationId, createdAt])
-  @@index([conversationId, timestamp, direction])
+  @@index([conversationId, timestamp(sort: Desc), direction])
   @@index([status])
   @@index([replyToMessageId])
-  @@index([conversationId, timestamp]) // For messages not deleted
+  @@index([search_vector], type: Gin)
+  @@index([search_vector], map: "idx_message_search", type: Gin)
 }
 
-// =========================
-// CONVERSATION PARTICIPANTS (Read Receipts & Unread Tracking)
-// =========================
 model ConversationParticipant {
-  id               String   @id @default(cuid())
-  conversationId   String
-  userAccountId    String
-
-  // Read receipt tracking
+  id                String       @id @default(cuid())
+  conversationId    String
+  userAccountId     String
   lastReadMessageId String?
   lastReadAt        DateTime?
-
-  // Cached unread count for performance
-  unreadCount      Int      @default(0)
-
-  // Presence in conversation
-  joinedAt         DateTime @default(now())
-  leftAt           DateTime?
-
-  // Notification preferences
-  muted            Boolean  @default(false)
-  mutedUntil       DateTime?
-
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  conversation     Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  userAccount      UserAccount  @relation(fields: [userAccountId], references: [id], onDelete: Cascade)
+  unreadCount       Int          @default(0)
+  joinedAt          DateTime     @default(now())
+  leftAt            DateTime?
+  muted             Boolean      @default(false)
+  mutedUntil        DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @default(now()) @updatedAt
+  conversation      Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  userAccount       UserAccount  @relation(fields: [userAccountId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([conversationId, userAccountId])
   @@index([conversationId])
@@ -284,29 +232,18 @@ model ConversationParticipant {
   @@index([userAccountId, unreadCount])
 }
 
-// =========================
-// PRESENCE TRACKING (Online/Offline Status)
-// =========================
 model Presence {
-  id                     String   @id @default(cuid())
-  userAccountId          String   @unique
-
-  // Online status
-  status                 String   @default("offline") // online, away, busy, offline
-  lastSeenAt             DateTime @default(now())
-
-  // Current activity
+  id                     String      @id @default(cuid())
+  userAccountId          String      @unique
+  status                 String      @default("offline")
+  lastSeenAt             DateTime    @default(now())
   currentConversationId  String?
   isTypingInConversation String?
-
-  // Connection info
   socketId               String?
   deviceInfo             Json?
-
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
-
-  userAccount            UserAccount @relation(fields: [userAccountId], references: [id], onDelete: Cascade)
+  createdAt              DateTime    @default(now())
+  updatedAt              DateTime    @default(now()) @updatedAt
+  userAccount            UserAccount @relation(fields: [userAccountId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([userAccountId])
   @@index([status])
@@ -331,6 +268,9 @@ model ClientConfig {
   @@unique([accountId, clientKey], name: "accountId_clientKey")
   @@index([accountId])
   @@index([status])
+  @@index([allowedAgents], type: Gin)
+  @@index([channels], type: Gin)
+  @@index([channels], map: "idx_client_config_channels", type: Gin)
 }
 
 model RoutingLog {
@@ -358,31 +298,25 @@ model RoutingLog {
   @@index([status, createdAt])
 }
 
-// =========================
-// USER ACCOUNT (Admin/User)
-// =========================
 model UserAccount {
-  id        String @id @default(cuid())
-  accountId String // Links to business Account
-
-  username     String  // Primary login identifier
-  email        String? // Optional - for recovery/notifications only
-  passwordHash String?
-  name         String
-  phone        String?
-  role         UserRole      @default(USER)
-  status       AccountStatus @default(ACTIVE)
-  avatarUrl    String?
-  notes        String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
+  id            String                    @id @default(cuid())
+  accountId     String
+  email         String?
+  passwordHash  String?
+  name          String
+  phone         String?
+  role          UserRole                  @default(USER)
+  status        AccountStatus             @default(ACTIVE)
+  avatarUrl     String?
+  notes         String?
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+  username      String
+  participants  ConversationParticipant[]
+  presence      Presence?
+  refreshTokens RefreshToken[]
   account       Account                   @relation(fields: [accountId], references: [id], onDelete: Cascade)
   preferences   UserPreference?
-  refreshTokens RefreshToken[]            // Session management
-  participants  ConversationParticipant[] // Conversation participation
-  presence      Presence?                 // Online/offline status
 
   @@unique([accountId, username], name: "accountId_username")
   @@index([accountId])
@@ -391,66 +325,47 @@ model UserAccount {
   @@index([status])
 }
 
-// =========================
-// USER PREFERENCES
-// =========================
 model UserPreference {
-  id            String @id @default(cuid())
-  userAccountId String @unique
-
-  theme      Theme    @default(DEFAULT)
-  language   Language @default(EN)
-  timezone   String   @default("UTC")
-  dateFormat String   @default("YYYY-MM-DD")
-  timeFormat String   @default("24h")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  userAccount UserAccount @relation(fields: [userAccountId], references: [id], onDelete: Cascade)
+  id            String      @id @default(cuid())
+  userAccountId String      @unique
+  theme         Theme       @default(DEFAULT)
+  language      Language    @default(EN)
+  timezone      String      @default("UTC")
+  dateFormat    String      @default("YYYY-MM-DD")
+  timeFormat    String      @default("24h")
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  userAccount   UserAccount @relation(fields: [userAccountId], references: [id], onDelete: Cascade)
 }
 
-// =========================
-// MAGIC LINKS (Passwordless Auth)
-// =========================
 model MagicLink {
   id        String   @id @default(cuid())
   email     String
   token     String   @unique
   used      Boolean  @default(false)
   expiresAt DateTime
-
   createdAt DateTime @default(now())
 
   @@index([email])
   @@index([token])
 }
 
-// =========================
-// REFRESH TOKENS (Session Management)
-// =========================
 model RefreshToken {
-  id            String   @id @default(cuid())
-  token         String   @unique // Hashed refresh token
+  id            String      @id @default(cuid())
+  token         String      @unique
   userAccountId String
-  accountId     String   // Denormalized for faster queries
-
-  // Device/session info for audit trail
+  accountId     String
   ipAddress     String?
   userAgent     String?
-  deviceInfo    Json?    // { browser, os, device }
-
-  // Session management
+  deviceInfo    Json?
   expiresAt     DateTime
-  revokedAt     DateTime? // NULL = active, non-NULL = revoked
-  revokedReason String?   // user_logout, admin_revoke, security_breach, etc.
-  lastUsedAt    DateTime  @default(now())
-
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  userAccount   UserAccount @relation(fields: [userAccountId], references: [id], onDelete: Cascade)
+  revokedAt     DateTime?
+  revokedReason String?
+  lastUsedAt    DateTime    @default(now())
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
   account       Account     @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  userAccount   UserAccount @relation(fields: [userAccountId], references: [id], onDelete: Cascade)
 
   @@index([userAccountId])
   @@index([accountId])
@@ -459,41 +374,28 @@ model RefreshToken {
   @@index([revokedAt])
 }
 
-// =========================
-// IDEMPOTENCY KEYS (Prevent duplicate operations)
-// =========================
 model IdempotencyKey {
-  id        String   @id @default(cuid())
-  key       String   @unique // Client-provided idempotency key
-  accountId String   // Multi-tenant isolation
-
-  // Request details
-  endpoint  String   // The API endpoint called
-  method    String   // HTTP method (POST, PUT, etc.)
-  requestBody Json?  // Original request body (for verification)
-
-  // Response caching
-  statusCode  Int?     // HTTP status code of original response
-  responseBody Json?   // Cached response body
-
-  // Metadata
-  createdAt DateTime @default(now())
-  expiresAt DateTime // Auto-expire after 24h
-
-  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  id           String   @id @default(cuid())
+  key          String   @unique
+  accountId    String
+  endpoint     String
+  method       String
+  requestBody  Json?
+  statusCode   Int?
+  responseBody Json?
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
+  account      Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@index([accountId])
   @@index([key])
-  @@index([expiresAt]) // For cleanup job
+  @@index([expiresAt])
+  @@index([statusCode])
 }
 
-// =========================
-// CRM - LEADS
-// =========================
 model Lead {
-  id        String @id @default(cuid())
-  accountId String
-
+  id          String      @id @default(cuid())
+  accountId   String
   name        String
   company     String?
   email       String?
@@ -502,15 +404,13 @@ model Lead {
   temperature Temperature @default(WARM)
   channel     String
   assignedTo  String?
-  tags        String[] // PostgreSQL array
+  tags        String[]
   notes       String?
   value       Float?
   currency    String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  account     Account     @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@index([accountId])
   @@index([status])
@@ -520,29 +420,23 @@ model Lead {
   @@index([accountId, status])
 }
 
-// =========================
-// CRM - FEEDBACK
-// =========================
 model Feedback {
-  id        String @id @default(cuid())
-  accountId String
-
+  id            String         @id @default(cuid())
+  accountId     String
   customerName  String
   customerEmail String?
   customerPhone String?
   type          FeedbackType   @default(GENERAL)
   status        FeedbackStatus @default(PENDING)
-  rating        Int? // 1-5
+  rating        Int?
   message       String
   response      String?
   respondedAt   DateTime?
   respondedBy   String?
   channel       String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  account       Account        @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@index([accountId])
   @@index([status])
@@ -551,13 +445,9 @@ model Feedback {
   @@index([createdAt])
 }
 
-// =========================
-// ALERTS
-// =========================
 model Alert {
-  id        String @id @default(cuid())
-  accountId String
-
+  id             String        @id @default(cuid())
+  accountId      String
   type           AlertType
   title          String
   subtitle       String?
@@ -571,11 +461,9 @@ model Alert {
   assignee       String?
   resolvedAt     DateTime?
   resolvedBy     String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  account        Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@index([accountId])
   @@index([status])
@@ -586,9 +474,276 @@ model Alert {
   @@index([accountId, status])
 }
 
-// =========================
-// ENUMS
-// =========================
+model TenantModule {
+  id        String   @id @default(cuid())
+  tenantId  String
+  moduleKey String
+  enabled   Boolean  @default(true)
+  limits    Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Account  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, moduleKey])
+  @@index([tenantId])
+  @@index([moduleKey])
+}
+
+model Integration {
+  id              String              @id @default(cuid())
+  tenantId        String
+  provider        IntegrationProvider
+  status          IntegrationStatus   @default(PENDING)
+  credentials     String?
+  config          Json?
+  lastHealthCheck DateTime?
+  healthStatus    String?
+  errorMessage    String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  tenant          Account             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, provider])
+  @@index([tenantId])
+  @@index([provider])
+  @@index([status])
+}
+
+model CorporateNumber {
+  id             String   @id @default(cuid())
+  tenantId       String
+  phone          String
+  company        String?
+  department     String?
+  notes          String?
+  autoRespond    Boolean  @default(false)
+  alertOnContact Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  tenant         Account  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, phone])
+  @@index([tenantId])
+  @@index([phone])
+}
+
+model Subscription {
+  id                   String    @id @default(cuid())
+  tenantId             String    @unique
+  stripeCustomerId     String?   @unique
+  stripeSubscriptionId String?   @unique
+  stripePriceId        String?
+  tier                 Tier      @default(STARTER)
+  status               String    @default("trialing")
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean   @default(false)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  tenant               Account   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([stripeCustomerId])
+  @@index([status])
+}
+
+model UsageTracking {
+  id        String   @id @default(cuid())
+  tenantId  String
+  metric    String
+  value     Int
+  period    String
+  createdAt DateTime @default(now())
+  tenant    Account  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, metric, period])
+  @@index([tenantId])
+  @@index([metric])
+  @@index([period])
+}
+
+model Media {
+  id           String    @id @default(cuid())
+  tenantId     String
+  fileUrl      String
+  fileName     String
+  type         MediaType
+  mimeType     String?
+  size         Int?
+  source       String?
+  sourceId     String?
+  thumbnailUrl String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  tenant       Account   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([type])
+  @@index([source])
+  @@index([sourceId])
+}
+
+model IngestionJob {
+  id             String             @id @default(cuid())
+  tenantId       String
+  status         IngestionJobStatus @default(PENDING)
+  type           String
+  source         String?
+  progress       Int                @default(0)
+  itemsProcessed Int                @default(0)
+  itemsTotal     Int                @default(0)
+  errorMessage   String?
+  metadata       Json?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  tenant         Account            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model KnowledgeItem {
+  id        String        @id @default(cuid())
+  tenantId  String
+  type      KnowledgeType @default(CUSTOM)
+  title     String
+  content   String
+  tags      String[]
+  metadata  Json?
+  sourceUrl String?
+  embedding String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  tenant    Account       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([type])
+  @@index([tags])
+  @@index([createdAt])
+}
+
+model Agent {
+  id             String      @id @default(cuid())
+  accountId      String
+  agentName      String
+  agentType      AgentType
+  status         AgentStatus @default(INACTIVE)
+  n8nWorkflowId  String?
+  templatePath   String
+  configJson     Json?
+  executionCount Int         @default(0)
+  errorCount     Int         @default(0)
+  lastExecutedAt DateTime?
+  createdAt      DateTime    @default(now())
+  deployedAt     DateTime?
+  updatedAt      DateTime    @updatedAt
+  account        Account     @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  logs           AgentLog[]
+
+  @@index([accountId])
+  @@index([status])
+  @@index([agentType])
+  @@index([accountId, status])
+}
+
+model AgentLog {
+  id               String          @id @default(cuid())
+  agentId          String
+  accountId        String
+  executionStatus  ExecutionStatus
+  inputMessage     String?
+  outputMessage    String?
+  processingTimeMs Int
+  openaiTokensUsed Int?
+  openaiCostUsd    Decimal?        @db.Decimal(10, 6)
+  errorMessage     String?
+  timestamp        DateTime        @default(now())
+  agent            Agent           @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([agentId])
+  @@index([accountId])
+  @@index([timestamp])
+  @@index([executionStatus])
+  @@index([agentId, timestamp])
+  @@index([accountId, timestamp])
+}
+
+model ApiKey {
+  id         String    @id @default(cuid())
+  accountId  String
+  name       String
+  key        String    @unique
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  account    Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@index([key])
+  @@index([isActive])
+  @@index([accountId, isActive])
+}
+
+model Story {
+  id            String      @id @default(cuid())
+  accountId     String
+  mediaUrl      String
+  mediaType     String
+  caption       String?
+  link          String?
+  status        StoryStatus @default(DRAFT)
+  scheduledAt   DateTime?
+  publishedAt   DateTime?
+  expiresAt     DateTime?
+  externalId    String?
+  phoneNumberId String
+  viewCount     Int         @default(0)
+  clickCount    Int         @default(0)
+  errorMessage  String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  account       Account     @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@index([status])
+  @@index([scheduledAt])
+  @@index([accountId, status])
+}
+
+model CompetitiveAnalysis {
+  id               String         @id @default(cuid())
+  accountId        String
+  businessNiche    String
+  businessName     String?
+  location         String?
+  latitude         Decimal?       @db.Decimal(10, 7)
+  longitude        Decimal?       @db.Decimal(10, 7)
+  radiusKm         Int?
+  status           AnalysisStatus @default(PROCESSING)
+  depth            String         @default("STANDARD")
+  competitors      Json
+  totalFound       Int            @default(0)
+  seoInsights      Json?
+  rankings         Json?
+  recommendations  Json?
+  processingTimeMs Int?
+  errorMessage     String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  account          Account        @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@index([status])
+  @@index([businessNiche])
+  @@index([accountId, status])
+  @@index([createdAt])
+}
 
 enum ConversationStatus {
   OPEN
@@ -629,11 +784,11 @@ enum RoutingStatus {
 }
 
 enum UserRole {
-  SUPER_ADMIN  // Can manage all tenants
-  CLIENT_ADMIN // Can manage their tenant
-  AGENT_USER   // Regular user/agent
-  ADMIN        // Legacy - kept for backward compatibility
-  USER         // Legacy - kept for backward compatibility
+  ADMIN
+  USER
+  SUPER_ADMIN
+  CLIENT_ADMIN
+  AGENT_USER
 }
 
 enum AccountStatus {
@@ -707,9 +862,9 @@ enum FeedbackStatus {
 enum AlertType {
   PAYMENT
   HANDOFF
-  CORPORATE
   SYSTEM
   CUSTOM
+  CORPORATE
 }
 
 enum AlertStatus {
@@ -768,297 +923,6 @@ enum KnowledgeType {
   CUSTOM
 }
 
-// =========================
-// MULTI-TENANT MODULES
-// =========================
-model TenantModule {
-  id        String  @id @default(cuid())
-  tenantId  String
-  moduleKey String  // "inbox", "crm", "analytics", "shopify", etc.
-  enabled   Boolean @default(true)
-  limits    Json?   // { maxUsers: 10, messagesPerMonth: 5000 }
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  tenant Account @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@unique([tenantId, moduleKey])
-  @@index([tenantId])
-  @@index([moduleKey])
-}
-
-// =========================
-// INTEGRATIONS
-// =========================
-model Integration {
-  id       String              @id @default(cuid())
-  tenantId String
-  provider IntegrationProvider
-  status   IntegrationStatus   @default(PENDING)
-
-  credentials     String?   // Encrypted JSON with AES-256-GCM
-  config          Json?     // Non-sensitive config: { webhookUrl, etc. }
-  lastHealthCheck DateTime?
-  healthStatus    String?   // "healthy", "degraded", "down"
-  errorMessage    String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  tenant Account @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@unique([tenantId, provider])
-  @@index([tenantId])
-  @@index([provider])
-  @@index([status])
-}
-
-// =========================
-// CORPORATE NUMBERS
-// =========================
-model CorporateNumber {
-  id       String @id @default(cuid())
-  tenantId String
-
-  phone          String  // Format: +1234567890
-  company        String?
-  department     String?
-  notes          String?
-  autoRespond    Boolean @default(false) // If false, alerts only
-  alertOnContact Boolean @default(true)  // Create alert when contacted
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  tenant Account @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@unique([tenantId, phone])
-  @@index([tenantId])
-  @@index([phone])
-}
-
-// =========================
-// SUBSCRIPTION & BILLING
-// =========================
-model Subscription {
-  id       String @id @default(cuid())
-  tenantId String @unique
-
-  stripeCustomerId     String?   @unique
-  stripeSubscriptionId String?   @unique
-  stripePriceId        String?
-
-  tier               Tier     @default(STARTER)
-  status             String   @default("trialing") // Stripe statuses: trialing, active, past_due, canceled
-  currentPeriodStart DateTime?
-  currentPeriodEnd   DateTime?
-  cancelAtPeriodEnd  Boolean  @default(false)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  tenant Account @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId])
-  @@index([stripeCustomerId])
-  @@index([status])
-}
-
-// =========================
-// USAGE TRACKING
-// =========================
-model UsageTracking {
-  id       String @id @default(cuid())
-  tenantId String
-
-  metric String // "messages_sent", "users", "api_calls", etc.
-  value  Int
-  period String // "2024-01", "2024-W05", "2024-01-26"
-
-  createdAt DateTime @default(now())
-
-  tenant Account @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@unique([tenantId, metric, period])
-  @@index([tenantId])
-  @@index([metric])
-  @@index([period])
-}
-
-// =========================
-// MEDIA STORAGE
-// =========================
-model Media {
-  id       String @id @default(cuid())
-  tenantId String
-
-  fileUrl      String    // S3/R2 URL
-  fileName     String
-  type         MediaType
-  mimeType     String?
-  size         Int?      // bytes
-  source       String?   // "whatsapp", "shopify", "upload"
-  sourceId     String?   // External ID from source
-  thumbnailUrl String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  tenant Account @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId])
-  @@index([type])
-  @@index([source])
-  @@index([sourceId])
-}
-
-// =========================
-// INGESTION JOBS
-// =========================
-model IngestionJob {
-  id       String             @id @default(cuid())
-  tenantId String
-  status   IngestionJobStatus @default(PENDING)
-
-  type           String  // "shopify_products", "airtable_faq", "manual_upload"
-  source         String? // URL or identifier
-  progress       Int     @default(0) // 0-100
-  itemsProcessed Int     @default(0)
-  itemsTotal     Int     @default(0)
-  errorMessage   String?
-  metadata       Json?   // Additional context
-
-  startedAt   DateTime?
-  completedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  tenant Account @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId])
-  @@index([status])
-  @@index([type])
-  @@index([createdAt])
-}
-
-// =========================
-// KNOWLEDGE BASE
-// =========================
-model KnowledgeItem {
-  id       String        @id @default(cuid())
-  tenantId String
-  type     KnowledgeType @default(CUSTOM)
-
-  title     String
-  content   String   // Main content (could be markdown)
-  tags      String[] // PostgreSQL array
-  metadata  Json?    // Additional structured data
-  sourceUrl String?  // Original source URL
-  embedding String?  // Vector embedding for semantic search (future)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  tenant Account @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId])
-  @@index([type])
-  @@index([tags])
-  @@index([createdAt])
-}
-
-// =========================
-// AGENTS SYSTEM
-// =========================
-model Agent {
-  id        String      @id @default(cuid())
-  accountId String      // Multi-tenant isolation
-
-  agentName     String
-  agentType     AgentType
-  status        AgentStatus @default(INACTIVE)
-
-  // N8N Integration
-  n8nWorkflowId String?   // N8N workflow ID after deployment
-  templatePath  String    // Path to JSON template (e.g., "templates/sales/lead-scorer.json")
-
-  // Configuration
-  configJson    Json?     // Client-specific config (encrypted if contains sensitive data)
-
-  // Metrics
-  executionCount Int      @default(0)
-  errorCount     Int      @default(0)
-  lastExecutedAt DateTime?
-
-  // Timestamps
-  createdAt     DateTime @default(now())
-  deployedAt    DateTime?
-  updatedAt     DateTime @updatedAt
-
-  // Relations
-  account Account    @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  logs    AgentLog[]
-
-  @@index([accountId])
-  @@index([status])
-  @@index([agentType])
-  @@index([accountId, status])
-}
-
-model AgentLog {
-  id        String          @id @default(cuid())
-  agentId   String
-  accountId String          // For analytics per tenant
-
-  executionStatus ExecutionStatus
-  inputMessage    String?         @db.Text
-  outputMessage   String?         @db.Text
-
-  // Performance Metrics
-  processingTimeMs Int
-  openaiTokensUsed Int?
-  openaiCostUsd    Decimal?        @db.Decimal(10, 6)
-
-  errorMessage String?  @db.Text
-  timestamp    DateTime @default(now())
-
-  // Relations
-  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
-
-  @@index([agentId])
-  @@index([accountId])
-  @@index([timestamp])
-  @@index([executionStatus])
-  @@index([agentId, timestamp])
-  @@index([accountId, timestamp])
-}
-
-// =========================
-// API KEYS (Phase 5)
-// =========================
-
-model ApiKey {
-  id        String   @id @default(cuid())
-  accountId String
-  name      String // Human-readable name for the key (e.g., "Production API", "Zapier Integration")
-  key       String   @unique // The actual API key (sk_accountId_randomHex)
-  lastUsedAt DateTime?
-  expiresAt DateTime? // Optional expiration date
-  isActive  Boolean  @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
-
-  @@index([accountId])
-  @@index([key])
-  @@index([isActive])
-  @@index([accountId, isActive])
-}
-
 enum AgentType {
   SALES
   SUPPORT
@@ -1087,97 +951,6 @@ enum ExecutionStatus {
   ERROR
   TIMEOUT
   CANCELLED
-}
-
-// =========================
-// WHATSAPP STORIES
-// =========================
-
-model Story {
-  id        String   @id @default(cuid())
-  accountId String
-
-  // Content
-  mediaUrl     String   // URL to image or video
-  mediaType    String   // image/jpeg, video/mp4
-  caption      String?  @db.Text
-  link         String?  // Optional link sticker
-
-  // Publishing
-  status       StoryStatus @default(DRAFT)
-  scheduledAt  DateTime?
-  publishedAt  DateTime?
-  expiresAt    DateTime?  // Stories expire after 24h
-
-  // WhatsApp-specific
-  externalId   String?    // WhatsApp story ID
-  phoneNumberId String    // Phone number used to post
-
-  // Metrics
-  viewCount    Int      @default(0)
-  clickCount   Int      @default(0)
-
-  // Error handling
-  errorMessage String?  @db.Text
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
-
-  @@index([accountId])
-  @@index([status])
-  @@index([scheduledAt])
-  @@index([accountId, status])
-}
-
-// =========================
-// COMPETITIVE ANALYSIS & SEO
-// =========================
-
-model CompetitiveAnalysis {
-  id        String   @id @default(cuid())
-  accountId String
-
-  // Query details
-  businessNiche String
-  businessName  String?
-  location      String?
-  latitude      Decimal?  @db.Decimal(10, 7)
-  longitude     Decimal?  @db.Decimal(10, 7)
-  radiusKm      Int?
-
-  // Analysis results
-  status        AnalysisStatus @default(PROCESSING)
-  depth         String         @default("STANDARD") // QUICK, STANDARD, DEEP
-
-  // Competitors found
-  competitors   Json           // Array of competitor objects
-  totalFound    Int            @default(0)
-
-  // SEO insights
-  seoInsights   Json?          // Overall SEO analysis
-  rankings      Json?          // Search engine rankings
-
-  // Recommendations
-  recommendations Json?         // AI-generated recommendations
-
-  // Performance metrics
-  processingTimeMs Int?
-  errorMessage     String?       @db.Text
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
-
-  @@index([accountId])
-  @@index([status])
-  @@index([businessNiche])
-  @@index([accountId, status])
-  @@index([createdAt])
 }
 
 enum AnalysisStatus {

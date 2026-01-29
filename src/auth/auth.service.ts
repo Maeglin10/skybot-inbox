@@ -187,33 +187,43 @@ export class AuthService {
 
   /**
    * Refresh access token
-   * SECURITY FIX: Now validates against database-stored refresh tokens
+   * SECURITY FIX P1: Database checks BEFORE JWT verification to prevent race conditions
    */
   async refresh(
     refreshToken: string,
     request?: any,
   ): Promise<{ accessToken: string }> {
     try {
-      // Verify JWT signature and expiry
-      const payload = this.jwtService.verify(refreshToken, {
-        secret: process.env.JWT_REFRESH_SECRET,
-      });
-
-      // Hash the token to match database storage
+      // SECURITY: Check database FIRST (before JWT verification)
+      // This prevents race conditions where token is revoked during JWT verify
       const tokenHash = createHash('sha256').update(refreshToken).digest('hex');
 
-      // Check if refresh token exists in database and is not revoked
+      // Lookup token in database with user details
       const storedToken = await this.prisma.refreshToken.findUnique({
         where: { token: tokenHash },
-        include: { userAccount: true },
+        include: {
+          userAccount: {
+            include: {
+              account: {
+                select: { id: true, status: true },
+              },
+            },
+          },
+        },
       });
 
+      // Check token exists
       if (!storedToken) {
         throw new InvalidRefreshTokenError('Token not found');
       }
 
-      // Check if token is revoked
+      // Check if token is revoked (prevents revoked tokens from being used)
       if (storedToken.revokedAt) {
+        this.logger.warn('Attempted use of revoked token', {
+          tokenId: storedToken.id,
+          userId: storedToken.userAccountId,
+          revokedReason: storedToken.revokedReason,
+        });
         throw new InvalidRefreshTokenError(
           `Token revoked: ${storedToken.revokedReason}`,
         );
@@ -224,10 +234,29 @@ export class AuthService {
         throw new InvalidRefreshTokenError('Token expired');
       }
 
-      // Check if user is still active
+      // Check if user account is still active
       if (storedToken.userAccount.status !== 'ACTIVE') {
+        this.logger.warn('Token refresh attempt for inactive user', {
+          userId: storedToken.userAccountId,
+          status: storedToken.userAccount.status,
+        });
         throw new InvalidRefreshTokenError('User account is not active');
       }
+
+      // Check if parent account is still active
+      if (storedToken.userAccount.account.status !== 'ACTIVE') {
+        this.logger.warn('Token refresh attempt for inactive account', {
+          accountId: storedToken.userAccount.accountId,
+          status: storedToken.userAccount.account.status,
+        });
+        throw new InvalidRefreshTokenError('Account is not active');
+      }
+
+      // NOW verify JWT signature (after all database checks)
+      // If JWT is invalid, all the above checks still protect us
+      const payload = this.jwtService.verify(refreshToken, {
+        secret: process.env.JWT_REFRESH_SECRET,
+      });
 
       // Update last used timestamp
       await this.prisma.refreshToken.update({

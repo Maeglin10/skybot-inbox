@@ -72,7 +72,7 @@ export class ConversationsService {
     const ch = parseChannel(channel);
 
     const where: Prisma.ConversationWhereInput = {
-      accountId, // CRITICAL: Filter by account to prevent cross-account data leaks
+      inbox: { accountId }, // CRITICAL: Filter by account to prevent cross-account data leaks
       ...(status ? { status } : {}),
       ...(inboxId ? { inboxId } : {}),
       ...(ch ? { channel: ch } : {}),
@@ -98,7 +98,7 @@ export class ConversationsService {
               }
             : {
                 orderBy: { createdAt: 'asc' },
-                take: 50,
+                take: 10, // P1 FIX: Reduced from 50 to prevent N+1 query overload
               },
         },
       });
@@ -171,7 +171,7 @@ export class ConversationsService {
     }
 
     // CRITICAL: Verify the conversation belongs to the user's account
-    if (convo.accountId !== accountId) {
+    if (convo.inbox.accountId !== accountId) {
       throw new ResourceNotOwnedError('conversation', id);
     }
 
