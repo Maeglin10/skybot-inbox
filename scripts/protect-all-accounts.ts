@@ -17,7 +17,8 @@ async function protectAllAccounts() {
     const env = process.env.NODE_ENV || 'development';
     await pool.query(`SET app.environment = '${env}'`);
 
-    const sqlPath = path.join(__dirname, '../prisma/migrations/protect_all_accounts.sql');
+    // Use process.cwd() to get project root (works both in dev and compiled)
+    const sqlPath = path.join(process.cwd(), 'prisma/migrations/protect_all_accounts.sql');
     const sql = fs.readFileSync(sqlPath, 'utf8');
 
     await pool.query(sql);
