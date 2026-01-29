@@ -43,6 +43,7 @@ import { AppController } from './app.controller';
 import { TenantContextMiddleware } from './common/middleware/tenant-context.middleware';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { AppCacheModule } from './common/cache/cache.module';
+import { CompetitiveAnalysisModule } from './competitive-analysis/competitive-analysis.module';
 
 @Module({
   imports: [
@@ -92,6 +93,7 @@ import { AppCacheModule } from './common/cache/cache.module';
     MessagesModule,
     WebhooksModule,
     DebugModule,
+    CompetitiveAnalysisModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

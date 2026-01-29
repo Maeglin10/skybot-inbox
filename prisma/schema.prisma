@@ -44,6 +44,7 @@ model Account {
   apiKeys            ApiKey[] // Phase 5: API key management
   routingLogs        RoutingLog[]
   stories            Story[]
+  competitiveAnalyses CompetitiveAnalysis[]
 
   @@index([createdAt])
   @@index([isDemo])
@@ -952,6 +953,61 @@ model Story {
   @@index([status])
   @@index([scheduledAt])
   @@index([accountId, status])
+}
+
+// =========================
+// COMPETITIVE ANALYSIS & SEO
+// =========================
+
+model CompetitiveAnalysis {
+  id        String   @id @default(cuid())
+  accountId String
+
+  // Query details
+  businessNiche String
+  businessName  String?
+  location      String?
+  latitude      Decimal?  @db.Decimal(10, 7)
+  longitude     Decimal?  @db.Decimal(10, 7)
+  radiusKm      Int?
+
+  // Analysis results
+  status        AnalysisStatus @default(PROCESSING)
+  depth         String         @default("STANDARD") // QUICK, STANDARD, DEEP
+
+  // Competitors found
+  competitors   Json           // Array of competitor objects
+  totalFound    Int            @default(0)
+
+  // SEO insights
+  seoInsights   Json?          // Overall SEO analysis
+  rankings      Json?          // Search engine rankings
+
+  // Recommendations
+  recommendations Json?         // AI-generated recommendations
+
+  // Performance metrics
+  processingTimeMs Int?
+  errorMessage     String?       @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@index([status])
+  @@index([businessNiche])
+  @@index([accountId, status])
+  @@index([createdAt])
+}
+
+enum AnalysisStatus {
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
 }
 
 enum StoryStatus {
