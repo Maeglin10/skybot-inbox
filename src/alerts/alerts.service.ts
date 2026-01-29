@@ -55,14 +55,12 @@ export class AlertsService {
     return config.accountId;
   }
 
-  async findAll(
-    clientKey: string,
+  async findAllByAccount(
+    accountId: string,
     status?: AlertStatus,
     type?: AlertType,
   ): Promise<{ items: AlertItem[]; total: number }> {
     try {
-      const accountId = await this.getAccountId(clientKey);
-
       // Special handling for CORPORATE type: fetch from conversations instead of alerts
       if (type === 'CORPORATE') {
         const conversations = await this.prisma.conversation.findMany({
@@ -119,6 +117,15 @@ export class AlertsService {
       this.logger.error('Failed to fetch alerts:', error);
       throw error;
     }
+  }
+
+  async findAll(
+    clientKey: string,
+    status?: AlertStatus,
+    type?: AlertType,
+  ): Promise<{ items: AlertItem[]; total: number }> {
+    const accountId = await this.getAccountId(clientKey);
+    return this.findAllByAccount(accountId, status, type);
   }
 
   async findOne(clientKey: string, id: string): Promise<AlertItem> {
