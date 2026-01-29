@@ -21,5 +21,14 @@ ALTER TABLE "Message" DROP CONSTRAINT IF EXISTS "fk_message_reply_to";
 -- Drop duplicate reply_to_message_id column
 ALTER TABLE "Message" DROP COLUMN IF EXISTS "reply_to_message_id";
 
--- Add statusCode index to IdempotencyKey for atomic check queries
-CREATE INDEX IF NOT EXISTS "IdempotencyKey_statusCode_idx" ON "IdempotencyKey"("statusCode");
+-- Add statusCode index to IdempotencyKey for atomic check queries (only if table exists)
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT FROM information_schema.tables
+        WHERE table_schema = 'public'
+        AND table_name = 'IdempotencyKey'
+    ) THEN
+        CREATE INDEX IF NOT EXISTS "IdempotencyKey_statusCode_idx" ON "IdempotencyKey"("statusCode");
+    END IF;
+END $$;
