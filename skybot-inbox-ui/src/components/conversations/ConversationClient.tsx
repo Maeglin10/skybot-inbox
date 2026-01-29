@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
 import Composer from '@/components/conversations/Composer';
 import StatusSelect from '@/components/conversations/StatusSelect';
 import type { Conversation, Message, Status } from '@/lib/types';
+import { useWebSocket } from '@/hooks/use-websocket';
 
 async function fetchConversation(id: string): Promise<Conversation> {
   const res = await fetch(`/api/proxy/conversations/${id}`, {
@@ -61,6 +62,7 @@ function groupByDay(messages: Message[]) {
 export default function ConversationClient(props: { initial: Conversation }) {
   const [conv, setConv] = useState<Conversation>(props.initial);
   const [pollError, setPollError] = useState<string | null>(null);
+  const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
 
   const latestUpdatedAtRef = useRef<string>(props.initial.updatedAt);
 
@@ -79,6 +81,77 @@ export default function ConversationClient(props: { initial: Conversation }) {
 
   const grouped = useMemo(() => groupByDay(sortedMessages), [sortedMessages]);
 
+  // WebSocket integration for real-time updates
+  const {
+    isConnected,
+    joinConversation,
+    leaveConversation,
+    markAsRead,
+    sendTyping,
+  } = useWebSocket({
+    accessToken: null, // TODO: Get from session/cookie
+    onMessage: (message) => {
+      if (message.conversationId === conv.id) {
+        // Add new message to conversation
+        setConv((c) => ({
+          ...c,
+          updatedAt: new Date(message.timestamp).toISOString(),
+          lastActivityAt: new Date(message.timestamp).toISOString(),
+          messages: [...(c.messages ?? []), message],
+        }));
+
+        // Auto-scroll if near bottom
+        if (shouldStickToBottomRef.current) {
+          const el = listRef.current;
+          if (el) {
+            requestAnimationFrame(() => {
+              el.scrollTop = el.scrollHeight;
+            });
+          }
+        }
+
+        // Auto-mark incoming messages as read
+        if (message.direction === 'IN') {
+          markAsRead(conv.id, message.id);
+        }
+      }
+    },
+    onTyping: (typing) => {
+      if (typing.conversationId === conv.id) {
+        setTypingUsers((prev) => {
+          const updated = new Set(prev);
+          if (typing.isTyping) {
+            updated.add(typing.userId);
+          } else {
+            updated.delete(typing.userId);
+          }
+          return updated;
+        });
+
+        // Auto-clear typing after 3 seconds
+        setTimeout(() => {
+          setTypingUsers((prev) => {
+            const updated = new Set(prev);
+            updated.delete(typing.userId);
+            return updated;
+          });
+        }, 3000);
+      }
+    },
+  });
+
+  // Join WebSocket conversation room when connected
+  useEffect(() => {
+    if (isConnected) {
+      joinConversation(conv.id);
+    }
+    return () => {
+      if (isConnected) {
+        leaveConversation(conv.id);
+      }
+    };
+  }, [isConnected, conv.id, joinConversation, leaveConversation]);
+
   useEffect(() => {
     const el = listRef.current;
     if (!el) return;
@@ -92,9 +165,10 @@ export default function ConversationClient(props: { initial: Conversation }) {
     return () => el.removeEventListener('scroll', onScroll);
   }, []);
 
-  // Polling léger: 5s, sans jump si l'utilisateur lit plus haut
+  // Polling as fallback: slower when WebSocket connected (30s), faster when not (5s)
   useEffect(() => {
     let alive = true;
+    const pollInterval = isConnected ? 30000 : 5000; // 30s with WS, 5s without
 
     const tick = async () => {
       const el = listRef.current;
@@ -129,12 +203,12 @@ export default function ConversationClient(props: { initial: Conversation }) {
       }
     };
 
-    const t = setInterval(tick, 5000);
+    const t = setInterval(tick, pollInterval);
     return () => {
       alive = false;
       clearInterval(t);
     };
-  }, [conv.id]);
+  }, [conv.id, isConnected]);
 
   // Auto-scroll seulement si l'utilisateur "stick" en bas et qu'un nouveau message arrive
   useLayoutEffect(() => {
@@ -211,6 +285,19 @@ export default function ConversationClient(props: { initial: Conversation }) {
             </div>
 
             <div className="flex items-center gap-3">
+              {/* WebSocket connection indicator */}
+              <div className="flex items-center gap-1.5">
+                <div
+                  className={`h-1.5 w-1.5 rounded-full ${
+                    isConnected ? 'bg-green-400' : 'bg-gray-500'
+                  }`}
+                  title={isConnected ? 'Connected (real-time)' : 'Disconnected (polling)'}
+                />
+                <span className="hidden text-xs text-white/50 md:block">
+                  {isConnected ? 'Live' : 'Polling'}
+                </span>
+              </div>
+
               <div className="hidden text-xs text-white/50 md:block">
                 Updated {formatTs(conv.updatedAt)}
               </div>
@@ -300,6 +387,30 @@ export default function ConversationClient(props: { initial: Conversation }) {
                     </div>
                   </div>
                 ))}
+
+                {/* Typing indicator */}
+                {typingUsers.size > 0 && (
+                  <div className="flex justify-start">
+                    <div className="max-w-[85%] md:max-w-[70%]">
+                      <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
+                        <div className="flex gap-1">
+                          <span className="h-2 w-2 animate-bounce rounded-full bg-white/60" />
+                          <span
+                            className="h-2 w-2 animate-bounce rounded-full bg-white/60"
+                            style={{ animationDelay: '0.2s' }}
+                          />
+                          <span
+                            className="h-2 w-2 animate-bounce rounded-full bg-white/60"
+                            style={{ animationDelay: '0.4s' }}
+                          />
+                        </div>
+                      </div>
+                      <div className="mt-1 text-[11px] text-white/45">
+                        Someone is typing...
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -312,6 +423,7 @@ export default function ConversationClient(props: { initial: Conversation }) {
                 optimisticReplace(tempId, real)
               }
               onSendFail={(tempId: string) => optimisticRemove(tempId)}
+              onTyping={(isTyping: boolean) => sendTyping(conv.id, isTyping)}
             />
           </div>
         </div>
