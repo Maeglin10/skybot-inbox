@@ -57,6 +57,15 @@ export async function fetchAlerts(
   status?: AlertStatus | 'ALL',
   type?: AlertType | 'ALL'
 ): Promise<ListResponse<AlertItem>> {
+  // Use dedicated corporate endpoint for JWT auth (no API key required)
+  if (type === 'CORPORATE') {
+    const params = new URLSearchParams();
+    if (status && status !== 'ALL') params.append('status', status);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return apiFetch(`/alerts/corporate${query}`);
+  }
+
+  // Standard alerts endpoint (requires API key)
   const params = new URLSearchParams();
   if (status && status !== 'ALL') params.append('status', status);
   if (type && type !== 'ALL') params.append('type', type);

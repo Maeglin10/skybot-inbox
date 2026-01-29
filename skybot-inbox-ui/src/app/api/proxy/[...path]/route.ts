@@ -27,6 +27,10 @@ async function forward(
   const auth = req.headers.get("authorization");
   if (auth) headers["authorization"] = auth;
 
+  // Forward Cookie header for JWT authentication
+  const cookie = req.headers.get("cookie");
+  if (cookie) headers["cookie"] = cookie;
+
   const init: RequestInit = { method: req.method, headers, cache: "no-store" };
   if (req.method !== "GET" && req.method !== "HEAD") {
     init.body = await req.text();
