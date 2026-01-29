@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { AlertsService } from './alerts.service';
 import { ApiKeyGuard } from '../auth/api-key.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CreateAlertDto, AlertType } from './dto/create-alert.dto';
 import { UpdateAlertDto } from './dto/update-alert.dto';
@@ -95,6 +96,7 @@ export class AlertsController {
 // New controller for JWT-authenticated corporate alerts access
 // Using separate path to avoid conflicts with AlertsController /:id route
 @Controller('corporate-alerts')
+@UseGuards(JwtAuthGuard)
 export class CorporateAlertsController {
   private readonly logger = new Logger(CorporateAlertsController.name);
 
