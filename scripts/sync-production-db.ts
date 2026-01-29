@@ -65,6 +65,7 @@ async function syncProductionDB() {
       user = await prisma.userAccount.create({
         data: {
           accountId,
+          username: 'goodlife.nexxaagents',
           email: 'ventas@goodlifecr.com',
           passwordHash,
           name: 'GoodLife Admin',
@@ -93,7 +94,6 @@ async function syncProductionDB() {
           clientKey: 'goodlife',
           name: 'GoodLife Costa Rica',
           channels: ['WHATSAPP'],
-          routingMode: 'ROUND_ROBIN',
           status: 'ACTIVE',
         },
       });
@@ -207,10 +207,15 @@ async function syncProductionDB() {
       if (!existingContact) {
         await prisma.contact.create({
           data: {
-            accountId,
             name: contactData.name,
             phone: contactData.phone,
             isCorporate: true,
+            account: {
+              connect: { id: accountId },
+            },
+            inbox: {
+              connect: { id: inbox.id },
+            },
           },
         });
         created++;
