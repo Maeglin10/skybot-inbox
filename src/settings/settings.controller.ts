@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { SettingsService } from './settings.service';
 import { ApiKeyGuard } from '../auth/api-key.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 
 @Controller('settings')
@@ -46,5 +47,23 @@ export class SettingsController {
   async listAllSettings(@Query('accountId') accountId: string) {
     this.logger.log(`GET /settings/all accountId=${accountId}`);
     return this.settingsService.listAllSettings(accountId);
+  }
+
+  @Get('profile')
+  async getProfile(@CurrentUser() user: any) {
+    this.logger.log(`GET /settings/profile userId=${user.id}`);
+    return this.settingsService.getProfile(user.id);
+  }
+
+  @Patch('profile')
+  async updateProfile(@CurrentUser() user: any, @Body() dto: any) {
+    this.logger.log(`PATCH /settings/profile userId=${user.id}`);
+    return this.settingsService.updateProfile(user.id, dto);
+  }
+
+  @Patch('security/password')
+  async changePassword(@CurrentUser() user: any, @Body() dto: { currentPassword: string; newPassword: string }) {
+    this.logger.log(`PATCH /settings/security/password userId=${user.id}`);
+    return this.settingsService.changePassword(user.id, dto.currentPassword, dto.newPassword);
   }
 }

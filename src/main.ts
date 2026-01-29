@@ -37,10 +37,25 @@ async function bootstrap() {
       // Allow requests with no origin (like health checks, curl, Postman)
       if (!origin) return callback(null, true);
 
-      // Allow localhost for development
+      const allowedOrigins = [
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'https://skybot-inbox-ui.onrender.com',
+        'https://skybot-inbox.onrender.com',
+      ];
+
+      // In production, only allow specific origins
+      if (process.env.NODE_ENV === 'production') {
+        if (allowedOrigins.some((allowed) => origin.startsWith(allowed))) {
+          return callback(null, true);
+        }
+        return callback(new Error('Not allowed by CORS'));
+      }
+
+      // In development, allow localhost
       if (origin.includes('localhost')) return callback(null, true);
 
-      // Allow Render internal health checks
+      // Allow Render domains
       if (origin.includes('onrender.com')) return callback(null, true);
 
       // Reject others

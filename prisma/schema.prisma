@@ -43,6 +43,7 @@ model Account {
   agents             Agent[]
   apiKeys            ApiKey[] // Phase 5: API key management
   routingLogs        RoutingLog[]
+  stories            Story[]
 
   @@index([createdAt])
   @@index([isDemo])
@@ -908,4 +909,56 @@ enum ExecutionStatus {
   ERROR
   TIMEOUT
   CANCELLED
+}
+
+// =========================
+// WHATSAPP STORIES
+// =========================
+
+model Story {
+  id        String   @id @default(cuid())
+  accountId String
+
+  // Content
+  mediaUrl     String   // URL to image or video
+  mediaType    String   // image/jpeg, video/mp4
+  caption      String?  @db.Text
+  link         String?  // Optional link sticker
+
+  // Publishing
+  status       StoryStatus @default(DRAFT)
+  scheduledAt  DateTime?
+  publishedAt  DateTime?
+  expiresAt    DateTime?  // Stories expire after 24h
+
+  // WhatsApp-specific
+  externalId   String?    // WhatsApp story ID
+  phoneNumberId String    // Phone number used to post
+
+  // Metrics
+  viewCount    Int      @default(0)
+  clickCount   Int      @default(0)
+
+  // Error handling
+  errorMessage String?  @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@index([status])
+  @@index([scheduledAt])
+  @@index([accountId, status])
+}
+
+enum StoryStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHING
+  PUBLISHED
+  FAILED
+  EXPIRED
 }

@@ -443,7 +443,7 @@ export function InboxShell({
             </div>
           </div>
 
-          <div className="flex-1 min-h-0 bg-background/50 overflow-hidden">
+          <div className="flex-1 min-h-0 bg-background/50 overflow-y-auto">
             {visibleItems.length === 0 ? (
               <div className="p-8 text-center flex flex-col items-center justify-center h-48 space-y-3">
                 <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center opacity-50">

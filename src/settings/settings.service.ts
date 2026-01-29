@@ -1,6 +1,7 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class SettingsService {
@@ -145,6 +146,123 @@ export class SettingsService {
         `Failed to list settings for account ${accountId}:`,
         error,
       );
+      throw error;
+    }
+  }
+
+  /**
+   * Get user profile information
+   */
+  async getProfile(userId: string) {
+    try {
+      const user = await this.prisma.userAccount.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          username: true,
+          email: true,
+          name: true,
+          role: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true,
+          account: {
+            select: {
+              id: true,
+              name: true,
+              tier: true,
+              status: true,
+            },
+          },
+        },
+      });
+
+      if (!user) {
+        throw new NotFoundException(`User with ID ${userId} not found`);
+      }
+
+      return user;
+    } catch (error) {
+      this.logger.error(`Failed to fetch profile for user ${userId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update user profile information
+   */
+  async updateProfile(userId: string, dto: { name?: string; email?: string }) {
+    try {
+      const user = await this.prisma.userAccount.findUnique({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        throw new NotFoundException(`User with ID ${userId} not found`);
+      }
+
+      const updateData: any = {};
+      if (dto.name !== undefined) updateData.name = dto.name;
+      if (dto.email !== undefined) updateData.email = dto.email;
+
+      const updated = await this.prisma.userAccount.update({
+        where: { id: userId },
+        data: updateData,
+        select: {
+          id: true,
+          username: true,
+          email: true,
+          name: true,
+          role: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+
+      return updated;
+    } catch (error) {
+      this.logger.error(`Failed to update profile for user ${userId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Change user password
+   */
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    try {
+      const user = await this.prisma.userAccount.findUnique({
+        where: { id: userId },
+        select: { id: true, passwordHash: true },
+      });
+
+      if (!user) {
+        throw new NotFoundException(`User with ID ${userId} not found`);
+      }
+
+      // Verify current password
+      if (!user.passwordHash) {
+        throw new UnauthorizedException('Password not set for this user');
+      }
+
+      const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
+      if (!isValid) {
+        throw new UnauthorizedException('Current password is incorrect');
+      }
+
+      // Hash new password
+      const newPasswordHash = await bcrypt.hash(newPassword, 10);
+
+      // Update password
+      await this.prisma.userAccount.update({
+        where: { id: userId },
+        data: { passwordHash: newPasswordHash },
+      });
+
+      return { message: 'Password changed successfully' };
+    } catch (error) {
+      this.logger.error(`Failed to change password for user ${userId}:`, error);
       throw error;
     }
   }

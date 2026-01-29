@@ -2,6 +2,7 @@ import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import { WinstonModule } from 'nest-winston';
 import { winstonLogger } from './common/logger/winston.config';
 
@@ -37,6 +38,7 @@ import { KnowledgeModule } from './knowledge/knowledge.module';
 import { TemplatesModule } from './templates/templates.module';
 import { WebsocketsModule } from './websockets/websockets.module';
 import { UsersModule } from './users/users.module';
+import { StoriesModule } from './stories/stories.module';
 import { AppController } from './app.controller';
 import { TenantContextMiddleware } from './common/middleware/tenant-context.middleware';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
@@ -49,6 +51,8 @@ import { AppCacheModule } from './common/cache/cache.module';
     ThrottlerModule.forRoot({
       throttlers: [{ ttl: 60_000, limit: 120 }],
     }),
+
+    ScheduleModule.forRoot(),
 
     WinstonModule.forRoot({
       instance: winstonLogger,
@@ -70,6 +74,7 @@ import { AppCacheModule } from './common/cache/cache.module';
     AgentsModule,
     TemplatesModule,
     WebsocketsModule,
+    StoriesModule,
     AuthModule,
     AirtableModule,
     CrmModule,

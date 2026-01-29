@@ -17,8 +17,8 @@
         }],
         "messages": [{
           "from": "50612345678",
-          "id": "wamid.test_" + Date.now(),
-          "timestamp": Math.floor(Date.now() / 1000).toString(),
+          "id": "wamid.test_1738100000",
+          "timestamp": "1738100000",
           "text": {
             "body": "Hola! Quiero información sobre membresías"
           },
