@@ -92,8 +92,9 @@ export class AlertsController {
   }
 }
 
-// New controller for JWT-authenticated alerts access
-@Controller('alerts/corporate')
+// New controller for JWT-authenticated corporate alerts access
+// Using separate path to avoid conflicts with AlertsController /:id route
+@Controller('corporate-alerts')
 export class CorporateAlertsController {
   private readonly logger = new Logger(CorporateAlertsController.name);
 
@@ -102,7 +103,7 @@ export class CorporateAlertsController {
   @Get()
   async listCorporate(@CurrentUser() user: any, @Query() query: ListAlertsDto) {
     this.logger.log(
-      `GET /alerts/corporate userId=${user.id} accountId=${user.accountId}`,
+      `GET /corporate-alerts userId=${user.id} accountId=${user.accountId}`,
     );
     return this.alertsService.findAllByAccount(
       user.accountId,

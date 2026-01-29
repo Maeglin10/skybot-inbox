@@ -62,7 +62,7 @@ export async function fetchAlerts(
     const params = new URLSearchParams();
     if (status && status !== 'ALL') params.append('status', status);
     const query = params.toString() ? `?${params.toString()}` : '';
-    return apiFetch(`/alerts/corporate${query}`);
+    return apiFetch(`/corporate-alerts${query}`);
   }
 
   // Standard alerts endpoint (requires API key)
