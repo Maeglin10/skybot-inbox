@@ -81,6 +81,13 @@ export default function ConversationClient(props: { initial: Conversation }) {
 
   const grouped = useMemo(() => groupByDay(sortedMessages), [sortedMessages]);
 
+  // Get access token from cookie (same pattern as api.client.ts)
+  const getAccessToken = () => {
+    if (typeof document === 'undefined') return null;
+    const match = document.cookie.match(new RegExp('(^| )accessToken=([^;]+)'));
+    return match ? match[2] : null;
+  };
+
   // WebSocket integration for real-time updates
   const {
     isConnected,
@@ -89,7 +96,7 @@ export default function ConversationClient(props: { initial: Conversation }) {
     markAsRead,
     sendTyping,
   } = useWebSocket({
-    accessToken: null, // TODO: Get from session/cookie
+    accessToken: getAccessToken(),
     onMessage: (message) => {
       if (message.conversationId === conv.id) {
         // Add new message to conversation
