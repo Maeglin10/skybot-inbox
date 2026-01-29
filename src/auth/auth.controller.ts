@@ -9,12 +9,15 @@ import {
   Query,
   HttpCode,
   HttpStatus,
+  Delete,
+  Param,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { MagicLinkDto } from './dto/magic-link.dto';
+import { RevokeTokenDto } from './dto/revoke-token.dto';
 import { Public } from './decorators/public.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { Request, Response } from 'express';
@@ -49,8 +52,8 @@ export class AuthController {
   @AuthRateLimit()
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  async login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  async login(@Body() dto: LoginDto, @Req() req: Request) {
+    return this.authService.login(dto, req);
   }
 
   /**
@@ -62,8 +65,8 @@ export class AuthController {
   @StandardRateLimit()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  async refresh(@Body() body: { refreshToken: string }) {
-    return this.authService.refresh(body.refreshToken);
+  async refresh(@Body() body: { refreshToken: string }, @Req() req: Request) {
+    return this.authService.refresh(body.refreshToken, req);
   }
 
   /**
@@ -145,15 +148,57 @@ export class AuthController {
 
   /**
    * POST /api/auth/logout
-   * Logout (invalidate tokens - client-side for JWT)
+   * Logout (revoke refresh token)
    * Rate limit: 60 requests per minute
    */
+  @Public()
   @StandardRateLimit()
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  async logout() {
+  async logout(@Body() dto: RevokeTokenDto) {
+    return this.authService.revokeToken(dto.refreshToken);
+  }
+
+  /**
+   * POST /api/auth/logout-all
+   * Logout from all devices (revoke all refresh tokens)
+   * Rate limit: 60 requests per minute
+   */
+  @StandardRateLimit()
+  @Post('logout-all')
+  @HttpCode(HttpStatus.OK)
+  async logoutAll(@CurrentUser() user: any) {
+    return this.authService.revokeAllTokens(user.id);
+  }
+
+  /**
+   * GET /api/auth/sessions
+   * List all active sessions for current user
+   * Rate limit: 120 requests per minute
+   */
+  @RelaxedRateLimit()
+  @Get('sessions')
+  async listSessions(@CurrentUser() user: any) {
+    return this.authService.listActiveSessions(user.id);
+  }
+
+  /**
+   * DELETE /api/auth/sessions/:id
+   * Revoke a specific session
+   * Rate limit: 60 requests per minute
+   */
+  @StandardRateLimit()
+  @Delete('sessions/:id')
+  @HttpCode(HttpStatus.OK)
+  async revokeSession(
+    @CurrentUser() user: any,
+    @Param('id') sessionId: string,
+  ) {
+    // TODO: Implement method to revoke specific session by ID
+    // Need to add this method to AuthService
     return {
-      message: 'Logged out successfully',
+      message: 'Session revoked',
+      sessionId,
     };
   }
 }

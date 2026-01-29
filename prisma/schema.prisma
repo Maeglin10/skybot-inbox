@@ -29,22 +29,23 @@ model Account {
   inboxes  Inbox[]
 
   // New relations
-  userAccounts       UserAccount[]
-  leads              Lead[]
-  feedbacks          Feedback[]
-  channelConnections ChannelConnection[]
-  modules            TenantModule[]
-  integrations       Integration[]
-  corporateNumbers   CorporateNumber[]
-  subscription       Subscription?
-  usageTracking      UsageTracking[]
-  media              Media[]
-  ingestionJobs      IngestionJob[]
-  knowledgeItems     KnowledgeItem[]
-  agents             Agent[]
-  apiKeys            ApiKey[] // Phase 5: API key management
-  routingLogs        RoutingLog[]
-  stories            Story[]
+  userAccounts        UserAccount[]
+  refreshTokens       RefreshToken[] // Session management
+  leads               Lead[]
+  feedbacks           Feedback[]
+  channelConnections  ChannelConnection[]
+  modules             TenantModule[]
+  integrations        Integration[]
+  corporateNumbers    CorporateNumber[]
+  subscription        Subscription?
+  usageTracking       UsageTracking[]
+  media               Media[]
+  ingestionJobs       IngestionJob[]
+  knowledgeItems      KnowledgeItem[]
+  agents              Agent[]
+  apiKeys             ApiKey[] // Phase 5: API key management
+  routingLogs         RoutingLog[]
+  stories             Story[]
   competitiveAnalyses CompetitiveAnalysis[]
 
   @@index([createdAt])
@@ -274,8 +275,9 @@ model UserAccount {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  account     Account          @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  preferences UserPreference?
+  account       Account          @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  preferences   UserPreference?
+  refreshTokens RefreshToken[] // Session management
 
   @@unique([accountId, username], name: "accountId_username")
   @@index([accountId])
@@ -317,6 +319,39 @@ model MagicLink {
 
   @@index([email])
   @@index([token])
+}
+
+// =========================
+// REFRESH TOKENS (Session Management)
+// =========================
+model RefreshToken {
+  id            String   @id @default(cuid())
+  token         String   @unique // Hashed refresh token
+  userAccountId String
+  accountId     String   // Denormalized for faster queries
+
+  // Device/session info for audit trail
+  ipAddress     String?
+  userAgent     String?
+  deviceInfo    Json?    // { browser, os, device }
+
+  // Session management
+  expiresAt     DateTime
+  revokedAt     DateTime? // NULL = active, non-NULL = revoked
+  revokedReason String?   // user_logout, admin_revoke, security_breach, etc.
+  lastUsedAt    DateTime  @default(now())
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  userAccount   UserAccount @relation(fields: [userAccountId], references: [id], onDelete: Cascade)
+  account       Account     @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([userAccountId])
+  @@index([accountId])
+  @@index([token])
+  @@index([expiresAt])
+  @@index([revokedAt])
 }
 
 // =========================

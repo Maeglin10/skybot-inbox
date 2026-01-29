@@ -11,9 +11,10 @@ import * as bcrypt from 'bcrypt';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { MagicLinkDto } from './dto/magic-link.dto';
-import { randomBytes } from 'crypto';
+import { randomBytes, createHash } from 'crypto';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { Logger } from 'winston';
+import { InvalidRefreshTokenError } from '../common/errors/known-error';
 
 export interface JwtPayload {
   sub: string; // userAccountId
@@ -108,7 +109,7 @@ export class AuthService {
   /**
    * Login with username and password
    */
-  async login(dto: LoginDto): Promise<AuthResponse> {
+  async login(dto: LoginDto, request?: any): Promise<AuthResponse> {
     console.log('[AUTH] Login attempt for username:', dto.username);
 
     // Find user by username
@@ -151,7 +152,7 @@ export class AuthService {
     console.log('[AUTH] Login successful for user:', user.id);
 
     // Generate tokens with rememberMe setting
-    const tokens = await this.generateTokens(user, dto.rememberMe);
+    const tokens = await this.generateTokens(user, dto.rememberMe, request);
 
     // Calculate expiresIn for frontend cookie management
     // - rememberMe = true: 3 days (259200 seconds)
@@ -174,28 +175,62 @@ export class AuthService {
 
   /**
    * Refresh access token
+   * SECURITY FIX: Now validates against database-stored refresh tokens
    */
-  async refresh(refreshToken: string): Promise<{ accessToken: string }> {
+  async refresh(
+    refreshToken: string,
+    request?: any,
+  ): Promise<{ accessToken: string }> {
     try {
+      // Verify JWT signature and expiry
       const payload = this.jwtService.verify(refreshToken, {
         secret: process.env.JWT_REFRESH_SECRET,
       });
 
-      const user = await this.prisma.userAccount.findUnique({
-        where: { id: payload.sub },
+      // Hash the token to match database storage
+      const tokenHash = createHash('sha256').update(refreshToken).digest('hex');
+
+      // Check if refresh token exists in database and is not revoked
+      const storedToken = await this.prisma.refreshToken.findUnique({
+        where: { token: tokenHash },
+        include: { userAccount: true },
       });
 
-      if (!user || user.status !== 'ACTIVE') {
-        throw new UnauthorizedException('Invalid refresh token');
+      if (!storedToken) {
+        throw new InvalidRefreshTokenError('Token not found');
       }
 
+      // Check if token is revoked
+      if (storedToken.revokedAt) {
+        throw new InvalidRefreshTokenError(
+          `Token revoked: ${storedToken.revokedReason}`,
+        );
+      }
+
+      // Check if token is expired
+      if (storedToken.expiresAt < new Date()) {
+        throw new InvalidRefreshTokenError('Token expired');
+      }
+
+      // Check if user is still active
+      if (storedToken.userAccount.status !== 'ACTIVE') {
+        throw new InvalidRefreshTokenError('User account is not active');
+      }
+
+      // Update last used timestamp
+      await this.prisma.refreshToken.update({
+        where: { id: storedToken.id },
+        data: { lastUsedAt: new Date() },
+      });
+
+      // Generate new access token
       const accessToken = this.jwtService.sign(
         {
-          sub: user.id,
-          username: user.username,
-          email: user.email,
-          accountId: user.accountId,
-          role: user.role,
+          sub: storedToken.userAccount.id,
+          username: storedToken.userAccount.username,
+          email: storedToken.userAccount.email,
+          accountId: storedToken.userAccount.accountId,
+          role: storedToken.userAccount.role,
         },
         {
           secret: process.env.JWT_SECRET,
@@ -205,8 +240,86 @@ export class AuthService {
 
       return { accessToken };
     } catch (error) {
-      throw new UnauthorizedException('Invalid refresh token');
+      if (error instanceof InvalidRefreshTokenError) {
+        throw error;
+      }
+      throw new InvalidRefreshTokenError('Invalid or expired refresh token');
     }
+  }
+
+  /**
+   * Revoke a specific refresh token (logout)
+   */
+  async revokeToken(
+    refreshToken: string,
+    reason: string = 'user_logout',
+  ): Promise<{ success: boolean }> {
+    const tokenHash = createHash('sha256').update(refreshToken).digest('hex');
+
+    const storedToken = await this.prisma.refreshToken.findUnique({
+      where: { token: tokenHash },
+    });
+
+    if (!storedToken) {
+      // Token doesn't exist - already logged out or invalid
+      return { success: true };
+    }
+
+    await this.prisma.refreshToken.update({
+      where: { id: storedToken.id },
+      data: {
+        revokedAt: new Date(),
+        revokedReason: reason,
+      },
+    });
+
+    return { success: true };
+  }
+
+  /**
+   * Revoke all refresh tokens for a user (logout from all devices)
+   */
+  async revokeAllTokens(
+    userAccountId: string,
+    reason: string = 'user_logout_all',
+  ): Promise<{ count: number }> {
+    const result = await this.prisma.refreshToken.updateMany({
+      where: {
+        userAccountId,
+        revokedAt: null, // Only revoke active tokens
+      },
+      data: {
+        revokedAt: new Date(),
+        revokedReason: reason,
+      },
+    });
+
+    return { count: result.count };
+  }
+
+  /**
+   * List active sessions for a user
+   */
+  async listActiveSessions(userAccountId: string) {
+    const sessions = await this.prisma.refreshToken.findMany({
+      where: {
+        userAccountId,
+        revokedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      select: {
+        id: true,
+        ipAddress: true,
+        userAgent: true,
+        deviceInfo: true,
+        createdAt: true,
+        lastUsedAt: true,
+        expiresAt: true,
+      },
+      orderBy: { lastUsedAt: 'desc' },
+    });
+
+    return sessions;
   }
 
   /**
@@ -416,10 +529,12 @@ export class AuthService {
 
   /**
    * Generate JWT access and refresh tokens
+   * SECURITY FIX: Now stores refresh tokens in database for revocation support
    */
   private async generateTokens(
     user: any,
     rememberMe?: boolean,
+    request?: any,
   ): Promise<{
     accessToken: string;
     refreshToken: string;
@@ -436,6 +551,9 @@ export class AuthService {
     // - rememberMe = true: 3 days (72h) - persistent session
     // - rememberMe = false: 12h - session expires when user closes browser (frontend handles this)
     const refreshTokenExpiry = rememberMe ? '3d' : '12h';
+    const refreshTokenExpiryMs = rememberMe
+      ? 3 * 24 * 60 * 60 * 1000
+      : 12 * 60 * 60 * 1000;
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
@@ -448,9 +566,60 @@ export class AuthService {
       }),
     ]);
 
+    // Store refresh token in database (hashed for security)
+    const tokenHash = createHash('sha256').update(refreshToken).digest('hex');
+
+    // Extract device info from user agent
+    const userAgent = request?.headers?.['user-agent'] || 'Unknown';
+    const deviceInfo = this.parseUserAgent(userAgent);
+
+    await this.prisma.refreshToken.create({
+      data: {
+        token: tokenHash,
+        userAccountId: user.id,
+        accountId: user.accountId,
+        ipAddress: request?.ip || request?.socket?.remoteAddress || null,
+        userAgent,
+        deviceInfo,
+        expiresAt: new Date(Date.now() + refreshTokenExpiryMs),
+      },
+    });
+
     return {
       accessToken,
       refreshToken,
     };
+  }
+
+  /**
+   * Parse user agent string to extract device info
+   */
+  private parseUserAgent(userAgent: string): any {
+    // Simple parser - can be enhanced with a library like ua-parser-js
+    const info: any = {
+      browser: 'Unknown',
+      os: 'Unknown',
+      device: 'Unknown',
+    };
+
+    // Detect browser
+    if (userAgent.includes('Chrome')) info.browser = 'Chrome';
+    else if (userAgent.includes('Firefox')) info.browser = 'Firefox';
+    else if (userAgent.includes('Safari')) info.browser = 'Safari';
+    else if (userAgent.includes('Edge')) info.browser = 'Edge';
+
+    // Detect OS
+    if (userAgent.includes('Windows')) info.os = 'Windows';
+    else if (userAgent.includes('Mac')) info.os = 'macOS';
+    else if (userAgent.includes('Linux')) info.os = 'Linux';
+    else if (userAgent.includes('Android')) info.os = 'Android';
+    else if (userAgent.includes('iOS')) info.os = 'iOS';
+
+    // Detect device type
+    if (userAgent.includes('Mobile')) info.device = 'Mobile';
+    else if (userAgent.includes('Tablet')) info.device = 'Tablet';
+    else info.device = 'Desktop';
+
+    return info;
   }
 }
