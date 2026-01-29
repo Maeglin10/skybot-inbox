@@ -61,45 +61,26 @@ export class AlertsService {
     type?: AlertType,
   ): Promise<{ items: AlertItem[]; total: number }> {
     try {
-      // Special handling for CORPORATE type: fetch from conversations instead of alerts
+      // Special handling for CORPORATE type: fetch corporate contacts
       if (type === 'CORPORATE') {
-        const conversations = await this.prisma.conversation.findMany({
+        const contacts = await this.prisma.contact.findMany({
           where: {
-            inbox: { accountId },
-            contact: { isCorporate: true },
-            status:
-              status === 'OPEN'
-                ? 'OPEN'
-                : status === 'PENDING'
-                  ? 'PENDING'
-                  : status === 'RESOLVED'
-                    ? 'CLOSED'
-                    : undefined,
+            accountId,
+            isCorporate: true,
           },
-          include: {
-            contact: true,
-            messages: {
-              orderBy: { createdAt: 'desc' },
-              take: 1,
-            },
-          },
-          orderBy: { lastActivityAt: 'desc' },
+          orderBy: { createdAt: 'desc' },
         });
 
-        const items: AlertItem[] = conversations.map((conv) => ({
-          id: conv.id,
+        const items: AlertItem[] = contacts.map((contact) => ({
+          id: contact.id,
           type: 'CORPORATE' as AlertType,
-          title: conv.contact.name || 'Unknown Contact',
-          subtitle: conv.messages[0]?.text?.substring(0, 100) || 'No messages',
-          status: (conv.status === 'CLOSED'
-            ? 'RESOLVED'
-            : conv.status) as AlertStatus,
+          title: contact.name || 'Unknown Contact',
+          subtitle: contact.phone,
+          status: 'OPEN' as AlertStatus,
           priority: 'MEDIUM' as AlertPriority,
-          customerName: conv.contact.name || undefined,
-          channel: conv.channel as string,
-          conversationId: conv.id,
-          createdAt: conv.createdAt.toISOString(),
-          updatedAt: conv.updatedAt?.toISOString(),
+          customerName: contact.name || undefined,
+          channel: 'WHATSAPP',
+          createdAt: contact.createdAt.toISOString(),
         }));
 
         return {
