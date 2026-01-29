@@ -1,16 +1,12 @@
 #!/usr/bin/env ts-node
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { Pool } from 'pg';
 import * as bcrypt from 'bcrypt';
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error('DATABASE_URL missing');
 
-const pool = new Pool({ connectionString: databaseUrl });
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+const prisma = new PrismaClient();
 
 async function setupGoodlifeUser() {
   console.log('👤 Configuration du compte GoodLife Agents...\n');
@@ -23,7 +19,6 @@ async function setupGoodlifeUser() {
   if (!goodLifeAccount) {
     console.log('❌ Compte GoodLife non trouvé !');
     await prisma.$disconnect();
-    await pool.end();
     process.exit(1);
   }
 
@@ -85,7 +80,6 @@ async function setupGoodlifeUser() {
   console.log('   URL: https://skybot-inbox-ui.onrender.com\n');
 
   await prisma.$disconnect();
-  await pool.end();
 }
 
 setupGoodlifeUser();

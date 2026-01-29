@@ -1,16 +1,12 @@
 #!/usr/bin/env ts-node
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { Pool } from 'pg';
 import * as bcrypt from 'bcrypt';
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error('DATABASE_URL missing');
 
-const pool = new Pool({ connectionString: databaseUrl });
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+const prisma = new PrismaClient();
 
 async function resetPassword() {
   console.log('\n🔐 Resetting GoodLife password...\n');
@@ -23,7 +19,6 @@ async function resetPassword() {
     if (!account) {
       console.log('❌ GoodLife account not found');
       await prisma.$disconnect();
-      await pool.end();
       return;
     }
 
@@ -39,7 +34,6 @@ async function resetPassword() {
     if (!user) {
       console.log('❌ User goodlife.nexxaagents not found');
       await prisma.$disconnect();
-      await pool.end();
       return;
     }
 
@@ -62,11 +56,9 @@ async function resetPassword() {
     console.log('   Email: ventas@goodlifecr.com\n');
 
     await prisma.$disconnect();
-    await pool.end();
   } catch (error) {
     console.error('❌ Error:', error);
     await prisma.$disconnect();
-    await pool.end();
     throw error;
   }
 }

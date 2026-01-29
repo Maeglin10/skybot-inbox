@@ -1,16 +1,12 @@
 #!/usr/bin/env ts-node
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { Pool } from 'pg';
 import * as bcrypt from 'bcrypt';
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error('DATABASE_URL missing');
 
-const pool = new Pool({ connectionString: databaseUrl });
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+const prisma = new PrismaClient();
 
 async function ensureGoodLifeExists() {
   console.log('🔍 Vérification rapide GoodLife...');
@@ -35,7 +31,6 @@ async function ensureGoodLifeExists() {
       if (user && user.passwordHash) {
         console.log('✅ User goodlife.nexxaagents existe avec password');
         await prisma.$disconnect();
-        await pool.end();
         return;
       }
 
@@ -48,7 +43,6 @@ async function ensureGoodLifeExists() {
         });
         console.log('✅ Password ajouté');
         await prisma.$disconnect();
-        await pool.end();
         return;
       }
 
@@ -85,7 +79,6 @@ async function ensureGoodLifeExists() {
 
         console.log('✅ User créé avec succès');
         await prisma.$disconnect();
-        await pool.end();
         return;
       }
     }
@@ -235,11 +228,9 @@ async function ensureGoodLifeExists() {
     console.log(`   Conversations: 6 (5 corporatives + 1 test)`);
 
     await prisma.$disconnect();
-    await pool.end();
   } catch (error) {
     console.error('❌ Erreur:', error);
     await prisma.$disconnect();
-    await pool.end();
     throw error;
   }
 }

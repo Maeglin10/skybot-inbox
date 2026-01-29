@@ -1,14 +1,10 @@
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { Pool } from 'pg';
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error('DATABASE_URL missing');
 
-const pool = new Pool({ connectionString: databaseUrl });
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+const prisma = new PrismaClient();
 
 async function checkData() {
   const demoAccount = await prisma.account.findFirst({ where: { isDemo: true } });
@@ -31,7 +27,6 @@ async function checkData() {
   console.log(`  Routing Logs: ${routingLogCount}`);
 
   await prisma.$disconnect();
-  await pool.end();
 }
 
 checkData().catch(console.error);

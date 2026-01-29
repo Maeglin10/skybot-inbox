@@ -5,8 +5,6 @@ import {
   Inject,
 } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { Pool } from 'pg';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { Logger } from 'winston';
 
@@ -15,16 +13,11 @@ export class PrismaService
   extends PrismaClient
   implements OnModuleInit, OnModuleDestroy
 {
-  private readonly pool: Pool;
-
   constructor(
     @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
   ) {
     const url = process.env.DATABASE_URL;
     if (!url) throw new Error('DATABASE_URL is missing');
-
-    const pool = new Pool({ connectionString: url });
-    const adapter = new PrismaPg(pool);
 
     // Enable query logging in development or when LOG_LEVEL=debug
     const logLevel = process.env.LOG_LEVEL || 'info';
@@ -32,7 +25,11 @@ export class PrismaService
     const enableQueryLogging = isDev || logLevel === 'debug';
 
     super({
-      adapter,
+      datasources: {
+        db: {
+          url,
+        },
+      },
       log: enableQueryLogging
         ? [
             { emit: 'event', level: 'query' },
@@ -44,8 +41,6 @@ export class PrismaService
             { emit: 'event', level: 'warn' },
           ],
     });
-
-    this.pool = pool;
   }
 
   async onModuleInit(): Promise<void> {
@@ -83,13 +78,10 @@ export class PrismaService
       });
     });
 
-    this.logger.info('Database connection established', {
-      connectionPoolSize: this.pool.totalCount,
-    });
+    this.logger.info('Database connection established');
   }
 
   async onModuleDestroy(): Promise<void> {
     await this.$disconnect();
-    await this.pool.end();
   }
 }

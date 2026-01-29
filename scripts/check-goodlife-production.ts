@@ -1,16 +1,12 @@
 #!/usr/bin/env ts-node
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { Pool } from 'pg';
 import * as bcrypt from 'bcrypt';
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error('DATABASE_URL missing');
 
-const pool = new Pool({ connectionString: databaseUrl });
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+const prisma = new PrismaClient();
 
 async function checkGoodLifeProduction() {
   console.log('🔍 Vérification GoodLife Production\n');
@@ -24,7 +20,6 @@ async function checkGoodLifeProduction() {
     console.log('❌ COMPTE GOODLIFE NON TROUVÉ');
     console.log('   → Exécutez: npx ts-node scripts/setup-goodlife-production.ts\n');
     await prisma.$disconnect();
-    await pool.end();
     process.exit(1);
   }
 
@@ -40,7 +35,6 @@ async function checkGoodLifeProduction() {
     console.log('❌ UTILISATEUR GOODLIFE.NEXXAAGENTS NON TROUVÉ');
     console.log('   → Exécutez: npx ts-node scripts/setup-goodlife-production.ts\n');
     await prisma.$disconnect();
-    await pool.end();
     process.exit(1);
   }
 
@@ -134,7 +128,6 @@ async function checkGoodLifeProduction() {
   }
 
   await prisma.$disconnect();
-  await pool.end();
 }
 
 checkGoodLifeProduction().catch((error) => {

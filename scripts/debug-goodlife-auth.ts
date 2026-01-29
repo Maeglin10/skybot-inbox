@@ -1,16 +1,12 @@
 #!/usr/bin/env ts-node
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { Pool } from 'pg';
 import * as bcrypt from 'bcrypt';
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error('DATABASE_URL missing');
 
-const pool = new Pool({ connectionString: databaseUrl });
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+const prisma = new PrismaClient();
 
 async function debug() {
   console.log('\n🔍 Debugging GoodLife Authentication\n');
@@ -23,7 +19,6 @@ async function debug() {
     if (!user) {
       console.log('❌ User not found');
       await prisma.$disconnect();
-      await pool.end();
       return;
     }
 
@@ -44,7 +39,6 @@ async function debug() {
     if (!user.passwordHash) {
       console.log('❌ No password hash stored!');
       await prisma.$disconnect();
-      await pool.end();
       return;
     }
 
@@ -78,11 +72,9 @@ async function debug() {
     }
 
     await prisma.$disconnect();
-    await pool.end();
   } catch (error) {
     console.error('❌ Error:', error);
     await prisma.$disconnect();
-    await pool.end();
     throw error;
   }
 }

@@ -1,12 +1,8 @@
 #!/usr/bin/env ts-node
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { Pool } from 'pg';
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+const prisma = new PrismaClient();
 
 async function verifyGoodLifeAPI() {
   console.log('🔍 Vérification complète de GoodLife API\n');
@@ -126,7 +122,6 @@ async function verifyGoodLifeAPI() {
   console.log('   4. Vérifier les logs réseau du navigateur (F12 > Network)\n');
 
   await prisma.$disconnect();
-  await pool.end();
 }
 
 verifyGoodLifeAPI().catch((error) => {

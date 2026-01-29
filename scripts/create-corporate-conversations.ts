@@ -1,15 +1,11 @@
 #!/usr/bin/env ts-node
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { Pool } from 'pg';
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error('DATABASE_URL missing');
 
-const pool = new Pool({ connectionString: databaseUrl });
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+const prisma = new PrismaClient();
 
 const corporateContacts = [
   { name: 'Pamela Chavarria', phone: '+50688284915', role: 'Team' },
@@ -51,7 +47,6 @@ async function createCorporateConversations() {
     if (!account) {
       console.error('❌ GoodLife account not found!');
       await prisma.$disconnect();
-      await pool.end();
       return;
     }
 
@@ -68,7 +63,6 @@ async function createCorporateConversations() {
     if (!inbox) {
       console.error('❌ GoodLife inbox not found!');
       await prisma.$disconnect();
-      await pool.end();
       return;
     }
 
@@ -145,11 +139,9 @@ async function createCorporateConversations() {
     console.log('   Go to: Alerts > Filter "Corporativo"\n');
 
     await prisma.$disconnect();
-    await pool.end();
   } catch (error) {
     console.error('❌ Error:', error);
     await prisma.$disconnect();
-    await pool.end();
     throw error;
   }
 }

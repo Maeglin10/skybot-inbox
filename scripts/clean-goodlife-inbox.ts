@@ -1,15 +1,11 @@
 #!/usr/bin/env ts-node
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { Pool } from 'pg';
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error('DATABASE_URL missing');
 
-const pool = new Pool({ connectionString: databaseUrl });
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+const prisma = new PrismaClient();
 
 async function cleanGoodLifeInbox() {
   console.log('🧹 Nettoyage de l\'inbox GoodLife...\n');
@@ -22,7 +18,6 @@ async function cleanGoodLifeInbox() {
   if (!goodLifeAccount) {
     console.log('❌ Compte GoodLife non trouvé !');
     await prisma.$disconnect();
-    await pool.end();
     process.exit(1);
   }
 
@@ -37,7 +32,6 @@ async function cleanGoodLifeInbox() {
   if (inboxes.length === 0) {
     console.log('⚠️  Aucune inbox trouvée pour GoodLife\n');
     await prisma.$disconnect();
-    await pool.end();
     return;
   }
 
@@ -57,7 +51,6 @@ async function cleanGoodLifeInbox() {
   if (conversationsCount === 0) {
     console.log('✨ Inbox déjà vide !\n');
     await prisma.$disconnect();
-    await pool.end();
     return;
   }
 
@@ -110,7 +103,6 @@ async function cleanGoodLifeInbox() {
   }
 
   await prisma.$disconnect();
-  await pool.end();
 }
 
 cleanGoodLifeInbox().catch((error) => {
