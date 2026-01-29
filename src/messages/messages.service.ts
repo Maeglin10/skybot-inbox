@@ -1,24 +1,36 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Channel, MessageDirection } from '@prisma/client';
+import {
+  ConversationNotFoundError,
+  ResourceNotOwnedError,
+} from '../common/errors/known-error';
 
 @Injectable()
 export class MessagesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async send(params: {
+    accountId: string; // REQUIRED for multi-tenancy
     conversationId: string;
     text: string;
     externalId?: string;
   }) {
-    const { conversationId, text, externalId } = params;
+    const { accountId, conversationId, text, externalId } = params;
 
     const conversation = await this.prisma.conversation.findUnique({
       where: { id: conversationId },
       include: { inbox: true, contact: true },
     });
 
-    if (!conversation) throw new NotFoundException('Conversation not found');
+    if (!conversation) {
+      throw new ConversationNotFoundError(conversationId);
+    }
+
+    // CRITICAL: Verify the conversation belongs to the user's account
+    if (conversation.accountId !== accountId) {
+      throw new ResourceNotOwnedError('conversation', conversationId);
+    }
 
     const channel =
       conversation.channel ?? conversation.inbox.channel ?? Channel.WHATSAPP;

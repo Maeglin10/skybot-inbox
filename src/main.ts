@@ -7,12 +7,16 @@ import helmet from 'helmet';
 import type { Request } from 'express';
 import { winstonLogger } from './common/logger/winston.config';
 import { initializeSentry } from './common/sentry/sentry.config';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
 async function bootstrap() {
   // Initialize Sentry as early as possible to catch all errors
   initializeSentry();
 
   const app = await NestFactory.create(AppModule);
+
+  // Apply global exception filter for consistent error handling
+  app.useGlobalFilters(new AllExceptionsFilter());
 
   // Apply security headers with Helmet
   app.use(

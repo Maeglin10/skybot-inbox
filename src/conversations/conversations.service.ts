@@ -1,6 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Channel, ConversationStatus, Prisma } from '@prisma/client';
+import {
+  ConversationNotFoundError,
+  ResourceNotOwnedError,
+} from '../common/errors/known-error';
 
 export type ConversationStatusT = ConversationStatus;
 
@@ -43,6 +47,7 @@ export class ConversationsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(params: {
+    accountId: string; // REQUIRED for multi-tenancy
     status?: ConversationStatus;
     inboxId?: string;
     channel?: string;
@@ -52,6 +57,7 @@ export class ConversationsService {
     corporate?: boolean; // P1: Filter for corporate contacts
   }) {
     const {
+      accountId,
       status,
       inboxId,
       limit = 20,
@@ -66,6 +72,7 @@ export class ConversationsService {
     const ch = parseChannel(channel);
 
     const where: Prisma.ConversationWhereInput = {
+      accountId, // CRITICAL: Filter by account to prevent cross-account data leaks
       ...(status ? { status } : {}),
       ...(inboxId ? { inboxId } : {}),
       ...(ch ? { channel: ch } : {}),
@@ -149,7 +156,7 @@ export class ConversationsService {
     return { items, cursor: nextCursor };
   }
 
-  async findOne(id: string) {
+  async findOne(accountId: string, id: string) {
     const convo = await this.prisma.conversation.findUnique({
       where: { id },
       include: {
@@ -159,11 +166,26 @@ export class ConversationsService {
       },
     });
 
-    if (!convo) throw new NotFoundException('Conversation not found');
+    if (!convo) {
+      throw new ConversationNotFoundError(id);
+    }
+
+    // CRITICAL: Verify the conversation belongs to the user's account
+    if (convo.accountId !== accountId) {
+      throw new ResourceNotOwnedError('conversation', id);
+    }
+
     return convo;
   }
 
-  async updateStatus(id: string, status: ConversationStatus) {
+  async updateStatus(
+    accountId: string,
+    id: string,
+    status: ConversationStatus,
+  ) {
+    // First verify ownership
+    await this.findOne(accountId, id);
+
     const convo = await this.prisma.conversation.update({
       where: { id },
       data: { status },
@@ -173,7 +195,14 @@ export class ConversationsService {
     return convo;
   }
 
-  async listMessages(id: string, params: { limit?: number; cursor?: string }) {
+  async listMessages(
+    accountId: string,
+    id: string,
+    params: { limit?: number; cursor?: string },
+  ) {
+    // First verify ownership
+    await this.findOne(accountId, id);
+
     const { limit = 20, cursor } = params;
 
     const take = Math.min(Math.max(limit, 1), 100);

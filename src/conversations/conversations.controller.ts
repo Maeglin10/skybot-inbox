@@ -1,6 +1,7 @@
 import { Controller, Get, Param, Patch, Body, Query } from '@nestjs/common';
 import { ConversationsService } from './conversations.service';
 import type { ConversationStatus } from '@prisma/client';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 function asString(v: unknown): string | undefined {
   if (typeof v !== 'string') return undefined;
@@ -30,6 +31,7 @@ export class ConversationsController {
 
   @Get()
   findAll(
+    @CurrentUser() user: any,
     @Query('status') statusQ?: string,
     @Query('inboxId') inboxIdQ?: string,
     @Query('channel') channelQ?: string,
@@ -52,6 +54,7 @@ export class ConversationsController {
           : undefined;
 
     return this.conversationsService.findAll({
+      accountId: user.accountId, // CRITICAL: Filter by authenticated user's account
       status,
       inboxId,
       channel,
@@ -63,21 +66,27 @@ export class ConversationsController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.conversationsService.findOne(id);
+  findOne(@CurrentUser() user: any, @Param('id') id: string) {
+    return this.conversationsService.findOne(user.accountId, id);
   }
 
   @Patch(':id/status')
   updateStatus(
+    @CurrentUser() user: any,
     @Param('id') id: string,
     @Body() body: { status: ConversationStatus },
   ) {
-    return this.conversationsService.updateStatus(id, body.status);
+    return this.conversationsService.updateStatus(
+      user.accountId,
+      id,
+      body.status,
+    );
   }
 
   // GET /conversations/:id/messages?limit=20&cursor=...
   @Get(':id/messages')
   listMessages(
+    @CurrentUser() user: any,
     @Param('id') id: string,
     @Query('limit') limitQ?: string,
     @Query('cursor') cursorQ?: string,
@@ -85,6 +94,9 @@ export class ConversationsController {
     const limit = asInt(limitQ, 20);
     const cursor = asString(cursorQ);
 
-    return this.conversationsService.listMessages(id, { limit, cursor });
+    return this.conversationsService.listMessages(user.accountId, id, {
+      limit,
+      cursor,
+    });
   }
 }
