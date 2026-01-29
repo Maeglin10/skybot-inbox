@@ -106,68 +106,115 @@ async function main() {
   console.log('🌱 Starting database seed from CSV files...\n');
 
   // ====================
-  // 0. CLEAN EXISTING DATA
+  // 🛡️ PRODUCTION SAFETY CHECK
   // ====================
-  console.log('🧹 Cleaning existing data (PROTECTING GOODLIFE)...');
+  const isProduction = process.env.NODE_ENV === 'production';
 
-  // 🛡️ FIND GOODLIFE ACCOUNT ID TO PROTECT IT
-  const goodlifeAccount = await prisma.account.findFirst({
-    where: { name: { contains: 'Goodlife', mode: 'insensitive' } },
-  });
-  const goodlifeAccountId = goodlifeAccount?.id;
-
-  if (goodlifeAccountId) {
-    console.log(`  🛡️  GoodLife Account found - WILL NOT DELETE (ID: ${goodlifeAccountId})`);
+  if (isProduction) {
+    console.error('');
+    console.error('❌❌❌ ERREUR CRITIQUE ❌❌❌');
+    console.error('Le seed NE PEUT PAS s\'exécuter en PRODUCTION!');
+    console.error('');
+    console.error('Le seed efface toutes les données existantes et recrée des données de DEMO.');
+    console.error('Cela détruirait tous les vrais comptes clients en production!');
+    console.error('');
+    console.error('Solutions:');
+    console.error('  - Pour dev local: Utilisez NODE_ENV=development');
+    console.error('  - Pour ajouter un compte: Utilisez les scripts spécifiques (setup-goodlife.ts, etc.)');
+    console.error('  - Pour reset en dev: npm run db:reset');
+    console.error('');
+    console.error('ARRÊT DU SEED POUR PROTÉGER LA PRODUCTION');
+    console.error('');
+    process.exit(1);
   }
+
+  console.log('✅ Environment: development - seed autorisé\n');
+
+  // ====================
+  // 0. CLEAN EXISTING DATA (DEV ONLY)
+  // ====================
+  console.log('🧹 Cleaning existing data...');
+  console.log('⚠️  WARNING: This will DELETE all demo/test data!');
+  console.log('   PROTECTED: GoodLife and any production accounts will be preserved\n');
+
+  // 🛡️ FIND ALL ACCOUNTS TO PROTECT (not just GoodLife)
+  const allAccounts = await prisma.account.findMany({
+    select: { id: true, name: true, isDemo: true },
+  });
+
+  // Protect: GoodLife + any account marked isDemo=false
+  const protectedAccountIds = allAccounts
+    .filter(acc => acc.name.toLowerCase().includes('goodlife') || acc.isDemo === false)
+    .map(acc => acc.id);
+
+  const demoAccountIds = allAccounts
+    .filter(acc => !acc.name.toLowerCase().includes('goodlife') && acc.isDemo === true)
+    .map(acc => acc.id);
+
+  if (protectedAccountIds.length > 0) {
+    console.log(`  🛡️  PROTECTED accounts (${protectedAccountIds.length}):`);
+    allAccounts
+      .filter(acc => protectedAccountIds.includes(acc.id))
+      .forEach(acc => console.log(`     - ${acc.name} (${acc.isDemo ? 'DEMO' : 'PRODUCTION'})`));
+  }
+
+  if (demoAccountIds.length > 0) {
+    console.log(`  🗑️  Will DELETE demo accounts (${demoAccountIds.length}):`);
+    allAccounts
+      .filter(acc => demoAccountIds.includes(acc.id))
+      .forEach(acc => console.log(`     - ${acc.name}`));
+  }
+
+  console.log('');
 
   // Delete messages (except GoodLife)
   await prisma.message.deleteMany({
-    where: goodlifeAccountId ? { inbox: { accountId: { not: goodlifeAccountId } } } : {},
+    where: protectedAccountIds.length > 0 ? { inbox: { accountId: { notIn: protectedAccountIds } } } : {},
   });
 
   // Delete conversations (except GoodLife)
   await prisma.conversation.deleteMany({
-    where: goodlifeAccountId ? { accountId: { not: goodlifeAccountId } } : {},
+    where: protectedAccountIds.length > 0 ? { accountId: { notIn: protectedAccountIds } } : {},
   });
 
   // Delete contacts (except GoodLife)
   await prisma.contact.deleteMany({
-    where: goodlifeAccountId ? { accountId: { not: goodlifeAccountId } } : {},
+    where: protectedAccountIds.length > 0 ? { accountId: { notIn: protectedAccountIds } } : {},
   });
 
   // Delete inboxes (except GoodLife)
   await prisma.inbox.deleteMany({
-    where: goodlifeAccountId ? { accountId: { not: goodlifeAccountId } } : {},
+    where: protectedAccountIds.length > 0 ? { accountId: { notIn: protectedAccountIds } } : {},
   });
 
   // Delete routing logs (except GoodLife)
   await prisma.routingLog.deleteMany({
-    where: goodlifeAccountId ? { accountId: { not: goodlifeAccountId } } : {},
+    where: protectedAccountIds.length > 0 ? { accountId: { notIn: protectedAccountIds } } : {},
   });
 
   // Delete alerts (except GoodLife)
   await prisma.alert.deleteMany({
-    where: goodlifeAccountId ? { accountId: { not: goodlifeAccountId } } : {},
+    where: protectedAccountIds.length > 0 ? { accountId: { notIn: protectedAccountIds } } : {},
   });
 
   // Delete feedback (except GoodLife)
   await prisma.feedback.deleteMany({
-    where: goodlifeAccountId ? { accountId: { not: goodlifeAccountId } } : {},
+    where: protectedAccountIds.length > 0 ? { accountId: { notIn: protectedAccountIds } } : {},
   });
 
   // Delete leads (except GoodLife)
   await prisma.lead.deleteMany({
-    where: goodlifeAccountId ? { accountId: { not: goodlifeAccountId } } : {},
+    where: protectedAccountIds.length > 0 ? { accountId: { notIn: protectedAccountIds } } : {},
   });
 
-  // Delete user preferences (except GoodLife users)
-  if (goodlifeAccountId) {
-    const goodlifeUserIds = await prisma.userAccount.findMany({
-      where: { accountId: goodlifeAccountId },
+  // Delete user preferences (except protected account users)
+  if (protectedAccountIds.length > 0) {
+    const protectedUserIds = await prisma.userAccount.findMany({
+      where: { accountId: { in: protectedAccountIds } },
       select: { id: true },
     });
     await prisma.userPreference.deleteMany({
-      where: { userAccountId: { notIn: goodlifeUserIds.map(u => u.id) } },
+      where: { userAccountId: { notIn: protectedUserIds.map(u => u.id) } },
     });
   } else {
     await prisma.userPreference.deleteMany();
@@ -175,25 +222,25 @@ async function main() {
 
   // Delete user accounts (except GoodLife)
   await prisma.userAccount.deleteMany({
-    where: goodlifeAccountId ? { accountId: { not: goodlifeAccountId } } : {},
+    where: protectedAccountIds.length > 0 ? { accountId: { notIn: protectedAccountIds } } : {},
   });
 
   // Delete client configs (except GoodLife)
   await prisma.clientConfig.deleteMany({
-    where: goodlifeAccountId ? { accountId: { not: goodlifeAccountId } } : {},
+    where: protectedAccountIds.length > 0 ? { accountId: { notIn: protectedAccountIds } } : {},
   });
 
   // Delete external accounts (except GoodLife)
   await prisma.externalAccount.deleteMany({
-    where: goodlifeAccountId ? { accountId: { not: goodlifeAccountId } } : {},
+    where: protectedAccountIds.length > 0 ? { accountId: { notIn: protectedAccountIds } } : {},
   });
 
   // Delete accounts (except GoodLife)
   await prisma.account.deleteMany({
-    where: goodlifeAccountId ? { id: { not: goodlifeAccountId } } : {},
+    where: protectedAccountIds.length > 0 ? { id: { notIn: protectedAccountIds } } : {},
   });
 
-  console.log('  ✅ Cleanup complete (GoodLife PRESERVED)');
+  console.log(`  ✅ Cleanup complete (${protectedAccountIds.length} production accounts PRESERVED)`);
 
   // ====================
   // 1. READ CLIENT CONFIGS

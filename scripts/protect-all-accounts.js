@@ -112,6 +112,13 @@ EXECUTE FUNCTION prevent_truncate_in_production();
 
     await pool.query(sql);
 
+    // Mark GoodLife as production account
+    await pool.query(`
+      UPDATE "Account"
+      SET "isDemo" = false
+      WHERE name ILIKE '%goodlife%';
+    `);
+
     console.log('✅ [PROTECT] Protection installed successfully!');
     console.log('   ✅ Account: Protected from deletion in production');
     console.log('   ✅ UserAccount: Protected from deletion in production');

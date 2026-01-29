@@ -102,6 +102,7 @@ async function ensureGoodLifeExists() {
       data: {
         name: 'Goodlife Costa Rica',
         status: 'ACTIVE',
+        isDemo: false, // PRODUCTION account - NEVER delete
       },
     });
 
