@@ -5,9 +5,9 @@ services:
     env: node
     region: oregon
     plan: free
-    buildCommand: npm install --include=dev && npx prisma generate && npm run build && npx tsc scripts/ensure-goodlife-exists.ts --outDir dist/scripts --esModuleInterop --resolveJsonModule && npx tsc scripts/protect-goodlife.ts --outDir dist/scripts --esModuleInterop --resolveJsonModule
+    buildCommand: npm install --include=dev && npx prisma generate && npm run build && npx tsc scripts/ensure-goodlife-exists.ts --outDir dist/scripts --esModuleInterop --resolveJsonModule && npx tsc scripts/protect-all-accounts.ts --outDir dist/scripts --esModuleInterop --resolveJsonModule
     # CRITICAL: NO db:seed - it deletes all data!
-    startCommand: npx prisma migrate deploy && node dist/scripts/protect-goodlife.js && node dist/scripts/ensure-goodlife-exists.js && node dist/src/main
+    startCommand: npx prisma migrate deploy && node dist/scripts/protect-all-accounts.js && node dist/scripts/ensure-goodlife-exists.js && node dist/src/main
     # healthCheckPath: /health  # Temporarily disabled
     envVars:
       - key: NODE_ENV
