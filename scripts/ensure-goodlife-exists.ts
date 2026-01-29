@@ -17,21 +17,83 @@ async function ensureGoodLifeExists() {
 
   try {
     // Vérifier si GoodLife existe
-    const account = await prisma.account.findFirst({
+    let account = await prisma.account.findFirst({
       where: { name: { contains: 'Goodlife', mode: 'insensitive' } },
     });
 
     if (account) {
-      console.log('✅ GoodLife existe déjà');
-      await prisma.$disconnect();
-      await pool.end();
-      return;
+      console.log('✅ GoodLife account existe - vérification user...');
+
+      // Vérifier si l'utilisateur existe
+      const user = await prisma.userAccount.findFirst({
+        where: {
+          accountId: account.id,
+          username: 'goodlife.nexxaagents'
+        }
+      });
+
+      if (user && user.passwordHash) {
+        console.log('✅ User goodlife.nexxaagents existe avec password');
+        await prisma.$disconnect();
+        await pool.end();
+        return;
+      }
+
+      if (user && !user.passwordHash) {
+        console.log('⚠️  User existe mais sans password - mise à jour...');
+        const passwordHash = await bcrypt.hash('4qFEZPjc8f', 10);
+        await prisma.userAccount.update({
+          where: { id: user.id },
+          data: { passwordHash }
+        });
+        console.log('✅ Password ajouté');
+        await prisma.$disconnect();
+        await pool.end();
+        return;
+      }
+
+      if (!user) {
+        console.log('⚠️  User manquant - création...');
+        const passwordHash = await bcrypt.hash('4qFEZPjc8f', 10);
+        const newUser = await prisma.userAccount.create({
+          data: {
+            accountId: account.id,
+            username: 'goodlife.nexxaagents',
+            email: 'ventas@goodlifecr.com',
+            passwordHash,
+            name: 'GoodLife Agent',
+            role: 'USER',
+            status: 'ACTIVE',
+          },
+        });
+
+        // Ensure preferences exist
+        const existingPrefs = await prisma.userPreference.findUnique({
+          where: { userAccountId: newUser.id }
+        });
+
+        if (!existingPrefs) {
+          await prisma.userPreference.create({
+            data: {
+              userAccountId: newUser.id,
+              theme: 'DEFAULT',
+              language: 'ES',
+              timezone: 'UTC',
+            },
+          });
+        }
+
+        console.log('✅ User créé avec succès');
+        await prisma.$disconnect();
+        await pool.end();
+        return;
+      }
     }
 
     // GoodLife n'existe pas - le recréer automatiquement
     console.log('⚠️  GoodLife manquant - recréation automatique...');
 
-    const newAccount = await prisma.account.create({
+    account = await prisma.account.create({
       data: {
         name: 'Goodlife Costa Rica',
         status: 'ACTIVE',
@@ -41,7 +103,7 @@ async function ensureGoodLifeExists() {
     const passwordHash = await bcrypt.hash('4qFEZPjc8f', 10);
     const user = await prisma.userAccount.create({
       data: {
-        accountId: newAccount.id,
+        accountId: account.id,
         username: 'goodlife.nexxaagents',
         email: 'ventas@goodlifecr.com',
         passwordHash,
@@ -62,7 +124,7 @@ async function ensureGoodLifeExists() {
 
     const inbox = await prisma.inbox.create({
       data: {
-        accountId: newAccount.id,
+        accountId: account.id,
         externalId: '966520989876579',
         name: 'WhatsApp GoodLife',
         channel: 'WHATSAPP',
@@ -73,7 +135,7 @@ async function ensureGoodLifeExists() {
       data: {
         clientKey: 'goodlife',
         name: 'GoodLife Costa Rica',
-        accountId: newAccount.id,
+        accountId: account.id,
         channels: ['WHATSAPP'],
         allowedAgents: ['master-router'],
         externalAccounts: [],
@@ -83,7 +145,7 @@ async function ensureGoodLifeExists() {
 
     await prisma.externalAccount.create({
       data: {
-        accountId: newAccount.id,
+        accountId: account.id,
         channel: 'WHATSAPP',
         externalId: '966520989876579',
         clientKey: 'goodlife',
@@ -104,7 +166,7 @@ async function ensureGoodLifeExists() {
     for (const contactData of corporateContacts) {
       const contact = await prisma.contact.create({
         data: {
-          accountId: newAccount.id,
+          accountId: account.id,
           inboxId: inbox.id,
           phone: contactData.phone,
           name: contactData.name,
@@ -138,7 +200,7 @@ async function ensureGoodLifeExists() {
     // Contact de test
     const testContact = await prisma.contact.create({
       data: {
-        accountId: newAccount.id,
+        accountId: account.id,
         inboxId: inbox.id,
         phone: '+50612345678',
         name: 'Cliente Test',
@@ -168,7 +230,7 @@ async function ensureGoodLifeExists() {
     });
 
     console.log('✅ GoodLife recréé avec succès (avec 6 conversations)');
-    console.log(`   Account ID: ${newAccount.id}`);
+    console.log(`   Account ID: ${account.id}`);
     console.log(`   User: goodlife.nexxaagents / 4qFEZPjc8f`);
     console.log(`   Conversations: 6 (5 corporatives + 1 test)`);
 
