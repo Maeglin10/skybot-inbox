@@ -1,17 +1,15 @@
 import { Module } from '@nestjs/common';
+import { MessagesGateway } from './messages.gateway';
 import { JwtModule } from '@nestjs/jwt';
-import { AgentsGateway } from './agents.gateway';
-import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
-    AuthModule,
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'your-secret-key',
+      secret: process.env.JWT_SECRET || 'development-secret-key',
       signOptions: { expiresIn: '15m' },
     }),
   ],
-  providers: [AgentsGateway],
-  exports: [AgentsGateway],
+  providers: [MessagesGateway],
+  exports: [MessagesGateway],
 })
 export class WebsocketsModule {}
