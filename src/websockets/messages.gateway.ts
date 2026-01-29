@@ -10,6 +10,7 @@ import {
 import { Server, Socket } from 'socket.io';
 import { Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { PrismaService } from '../prisma/prisma.service';
 
 /**
  * WebSocket Gateway for real-time message updates
@@ -53,7 +54,10 @@ export class MessagesGateway
     { accountId: string; userId: string }
   >();
 
-  constructor(private readonly jwtService: JwtService) {}
+  constructor(
+    private readonly jwtService: JwtService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   /**
    * Handle new WebSocket connection
@@ -130,7 +134,26 @@ export class MessagesGateway
       return;
     }
 
-    // TODO: Verify user has access to this conversation (accountId check)
+    // Verify user has access to this conversation (accountId check)
+    // Get conversation with inbox to verify account ownership
+    const conversation = await this.prisma.conversation.findFirst({
+      where: {
+        id: data.conversationId,
+        inbox: {
+          accountId: authInfo.accountId,
+        },
+      },
+    });
+
+    if (!conversation) {
+      this.logger.warn(
+        `Client ${client.id} (account ${authInfo.accountId}) attempted to join unauthorized conversation ${data.conversationId}`,
+      );
+      client.emit('error', {
+        message: 'Conversation not found or access denied',
+      });
+      return;
+    }
 
     client.join(`conversation:${data.conversationId}`);
     this.logger.log(

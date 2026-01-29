@@ -175,11 +175,18 @@ model Conversation {
   externalId     String?
   status         ConversationStatus @default(OPEN)
   lastActivityAt DateTime           @default(now())
+
+  // Cached metrics for performance
+  messageCount      Int            @default(0)
+  participantCount  Int            @default(0)
+  unreadCount       Int            @default(0)
+
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
   contact        Contact            @relation(fields: [contactId], references: [id], onDelete: Cascade)
   inbox          Inbox              @relation(fields: [inboxId], references: [id], onDelete: Cascade)
   messages       Message[]
+  participants   ConversationParticipant[]
 
   @@unique([channel, externalId], name: "conversation_channel_externalId_unique")
   @@index([inboxId])
@@ -188,6 +195,7 @@ model Conversation {
   @@index([externalId])
   @@index([lastActivityAt])
   @@index([status, lastActivityAt])
+  @@index([inboxId, status, lastActivityAt])
 }
 
 model Message {
@@ -200,6 +208,32 @@ model Message {
   to             String?
   text           String?
   timestamp      DateTime         @default(now())
+
+  // Delivery tracking
+  status         MessageStatus    @default(SENT)
+  deliveredAt    DateTime?
+  readAt         DateTime?
+  failedReason   String?
+
+  // Editing support
+  editedAt       DateTime?
+  originalText   String?
+
+  // Soft deletion
+  deletedAt      DateTime?
+  deletedBy      String?
+
+  // Threading support
+  replyToMessageId String?
+  replyToMessage   Message?  @relation("MessageReplies", fields: [replyToMessageId], references: [id], onDelete: SetNull)
+  replies          Message[] @relation("MessageReplies")
+
+  // Optimistic locking
+  version        Int              @default(1)
+
+  // Full-text search (managed by trigger)
+  searchVector   Unsupported("tsvector")?
+
   createdAt      DateTime         @default(now())
   conversation   Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
@@ -209,6 +243,74 @@ model Message {
   @@index([channel])
   @@index([timestamp])
   @@index([conversationId, createdAt])
+  @@index([conversationId, timestamp, direction])
+  @@index([status])
+  @@index([replyToMessageId])
+  @@index([conversationId, timestamp]) // For messages not deleted
+}
+
+// =========================
+// CONVERSATION PARTICIPANTS (Read Receipts & Unread Tracking)
+// =========================
+model ConversationParticipant {
+  id               String   @id @default(cuid())
+  conversationId   String
+  userAccountId    String
+
+  // Read receipt tracking
+  lastReadMessageId String?
+  lastReadAt        DateTime?
+
+  // Cached unread count for performance
+  unreadCount      Int      @default(0)
+
+  // Presence in conversation
+  joinedAt         DateTime @default(now())
+  leftAt           DateTime?
+
+  // Notification preferences
+  muted            Boolean  @default(false)
+  mutedUntil       DateTime?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  conversation     Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userAccount      UserAccount  @relation(fields: [userAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userAccountId])
+  @@index([conversationId])
+  @@index([userAccountId])
+  @@index([userAccountId, unreadCount])
+}
+
+// =========================
+// PRESENCE TRACKING (Online/Offline Status)
+// =========================
+model Presence {
+  id                     String   @id @default(cuid())
+  userAccountId          String   @unique
+
+  // Online status
+  status                 String   @default("offline") // online, away, busy, offline
+  lastSeenAt             DateTime @default(now())
+
+  // Current activity
+  currentConversationId  String?
+  isTypingInConversation String?
+
+  // Connection info
+  socketId               String?
+  deviceInfo             Json?
+
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  userAccount            UserAccount @relation(fields: [userAccountId], references: [id], onDelete: Cascade)
+
+  @@index([userAccountId])
+  @@index([status])
+  @@index([lastSeenAt])
 }
 
 model ClientConfig {
@@ -276,9 +378,11 @@ model UserAccount {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  account       Account          @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  account       Account                   @relation(fields: [accountId], references: [id], onDelete: Cascade)
   preferences   UserPreference?
-  refreshTokens RefreshToken[] // Session management
+  refreshTokens RefreshToken[]            // Session management
+  participants  ConversationParticipant[] // Conversation participation
+  presence      Presence?                 // Online/offline status
 
   @@unique([accountId, username], name: "accountId_username")
   @@index([accountId])
@@ -503,6 +607,14 @@ enum Channel {
 enum MessageDirection {
   IN
   OUT
+}
+
+enum MessageStatus {
+  SENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
 }
 
 enum ClientStatus {

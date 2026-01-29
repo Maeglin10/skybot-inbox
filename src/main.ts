@@ -70,12 +70,17 @@ async function bootstrap() {
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
   });
 
-  // JSON global + capture rawBody uniquement pour le webhook
+  // JSON global + capture rawBody for webhook signature verification
   app.use(
     express.json({
       verify: (req: RawBodyRequest, _res, buf: Buffer) => {
         const url = req.originalUrl ?? req.url;
-        if (url.startsWith('/webhooks/whatsapp')) {
+        // Capture raw body for webhook signature verification
+        if (
+          url.startsWith('/webhooks/whatsapp') ||
+          url.startsWith('/webhooks/stripe') ||
+          url.startsWith('/api/webhooks/stripe')
+        ) {
           req.rawBody = buf;
         }
       },

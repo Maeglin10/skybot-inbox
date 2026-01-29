@@ -18,6 +18,7 @@ import { Public } from '../auth/decorators/public.decorator';
 import { UserRole } from '@prisma/client';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
+import { timingSafeEqual } from 'crypto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -147,7 +148,20 @@ export class AdminController {
       );
     }
 
-    if (secret !== expectedSecret) {
+    // Use timing-safe comparison to prevent timing attacks
+    try {
+      const secretBuffer = Buffer.from(secret, 'utf8');
+      const expectedBuffer = Buffer.from(expectedSecret, 'utf8');
+
+      // Ensure buffers are same length for timingSafeEqual
+      if (secretBuffer.length !== expectedBuffer.length) {
+        throw new BadRequestException('Invalid seed secret');
+      }
+
+      if (!timingSafeEqual(secretBuffer, expectedBuffer)) {
+        throw new BadRequestException('Invalid seed secret');
+      }
+    } catch (error) {
       throw new BadRequestException('Invalid seed secret');
     }
 

@@ -110,46 +110,58 @@ export class AuthService {
    * Login with username and password
    */
   async login(dto: LoginDto, request?: any): Promise<AuthResponse> {
-    console.log('[AUTH] Login attempt for username:', dto.username);
+    this.logger.info('Login attempt', {
+      username: dto.username,
+      ip: request?.ip,
+      userAgent: request?.headers?.['user-agent'],
+    });
 
     // Find user by username
     const user = await this.prisma.userAccount.findFirst({
       where: { username: dto.username },
     });
 
-    console.log(
-      '[AUTH] User found:',
-      !!user,
-      'Has passwordHash:',
-      !!user?.passwordHash,
-    );
-
     if (!user || !user.passwordHash) {
-      console.log('[AUTH] FAILED: User not found or no password hash');
+      this.logger.warn('Login failed: User not found or no password', {
+        username: dto.username,
+        userExists: !!user,
+        ip: request?.ip,
+      });
       throw new UnauthorizedException('Invalid credentials');
     }
 
     // Verify password
-    console.log('[AUTH] Testing password...');
     const isPasswordValid = await bcrypt.compare(
       dto.password,
       user.passwordHash,
     );
-    console.log('[AUTH] Password valid:', isPasswordValid);
 
     if (!isPasswordValid) {
-      console.log('[AUTH] FAILED: Invalid password');
+      this.logger.warn('Login failed: Invalid password', {
+        username: dto.username,
+        userId: user.id,
+        ip: request?.ip,
+      });
       throw new UnauthorizedException('Invalid credentials');
     }
 
     // Check if user is active
-    console.log('[AUTH] User status:', user.status);
     if (user.status !== 'ACTIVE') {
-      console.log('[AUTH] FAILED: Account not active');
+      this.logger.warn('Login failed: Account not active', {
+        username: dto.username,
+        userId: user.id,
+        status: user.status,
+        ip: request?.ip,
+      });
       throw new UnauthorizedException('Account is not active');
     }
 
-    console.log('[AUTH] Login successful for user:', user.id);
+    this.logger.info('Login successful', {
+      userId: user.id,
+      username: user.username,
+      accountId: user.accountId,
+      ip: request?.ip,
+    });
 
     // Generate tokens with rememberMe setting
     const tokens = await this.generateTokens(user, dto.rememberMe, request);
