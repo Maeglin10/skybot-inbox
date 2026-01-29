@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 require('dotenv/config');
 const { PrismaClient } = require('@prisma/client');
-const { PrismaPg } = require('@prisma/adapter-pg');
-const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -11,9 +9,7 @@ if (!databaseUrl) {
   process.exit(1);
 }
 
-const pool = new Pool({ connectionString: databaseUrl });
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+const prisma = new PrismaClient();
 
 async function ensureGoodLifeExists() {
   console.log('🔍 [ENSURE-GOODLIFE] Starting verification...');
@@ -38,7 +34,6 @@ async function ensureGoodLifeExists() {
       if (user && user.passwordHash) {
         console.log('✅ [ENSURE-GOODLIFE] User exists with password - OK');
         await prisma.$disconnect();
-        await pool.end();
         return;
       }
 
@@ -51,7 +46,6 @@ async function ensureGoodLifeExists() {
         });
         console.log('✅ [ENSURE-GOODLIFE] Password added successfully');
         await prisma.$disconnect();
-        await pool.end();
         return;
       }
 
@@ -90,7 +84,6 @@ async function ensureGoodLifeExists() {
         console.log('   Username: goodlife.nexxaagents');
         console.log('   Password: 4qFEZPjc8f');
         await prisma.$disconnect();
-        await pool.end();
         return;
       }
     }
@@ -240,11 +233,9 @@ async function ensureGoodLifeExists() {
     console.log('   Conversations: 6 (5 corporate + 1 test)');
 
     await prisma.$disconnect();
-    await pool.end();
   } catch (error) {
     console.error('❌ [ENSURE-GOODLIFE] Error:', error);
     await prisma.$disconnect();
-    await pool.end();
     throw error;
   }
 }
