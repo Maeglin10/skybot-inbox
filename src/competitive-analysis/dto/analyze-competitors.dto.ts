@@ -1,9 +1,18 @@
-import { IsString, IsOptional, IsLatitude, IsLongitude, IsNumber, Min, Max, IsEnum } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsLatitude,
+  IsLongitude,
+  IsNumber,
+  Min,
+  Max,
+  IsEnum,
+} from 'class-validator';
 
 export enum AnalysisDepth {
-  QUICK = 'QUICK',       // Basic competitor identification
+  QUICK = 'QUICK', // Basic competitor identification
   STANDARD = 'STANDARD', // Full SEO analysis
-  DEEP = 'DEEP',         // Comprehensive analysis with recommendations
+  DEEP = 'DEEP', // Comprehensive analysis with recommendations
 }
 
 export class AnalyzeCompetitorsDto {

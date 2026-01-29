@@ -62,8 +62,15 @@ export class SettingsController {
   }
 
   @Patch('security/password')
-  async changePassword(@CurrentUser() user: any, @Body() dto: { currentPassword: string; newPassword: string }) {
+  async changePassword(
+    @CurrentUser() user: any,
+    @Body() dto: { currentPassword: string; newPassword: string },
+  ) {
     this.logger.log(`PATCH /settings/security/password userId=${user.id}`);
-    return this.settingsService.changePassword(user.id, dto.currentPassword, dto.newPassword);
+    return this.settingsService.changePassword(
+      user.id,
+      dto.currentPassword,
+      dto.newPassword,
+    );
   }
 }

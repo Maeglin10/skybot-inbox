@@ -672,9 +672,7 @@ export class AgentsService {
 
       if (!response.ok) {
         const errorText = await response.text().catch(() => 'No error body');
-        throw new Error(
-          `N8N returned ${response.status}: ${errorText}`,
-        );
+        throw new Error(`N8N returned ${response.status}: ${errorText}`);
       }
 
       const result = await response.json().catch(() => ({ success: true }));

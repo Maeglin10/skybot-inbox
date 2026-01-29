@@ -1,4 +1,11 @@
-import { Controller, Get, Post, Query, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Query,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import { PrismaService } from './prisma/prisma.service';
 import { Public } from './auth/decorators/public.decorator';
@@ -105,7 +112,9 @@ export class AppController {
     }
 
     try {
-      const { stdout } = await execAsync('npx ts-node scripts/fix-demo-account.ts');
+      const { stdout } = await execAsync(
+        'npx ts-node scripts/fix-demo-account.ts',
+      );
       return {
         status: 'success',
         output: stdout,
@@ -136,7 +145,9 @@ export class AppController {
 
     try {
       // Reset demo account data
-      const { stdout: resetOutput } = await execAsync('npx ts-node scripts/reset-demo-account.ts');
+      const { stdout: resetOutput } = await execAsync(
+        'npx ts-node scripts/reset-demo-account.ts',
+      );
 
       // Seed fresh data
       const { stdout: seedOutput } = await execAsync('npm run seed:demo');

@@ -1,4 +1,11 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, Get } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  HttpCode,
+  HttpStatus,
+  Get,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { Public } from './decorators/public.decorator';
@@ -18,7 +25,10 @@ export class TestLoginController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async testLogin(@Body() dto: LoginDto) {
-    console.log('[TEST-LOGIN] Received request:', { username: dto.username, hasPassword: !!dto.password });
+    console.log('[TEST-LOGIN] Received request:', {
+      username: dto.username,
+      hasPassword: !!dto.password,
+    });
 
     try {
       const result = await this.authService.login(dto);
@@ -69,14 +79,22 @@ export class TestLoginController {
       { name: 'Pamela Chavarria', phone: '+50688284915', role: 'Team' },
       { name: 'Marcello Allegra', phone: '+50687057802', role: 'Management' },
       { name: 'Marcela Robles', phone: '+50683878226', role: 'Team' },
-      { name: 'Team Administración', phone: '+50683419449', role: 'Administration' },
+      {
+        name: 'Team Administración',
+        phone: '+50683419449',
+        role: 'Administration',
+      },
       { name: 'Bodega', phone: '+50663472858', role: 'Bodega' },
       { name: 'Goodlife Sabana', phone: '+50689784900', role: 'Team' },
       { name: 'Goodlife Lindora', phone: '+50689784910', role: 'Team' },
       { name: 'Michael Streda', phone: '+50671315444', role: 'Management' },
       { name: 'Erick Marchena', phone: '+50686815653', role: 'Team' },
       { name: 'Yeudy Araya Herrera', phone: '+50685323054', role: 'Team' },
-      { name: 'Brandon Cookhorn Etiplast', phone: '+50661386837', role: 'Team' },
+      {
+        name: 'Brandon Cookhorn Etiplast',
+        phone: '+50661386837',
+        role: 'Team',
+      },
     ];
 
     const messages = [
@@ -350,7 +368,7 @@ export class TestLoginController {
       return {
         accountId: account.id,
         messagesCount: messages.length,
-        messages: messages.map(m => ({
+        messages: messages.map((m) => ({
           id: m.id,
           text: m.text?.substring(0, 50),
           direction: m.direction,
@@ -358,7 +376,7 @@ export class TestLoginController {
           createdAt: m.createdAt,
         })),
         routingLogsCount: routingLogs.length,
-        routingLogs: routingLogs.map(r => ({
+        routingLogs: routingLogs.map((r) => ({
           id: r.id,
           agentKey: r.agentKey,
           status: r.status,

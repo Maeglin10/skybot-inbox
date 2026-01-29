@@ -1,6 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { AnalyzeCompetitorsDto, AnalysisDepth } from './dto/analyze-competitors.dto';
+import {
+  AnalyzeCompetitorsDto,
+  AnalysisDepth,
+} from './dto/analyze-competitors.dto';
 import { AnalysisStatus } from '@prisma/client';
 import axios from 'axios';
 
@@ -83,7 +86,10 @@ export class CompetitiveAnalysisService {
       }
 
       // Step 4: Analyze rankings
-      const rankings = await this.analyzeRankings(dto.businessNiche, dto.location);
+      const rankings = await this.analyzeRankings(
+        dto.businessNiche,
+        dto.location,
+      );
 
       const processingTime = Date.now() - startTime;
 
@@ -107,7 +113,8 @@ export class CompetitiveAnalysisService {
 
       return completed;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       const errorStack = error instanceof Error ? error.stack : undefined;
 
       this.logger.error(`Analysis failed: ${errorMessage}`, errorStack);
@@ -125,7 +132,9 @@ export class CompetitiveAnalysisService {
     }
   }
 
-  private async findCompetitors(dto: AnalyzeCompetitorsDto): Promise<Competitor[]> {
+  private async findCompetitors(
+    dto: AnalyzeCompetitorsDto,
+  ): Promise<Competitor[]> {
     const competitors: Competitor[] = [];
 
     // Use Google Places API if we have location data
@@ -155,7 +164,9 @@ export class CompetitiveAnalysisService {
 
     const googleApiKey = process.env.GOOGLE_MAPS_API_KEY;
     if (!googleApiKey) {
-      this.logger.warn('Google Maps API key not configured - skipping local search');
+      this.logger.warn(
+        'Google Maps API key not configured - skipping local search',
+      );
       return [];
     }
 
@@ -192,21 +203,25 @@ export class CompetitiveAnalysisService {
           reviewCount: place.user_ratings_total,
           placeId: place.place_id,
           // Calculate distance if we have coordinates
-          distance: dto.latitude && dto.longitude
-            ? this.calculateDistance(
-                dto.latitude,
-                dto.longitude,
-                place.geometry.location.lat,
-                place.geometry.location.lng,
-              )
-            : undefined,
+          distance:
+            dto.latitude && dto.longitude
+              ? this.calculateDistance(
+                  dto.latitude,
+                  dto.longitude,
+                  place.geometry.location.lat,
+                  place.geometry.location.lng,
+                )
+              : undefined,
         }),
       );
 
-      this.logger.log(`Found ${competitors.length} local competitors via Google Maps`);
+      this.logger.log(
+        `Found ${competitors.length} local competitors via Google Maps`,
+      );
       return competitors;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Google Maps API error: ${errorMessage}`);
       return [];
     }
@@ -234,18 +249,19 @@ export class CompetitiveAnalysisService {
 
       const serpRes = await axios.get(serpUrl);
 
-      const competitors: Competitor[] = (serpRes.data.organic_results || []).map(
-        (result: any) => ({
-          name: result.title,
-          website: result.link,
-          keywords: [dto.businessNiche],
-        }),
-      );
+      const competitors: Competitor[] = (
+        serpRes.data.organic_results || []
+      ).map((result: any) => ({
+        name: result.title,
+        website: result.link,
+        keywords: [dto.businessNiche],
+      }));
 
       this.logger.log(`Found ${competitors.length} competitors via web search`);
       return competitors;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Web search error: ${errorMessage}`);
       return [];
     }
@@ -318,7 +334,7 @@ export class CompetitiveAnalysisService {
       averageBacklinks,
       topKeywords,
       gapOpportunities,
-      marketSaturation: saturation as 'LOW' | 'MEDIUM' | 'HIGH',
+      marketSaturation: saturation,
     };
   }
 
@@ -330,7 +346,11 @@ export class CompetitiveAnalysisService {
     return {
       keywordRankings: [
         { keyword: niche, position: null, url: null },
-        { keyword: `${niche} ${location || ''}`.trim(), position: null, url: null },
+        {
+          keyword: `${niche} ${location || ''}`.trim(),
+          position: null,
+          url: null,
+        },
         { keyword: `best ${niche}`, position: null, url: null },
       ],
       localPackRanking: null,
@@ -362,7 +382,8 @@ export class CompetitiveAnalysisService {
           'Post weekly updates about your business',
           'Add all relevant business categories',
         ],
-        estimatedImpact: 'Can improve local visibility by 50-80% within 3 months',
+        estimatedImpact:
+          'Can improve local visibility by 50-80% within 3 months',
       });
     }
 
@@ -379,7 +400,8 @@ export class CompetitiveAnalysisService {
           'Add location-specific landing pages',
           'Optimize existing pages for long-tail keywords',
         ],
-        estimatedImpact: 'Can increase organic traffic by 30-50% within 6 months',
+        estimatedImpact:
+          'Can increase organic traffic by 30-50% within 6 months',
       });
     }
 
@@ -396,7 +418,8 @@ export class CompetitiveAnalysisService {
           'Create shareable content (guides, infographics)',
           'Reach out to local news sites and blogs',
         ],
-        estimatedImpact: 'Can improve search rankings by 10-20 positions within 6-12 months',
+        estimatedImpact:
+          'Can improve search rankings by 10-20 positions within 6-12 months',
       });
     }
 

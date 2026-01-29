@@ -101,7 +101,13 @@ export class CorporateAlertsController {
 
   @Get()
   async listCorporate(@CurrentUser() user: any, @Query() query: ListAlertsDto) {
-    this.logger.log(`GET /alerts/corporate userId=${user.id} accountId=${user.accountId}`);
-    return this.alertsService.findAllByAccount(user.accountId, query.status, AlertType.CORPORATE);
+    this.logger.log(
+      `GET /alerts/corporate userId=${user.id} accountId=${user.accountId}`,
+    );
+    return this.alertsService.findAllByAccount(
+      user.accountId,
+      query.status,
+      AlertType.CORPORATE,
+    );
   }
 }

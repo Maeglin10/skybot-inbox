@@ -1,4 +1,10 @@
-import { IsString, IsOptional, IsUrl, IsEnum, IsDateString } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsUrl,
+  IsEnum,
+  IsDateString,
+} from 'class-validator';
 
 export enum StoryMediaType {
   IMAGE = 'image/jpeg',

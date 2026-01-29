@@ -51,7 +51,15 @@ export class ConversationsService {
     lite?: boolean;
     corporate?: boolean; // P1: Filter for corporate contacts
   }) {
-    const { status, inboxId, limit = 20, cursor, lite, channel, corporate } = params;
+    const {
+      status,
+      inboxId,
+      limit = 20,
+      cursor,
+      lite,
+      channel,
+      corporate,
+    } = params;
 
     const take = Math.min(Math.max(limit, 1), 100);
     const cursorDate = parseCursor(cursor);
@@ -62,7 +70,9 @@ export class ConversationsService {
       ...(inboxId ? { inboxId } : {}),
       ...(ch ? { channel: ch } : {}),
       ...(cursorDate ? { createdAt: { lt: cursorDate } } : {}),
-      ...(corporate !== undefined ? { contact: { isCorporate: corporate } } : {}),
+      ...(corporate !== undefined
+        ? { contact: { isCorporate: corporate } }
+        : {}),
     };
 
     const rows: ConversationWithRelations[] =

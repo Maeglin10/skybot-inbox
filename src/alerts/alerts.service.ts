@@ -67,7 +67,14 @@ export class AlertsService {
           where: {
             inbox: { accountId },
             contact: { isCorporate: true },
-            status: status === 'OPEN' ? 'OPEN' : status === 'PENDING' ? 'PENDING' : status === 'RESOLVED' ? 'CLOSED' : undefined,
+            status:
+              status === 'OPEN'
+                ? 'OPEN'
+                : status === 'PENDING'
+                  ? 'PENDING'
+                  : status === 'RESOLVED'
+                    ? 'CLOSED'
+                    : undefined,
           },
           include: {
             contact: true,
@@ -84,7 +91,9 @@ export class AlertsService {
           type: 'CORPORATE' as AlertType,
           title: conv.contact.name || 'Unknown Contact',
           subtitle: conv.messages[0]?.text?.substring(0, 100) || 'No messages',
-          status: (conv.status === 'CLOSED' ? 'RESOLVED' : conv.status) as AlertStatus,
+          status: (conv.status === 'CLOSED'
+            ? 'RESOLVED'
+            : conv.status) as AlertStatus,
           priority: 'MEDIUM' as AlertPriority,
           customerName: conv.contact.name || undefined,
           channel: conv.channel as string,

@@ -8,7 +8,10 @@ import {
   MinLength,
   MaxLength,
 } from 'class-validator';
-import { SanitizeHtml, SanitizeHtmlBasic } from '../../common/validators/sanitize-html.decorator';
+import {
+  SanitizeHtml,
+  SanitizeHtmlBasic,
+} from '../../common/validators/sanitize-html.decorator';
 
 export class CreateFeedbackDto {
   @SanitizeHtml()

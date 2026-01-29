@@ -116,7 +116,12 @@ export class AuthService {
       where: { username: dto.username },
     });
 
-    console.log('[AUTH] User found:', !!user, 'Has passwordHash:', !!user?.passwordHash);
+    console.log(
+      '[AUTH] User found:',
+      !!user,
+      'Has passwordHash:',
+      !!user?.passwordHash,
+    );
 
     if (!user || !user.passwordHash) {
       console.log('[AUTH] FAILED: User not found or no password hash');

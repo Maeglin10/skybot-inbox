@@ -44,8 +44,12 @@ export class ConversationsController {
     const limit = asInt(limitQ, 20);
     const cursor = asString(cursorQ);
     const lite = liteQ === '1' || liteQ === 'true';
-    const corporate = corporateQ === '1' || corporateQ === 'true' ? true :
-                      corporateQ === '0' || corporateQ === 'false' ? false : undefined;
+    const corporate =
+      corporateQ === '1' || corporateQ === 'true'
+        ? true
+        : corporateQ === '0' || corporateQ === 'false'
+          ? false
+          : undefined;
 
     return this.conversationsService.findAll({
       status,

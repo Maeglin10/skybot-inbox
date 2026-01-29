@@ -9,7 +9,9 @@ describe('CompetitiveAnalysisService', () => {
       providers: [CompetitiveAnalysisService],
     }).compile();
 
-    service = module.get<CompetitiveAnalysisService>(CompetitiveAnalysisService);
+    service = module.get<CompetitiveAnalysisService>(
+      CompetitiveAnalysisService,
+    );
   });
 
   it('should be defined', () => {

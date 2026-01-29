@@ -1,4 +1,13 @@
-import { Controller, Post, Get, Delete, Body, Param, Query, Logger } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Delete,
+  Body,
+  Param,
+  Query,
+  Logger,
+} from '@nestjs/common';
 import { CompetitiveAnalysisService } from './competitive-analysis.service';
 import { AnalyzeCompetitorsDto } from './dto/analyze-competitors.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -20,7 +29,10 @@ export class CompetitiveAnalysisController {
       `POST /competitive-analysis - accountId=${user.accountId} niche=${dto.businessNiche}`,
     );
 
-    return this.competitiveAnalysisService.analyzeCompetitors(user.accountId, dto);
+    return this.competitiveAnalysisService.analyzeCompetitors(
+      user.accountId,
+      dto,
+    );
   }
 
   @Get()

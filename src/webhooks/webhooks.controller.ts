@@ -40,7 +40,9 @@ export class WebhooksController {
   async debugPost(@Req() req: Request, @Body() body: any) {
     this.logger.log('[WEBHOOK-DEBUG] Received webhook from Meta');
     this.logger.log(`[WEBHOOK-DEBUG] IP: ${req.ip}`);
-    this.logger.log(`[WEBHOOK-DEBUG] Body: ${JSON.stringify(body).substring(0, 500)}`);
+    this.logger.log(
+      `[WEBHOOK-DEBUG] Body: ${JSON.stringify(body).substring(0, 500)}`,
+    );
 
     try {
       await this.webhooksService.handleWhatsAppWebhook(body);

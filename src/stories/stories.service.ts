@@ -110,7 +110,8 @@ export class StoriesService {
       this.logger.log(`Story ${id} published successfully`);
       return { success: true, externalId: response.data.messages?.[0]?.id };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
 
       await this.prisma.story.update({
         where: { id },

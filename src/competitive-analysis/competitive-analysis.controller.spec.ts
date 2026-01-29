@@ -9,7 +9,9 @@ describe('CompetitiveAnalysisController', () => {
       controllers: [CompetitiveAnalysisController],
     }).compile();
 
-    controller = module.get<CompetitiveAnalysisController>(CompetitiveAnalysisController);
+    controller = module.get<CompetitiveAnalysisController>(
+      CompetitiveAnalysisController,
+    );
   });
 
   it('should be defined', () => {
