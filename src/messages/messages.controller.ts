@@ -4,6 +4,7 @@ import { ApiKeyGuard } from '../auth/api-key.guard';
 import { MessagesService } from './messages.service';
 import { SendMessageDto } from './dto/send-message.dto';
 import { InvalidAccessTokenError } from '../common/errors/known-error';
+import { Idempotent } from '../common/idempotency/idempotent.decorator';
 
 @Controller('messages')
 @UseGuards(ApiKeyGuard)
@@ -11,6 +12,7 @@ export class MessagesController {
   constructor(private readonly messagesService: MessagesService) {}
 
   @Post()
+  @Idempotent() // Prevent duplicate message sending with Idempotency-Key header
   send(@Req() req: Request, @Body() dto: SendMessageDto) {
     // Extract accountId from API key auth
     const accountId = (req as any).accountId;

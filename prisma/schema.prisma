@@ -31,6 +31,7 @@ model Account {
   // New relations
   userAccounts        UserAccount[]
   refreshTokens       RefreshToken[] // Session management
+  idempotencyKeys     IdempotencyKey[] // Prevent duplicate operations
   leads               Lead[]
   feedbacks           Feedback[]
   channelConnections  ChannelConnection[]
@@ -352,6 +353,34 @@ model RefreshToken {
   @@index([token])
   @@index([expiresAt])
   @@index([revokedAt])
+}
+
+// =========================
+// IDEMPOTENCY KEYS (Prevent duplicate operations)
+// =========================
+model IdempotencyKey {
+  id        String   @id @default(cuid())
+  key       String   @unique // Client-provided idempotency key
+  accountId String   // Multi-tenant isolation
+
+  // Request details
+  endpoint  String   // The API endpoint called
+  method    String   // HTTP method (POST, PUT, etc.)
+  requestBody Json?  // Original request body (for verification)
+
+  // Response caching
+  statusCode  Int?     // HTTP status code of original response
+  responseBody Json?   // Cached response body
+
+  // Metadata
+  createdAt DateTime @default(now())
+  expiresAt DateTime // Auto-expire after 24h
+
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@index([key])
+  @@index([expiresAt]) // For cleanup job
 }
 
 // =========================
