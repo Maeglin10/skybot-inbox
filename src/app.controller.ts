@@ -19,6 +19,22 @@ export class AppController {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
+   * Root endpoint for Render health checks
+   * Handles HEAD and GET requests to /
+   */
+  @Public()
+  @SkipThrottle()
+  @Get()
+  root() {
+    return {
+      status: 'ok',
+      service: 'skybot-inbox',
+      version: '1.0.0',
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  /**
    * Basic health check endpoint
    * Returns 200 if the application is running
    */
