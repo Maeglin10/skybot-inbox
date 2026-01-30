@@ -440,9 +440,11 @@ export class AdminController {
    */
   @Public()
   @Post('migrate-conversation-counts')
-  async migrateConversationCounts(@Headers('x-api-key') apiKey: string) {
-    if (apiKey !== process.env.ADMIN_API_KEY) {
-      throw new BadRequestException('Invalid API key');
+  async migrateConversationCounts(@Headers('x-seed-secret') secret: string) {
+    const expectedSecret = process.env.SEED_SECRET_KEY;
+
+    if (!secret || !expectedSecret || secret !== expectedSecret) {
+      throw new BadRequestException('Invalid seed secret');
     }
 
     try {
