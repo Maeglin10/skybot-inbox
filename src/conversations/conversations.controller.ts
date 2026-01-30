@@ -1,10 +1,12 @@
-import { Controller, Get, Param, Patch, Body, Query } from '@nestjs/common';
+import { Controller, Get, Param, Patch, Body, Query, UseGuards } from '@nestjs/common';
 import { ConversationsService } from './conversations.service';
 import type { ConversationStatus } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { QueryConversationsDto } from './dto/query-conversations.dto';
 
 @Controller('conversations')
+@UseGuards(JwtAuthGuard)
 export class ConversationsController {
   constructor(private readonly conversationsService: ConversationsService) {}
 

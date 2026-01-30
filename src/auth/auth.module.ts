@@ -10,6 +10,7 @@ import { GoogleStrategy } from './strategies/google.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { RequireModuleGuard } from './guards/require-module.guard';
+import { ApiOrJwtGuard } from './guards/api-or-jwt.guard';
 import { ApiKeyGuard } from './api-key.guard';
 import { ApiKeysModule } from './api-keys/api-keys.module';
 import { APP_GUARD } from '@nestjs/core';
@@ -19,6 +20,7 @@ const providers: any[] = [
   JwtStrategy,
   JwtAuthGuard,
   ApiKeyGuard,
+  ApiOrJwtGuard,
   RolesGuard,
   RequireModuleGuard,
   // TEMPORARILY DISABLED: Global guard causing issues with @Public() decorator
@@ -45,6 +47,6 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   ],
   controllers: [AuthController, TestLoginController],
   providers,
-  exports: [AuthService, ApiKeyGuard, RolesGuard, RequireModuleGuard],
+  exports: [AuthService, ApiKeyGuard, ApiOrJwtGuard, RolesGuard, RequireModuleGuard],
 })
 export class AuthModule {}

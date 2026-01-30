@@ -12,7 +12,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { AlertsService } from './alerts.service';
-import { ApiKeyGuard } from '../auth/api-key.guard';
+import { ApiOrJwtGuard } from '../auth/guards/api-or-jwt.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CreateAlertDto, AlertType } from './dto/create-alert.dto';
@@ -21,7 +21,7 @@ import { ListAlertsDto } from './dto/list-alerts.dto';
 import { AssignAlertDto } from './dto/assign-alert.dto';
 
 @Controller('alerts')
-@UseGuards(ApiKeyGuard)
+@UseGuards(ApiOrJwtGuard)
 export class AlertsController {
   private readonly logger = new Logger(AlertsController.name);
 
