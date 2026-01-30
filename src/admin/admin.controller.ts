@@ -435,8 +435,8 @@ export class AdminController {
   }
 
   /**
-   * TEMPORARY: Add missing columns to DB
-   * Execute migration to add messageCount, participantCount, unreadCount, status
+   * TEMPORARY: Add ALL missing columns to DB
+   * Complete migration for Conversation and Message tables
    */
   @Public()
   @Post('migrate-conversation-counts')
@@ -448,7 +448,7 @@ export class AdminController {
     }
 
     try {
-      // Add conversation count columns
+      // 1. Conversation table columns
       await this.prisma.$executeRaw`
         ALTER TABLE "Conversation"
         ADD COLUMN IF NOT EXISTS "messageCount" INTEGER DEFAULT 0,
@@ -456,30 +456,41 @@ export class AdminController {
         ADD COLUMN IF NOT EXISTS "unreadCount" INTEGER DEFAULT 0
       `;
 
-      // Create MessageStatus enum if not exists
+      // 2. Create all enums if not exist
       await this.prisma.$executeRaw`
         DO $$ BEGIN
-          CREATE TYPE "MessageStatus" AS ENUM ('SENT', 'DELIVERED', 'READ', 'FAILED');
+          CREATE TYPE "MessageStatus" AS ENUM ('SENDING', 'SENT', 'DELIVERED', 'READ', 'FAILED');
         EXCEPTION
           WHEN duplicate_object THEN null;
         END $$
       `;
 
-      // Add Message.status column
       await this.prisma.$executeRaw`
-        ALTER TABLE "Message"
-        ADD COLUMN IF NOT EXISTS "status" "MessageStatus" DEFAULT 'SENT'
+        DO $$ BEGIN
+          CREATE TYPE "MessageDirection" AS ENUM ('IN', 'OUT');
+        EXCEPTION
+          WHEN duplicate_object THEN null;
+        END $$
       `;
 
-      // Add Message.version column
+      // 3. Add ALL Message table columns that might be missing
       await this.prisma.$executeRaw`
         ALTER TABLE "Message"
+        ADD COLUMN IF NOT EXISTS "status" "MessageStatus" DEFAULT 'SENT',
+        ADD COLUMN IF NOT EXISTS "deliveredAt" TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS "readAt" TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS "failedReason" TEXT,
+        ADD COLUMN IF NOT EXISTS "editedAt" TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS "originalText" TEXT,
+        ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS "deletedBy" TEXT,
+        ADD COLUMN IF NOT EXISTS "replyToMessageId" TEXT,
         ADD COLUMN IF NOT EXISTS "version" INTEGER DEFAULT 1
       `;
 
       return {
         status: 'success',
-        message: 'Missing columns added successfully (Conversation counts + Message.status + Message.version)',
+        message: 'All missing columns added successfully (Conversation + Message complete)',
         timestamp: new Date().toISOString(),
       };
     } catch (error) {
