@@ -1,14 +1,18 @@
 import "server-only";
+import { cookies } from "next/headers";
 
 const BASE = process.env.APP_URL ?? "http://localhost:3000";
 
 export async function apiServerFetch(path: string, init: RequestInit = {}): Promise<unknown> {
   const url = `${BASE}/api/proxy${path.startsWith("/") ? path : `/${path}`}`;
 
+  const cookieStore = await cookies();
+
   const res = await fetch(url, {
     ...init,
     headers: {
       "Content-Type": "application/json",
+      Cookie: cookieStore.toString(),
       ...(init.headers ?? {}),
     },
     next: { revalidate: 5 },

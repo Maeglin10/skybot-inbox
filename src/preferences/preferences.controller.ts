@@ -2,7 +2,7 @@ import { Controller, Get, Patch, Body, Param } from '@nestjs/common';
 import { PreferencesService } from './preferences.service';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 
-@Controller('api/preferences')
+@Controller('preferences')
 export class PreferencesController {
   constructor(private readonly preferencesService: PreferencesService) {}
 
