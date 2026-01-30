@@ -32,6 +32,7 @@ export class WebhooksService {
   ) {}
 
   async handleWhatsAppWebhook(body: WhatsAppCloudWebhook) {
+    this.logger.log(`📥 Webhook payload: ${JSON.stringify(body, null, 2)}`);
     const events = parseWhatsAppCloudWebhook(body);
     this.logger.log(`🚀 GOODLIFE-FIXED-VERSION-2026-01-30-18h30 events=${events.length}`);
 
