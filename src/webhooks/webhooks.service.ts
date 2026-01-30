@@ -214,7 +214,7 @@ export class WebhooksService {
 
                 // 1. Envoyer via WhatsApp API
                 const whatsappResult = await this.whatsapp.sendTextMessage({
-                  to: ev.from,
+                  to: ev.phone,
                   text: n8nResponse.message,
                   conversationId: txResult.triggerData.conversationId,
                   messageId: txResult.triggerData.messageId,
