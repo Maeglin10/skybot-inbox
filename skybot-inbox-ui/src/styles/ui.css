@@ -194,8 +194,10 @@
 .ui-thread {
   height: 100%;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .ui-thread__header {
@@ -399,8 +401,10 @@
 ========================================================================== */
 .ui-conv {
   height: 100%;
+  min-height: 0; /* Important for flex nesting */
   display: flex;
   flex-direction: column;
+  overflow: hidden; /* Contain children */
 }
 
 .ui-conv__header {
