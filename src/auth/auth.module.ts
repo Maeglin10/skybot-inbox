@@ -47,6 +47,6 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   ],
   controllers: [AuthController, TestLoginController],
   providers,
-  exports: [AuthService, ApiKeyGuard, ApiOrJwtGuard, RolesGuard, RequireModuleGuard],
+  exports: [AuthService, JwtAuthGuard, ApiKeyGuard, ApiOrJwtGuard, RolesGuard, RequireModuleGuard],
 })
 export class AuthModule {}

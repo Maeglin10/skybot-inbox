@@ -12,6 +12,8 @@ function isPrismaUniqueConstraintError(e: unknown): boolean {
 }
 import { ClientsService } from '../clients/clients.service';
 import { AgentsService } from '../agents/agents.service';
+import { WhatsAppService } from '../whatsapp/whatsapp.service';
+import { MessagesService } from '../messages/messages.service';
 import type { WhatsAppCloudWebhook } from './dto/whatsapp-cloud.dto';
 import { parseWhatsAppCloudWebhook } from './whatsapp.parser';
 
@@ -24,6 +26,8 @@ export class WebhooksService {
     private readonly prisma: PrismaService,
     private readonly clients: ClientsService,
     private readonly agents: AgentsService,
+    private readonly whatsapp: WhatsAppService,
+    private readonly messages: MessagesService,
   ) {}
 
   async handleWhatsAppWebhook(body: WhatsAppCloudWebhook) {
@@ -198,7 +202,46 @@ export class WebhooksService {
           // Trigger n8n APRÈS la transaction (synchrone, pas fire-and-forget)
           if (txResult.triggerData) {
             try {
-              await this.agents.trigger(txResult.triggerData);
+              const n8nResponse = await this.agents.trigger(txResult.triggerData);
+
+              // Si N8N renvoie une réponse à envoyer
+              if (n8nResponse?.message) {
+                this.logger.log('N8N returned response, sending via WhatsApp', {
+                  conversationId: txResult.triggerData.conversationId,
+                  messageId: txResult.triggerData.messageId,
+                  responseLength: n8nResponse.message.length,
+                });
+
+                // 1. Envoyer via WhatsApp API
+                const whatsappResult = await this.whatsapp.sendTextMessage({
+                  to: ev.from,
+                  text: n8nResponse.message,
+                  conversationId: txResult.triggerData.conversationId,
+                  messageId: txResult.triggerData.messageId,
+                });
+
+                // 2. Stocker le message sortant dans DB
+                if (whatsappResult.success) {
+                  await this.messages.send({
+                    accountId,
+                    conversationId: txResult.triggerData.conversationId,
+                    text: n8nResponse.message,
+                    externalId: whatsappResult.messageId,
+                  });
+
+                  this.logger.log('Response sent and stored successfully', {
+                    conversationId: txResult.triggerData.conversationId,
+                    whatsappMessageId: whatsappResult.messageId,
+                  });
+                } else {
+                  this.logger.error('Failed to send WhatsApp message', {
+                    conversationId: txResult.triggerData.conversationId,
+                    error: whatsappResult.error,
+                  });
+                }
+              } else {
+                this.logger.log('N8N did not return a message to send');
+              }
             } catch (triggerErr) {
               // Log l'erreur mais ne fait pas échouer le webhook
               // Le message est déjà stocké, n8n sera retry plus tard si besoin

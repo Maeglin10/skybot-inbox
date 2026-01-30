@@ -5,9 +5,11 @@ import { WebhooksService } from './webhooks.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { ClientsModule } from '../clients/clients.module';
 import { AgentsModule } from '../agents/agents.module';
+import { WhatsAppModule } from '../whatsapp/whatsapp.module';
+import { MessagesModule } from '../messages/messages.module';
 
 @Module({
-  imports: [PrismaModule, ClientsModule, AgentsModule],
+  imports: [PrismaModule, ClientsModule, AgentsModule, WhatsAppModule, MessagesModule],
   controllers: [WebhooksController, SkybotWebhooksController],
   providers: [WebhooksService],
   exports: [WebhooksService],

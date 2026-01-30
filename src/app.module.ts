@@ -13,6 +13,7 @@ import { ContactsModule } from './contacts/contacts.module';
 import { ConversationsModule } from './conversations/conversations.module';
 import { MessagesModule } from './messages/messages.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
+import { WhatsAppModule } from './whatsapp/whatsapp.module';
 import { DebugModule } from './debug/debug.module';
 import { AuthModule } from './auth/auth.module';
 import { AgentsModule } from './agents/agents.module';
@@ -92,6 +93,7 @@ import { CompetitiveAnalysisModule } from './competitive-analysis/competitive-an
     ConversationsModule,
     MessagesModule,
     WebhooksModule,
+    WhatsAppModule,
     DebugModule,
     CompetitiveAnalysisModule,
   ],

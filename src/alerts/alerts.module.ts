@@ -6,9 +6,10 @@ import {
 } from './alerts.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { ApiKeysModule } from '../auth/api-keys/api-keys.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [PrismaModule, ApiKeysModule],
+  imports: [PrismaModule, ApiKeysModule, AuthModule],
   controllers: [AlertsController, CorporateAlertsController],
   providers: [AlertsService],
   exports: [AlertsService],
