@@ -15,9 +15,17 @@ export class PreferencesService {
     });
 
     if (!preferences) {
-      throw new NotFoundException(
-        `Preferences not found for user: ${userAccountId}`,
-      );
+      // Return defaults if not found, rather than throwing 404
+      // This allows the frontend to render the page for new users
+      return {
+        id: 'virtual-default',
+        theme: 'DEFAULT',
+        language: 'EN',
+        timezone: 'UTC',
+        dateFormat: 'YYYY-MM-DD',
+        timeFormat: '24h',
+        updatedAt: new Date().toISOString(),
+      };
     }
 
     return {

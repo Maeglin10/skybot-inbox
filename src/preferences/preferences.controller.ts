@@ -18,7 +18,8 @@ export class PreferencesController {
     @CurrentUser() user: any,
     @Param('userAccountId') userAccountId: string,
   ) {
-    const targetId = userAccountId === 'me' ? user.userAccountId || user.accountId : userAccountId;
+    // Resolve 'me' to the authenticated user's ID
+    const targetId = userAccountId === 'me' ? user.id : userAccountId;
     return this.preferencesService.getPreferences(targetId);
   }
 
@@ -32,7 +33,7 @@ export class PreferencesController {
     @Param('userAccountId') userAccountId: string,
     @Body() dto: UpdatePreferencesDto,
   ) {
-    const targetId = userAccountId === 'me' ? user.userAccountId || user.accountId : userAccountId;
+    const targetId = userAccountId === 'me' ? user.id : userAccountId;
     return this.preferencesService.updatePreferences(targetId, dto);
   }
 }

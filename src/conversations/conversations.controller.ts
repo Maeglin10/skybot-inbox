@@ -1,4 +1,5 @@
-import { Controller, Get, Param, Patch, Body, Query, UseGuards } from '@nestjs/common';
+
+import { Controller, Get, Param, Patch, Body, Query, UseGuards, UnauthorizedException } from '@nestjs/common';
 import { ConversationsService } from './conversations.service';
 import type { ConversationStatus } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -22,6 +23,10 @@ export class ConversationsController {
     @Query('channel') channel?: string,
     @Query('corporate') corporate?: string,
   ) {
+    if (!user || !user.accountId) {
+      throw new UnauthorizedException('User account context missing');
+    }
+
     // Parse optional filters (not in main DTO to keep it simple)
     const corporateFilter =
       corporate === '1' || corporate === 'true'
