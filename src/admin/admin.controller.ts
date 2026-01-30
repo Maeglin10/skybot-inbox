@@ -166,8 +166,8 @@ export class AdminController {
     }
 
     const GOODLIFE_CONFIG = {
-      phoneNumberId: '966520989876579',
-      businessNumber: '50660213707',
+      phoneNumberId: '958241240707717',
+      businessNumber: '50660216358',
       displayName: 'Goodlife Costa Rica',
       accountName: 'Goodlife Costa Rica',
       clientKey: 'goodlife',
