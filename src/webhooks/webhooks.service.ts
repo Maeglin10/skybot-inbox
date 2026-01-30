@@ -204,18 +204,22 @@ export class WebhooksService {
             try {
               const n8nResponse = await this.agents.trigger(txResult.triggerData);
 
+              // Extract message text from N8N response (supports multiple formats)
+              const responseText = n8nResponse?.message || n8nResponse?.replyText;
+
               // Si N8N renvoie une réponse à envoyer
-              if (n8nResponse?.message) {
+              if (responseText) {
                 this.logger.log('N8N returned response, sending via WhatsApp', {
                   conversationId: txResult.triggerData.conversationId,
                   messageId: txResult.triggerData.messageId,
-                  responseLength: n8nResponse.message.length,
+                  responseLength: responseText.length,
+                  format: n8nResponse?.message ? 'message' : 'replyText',
                 });
 
                 // 1. Envoyer via WhatsApp API
                 const whatsappResult = await this.whatsapp.sendTextMessage({
                   to: ev.phone,
-                  text: n8nResponse.message,
+                  text: responseText,
                   conversationId: txResult.triggerData.conversationId,
                   messageId: txResult.triggerData.messageId,
                 });
@@ -225,7 +229,7 @@ export class WebhooksService {
                   await this.messages.send({
                     accountId,
                     conversationId: txResult.triggerData.conversationId,
-                    text: n8nResponse.message,
+                    text: responseText,
                     externalId: whatsappResult.messageId,
                   });
 
@@ -240,7 +244,9 @@ export class WebhooksService {
                   });
                 }
               } else {
-                this.logger.log('N8N did not return a message to send');
+                this.logger.log('N8N did not return a message to send', {
+                  n8nResponseKeys: Object.keys(n8nResponse || {}),
+                });
               }
             } catch (triggerErr) {
               // Log l'erreur mais ne fait pas échouer le webhook
