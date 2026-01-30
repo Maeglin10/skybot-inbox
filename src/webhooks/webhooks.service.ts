@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
+// GoodLife WhatsApp Integration - Updated 2026-01-30
 // Helper to check for Prisma unique constraint violation
 function isPrismaUniqueConstraintError(e: unknown): boolean {
   return (
@@ -32,7 +33,7 @@ export class WebhooksService {
 
   async handleWhatsAppWebhook(body: WhatsAppCloudWebhook) {
     const events = parseWhatsAppCloudWebhook(body);
-    this.logger.log(`events=${events.length}`);
+    this.logger.log(`🚀 GOODLIFE-FIXED-VERSION-2026-01-30-18h30 events=${events.length}`);
 
     if (events.length === 0) return { ok: true, stored: 0 };
 
@@ -49,6 +50,9 @@ export class WebhooksService {
 
       try {
         // Find ExternalAccount by channel + externalId to get the correct accountId
+        this.logger.log(
+          `🔍 SEARCHING ExternalAccount: channel=${channel} externalId=${externalAccountId}`,
+        );
         const externalAccount = await this.prisma.externalAccount.findFirst({
           where: {
             channel,
