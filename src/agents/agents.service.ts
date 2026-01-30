@@ -638,6 +638,8 @@ export class AgentsService {
     messageId: string;
     agentKey: string;
     inputText: string;
+    userPhone: string;
+    userName: string;
   }) {
     const n8nUrl = process.env.N8N_MASTER_ROUTER_URL;
     const n8nSecret = process.env.N8N_MASTER_ROUTER_SECRET;
@@ -661,11 +663,16 @@ export class AgentsService {
           ...(n8nSecret && { 'x-master-secret': n8nSecret }),
         },
         body: JSON.stringify({
+          // Format compatible avec workflows N8N existants (Format 4)
+          message_body: triggerData.inputText,
+          user_phone: triggerData.userPhone,
+          user_name: triggerData.userName,
+          conversation_id: triggerData.conversationId,
           requestId: triggerData.requestId,
-          conversationId: triggerData.conversationId,
+          clientKey: 'goodlife', // TODO: passer dynamiquement
+          // Champs additionnels pour compatibilité
           messageId: triggerData.messageId,
           agentKey: triggerData.agentKey,
-          inputText: triggerData.inputText,
           timestamp: new Date().toISOString(),
         }),
       });

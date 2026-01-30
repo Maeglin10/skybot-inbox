@@ -190,6 +190,8 @@ export class WebhooksService {
                 messageId: message.id,
                 agentKey: 'master-router',
                 inputText: ev.text ?? '',
+                userPhone: ev.phone,
+                userName: ev.contactName ?? '',
               },
             };
           } catch (e: unknown) {
