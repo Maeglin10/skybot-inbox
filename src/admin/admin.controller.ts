@@ -435,8 +435,8 @@ export class AdminController {
   }
 
   /**
-   * TEMPORARY: Add conversation count columns
-   * Execute migration to add messageCount, participantCount, unreadCount
+   * TEMPORARY: Add missing columns to DB
+   * Execute migration to add messageCount, participantCount, unreadCount, status
    */
   @Public()
   @Post('migrate-conversation-counts')
@@ -448,6 +448,7 @@ export class AdminController {
     }
 
     try {
+      // Add conversation count columns
       await this.prisma.$executeRaw`
         ALTER TABLE "Conversation"
         ADD COLUMN IF NOT EXISTS "messageCount" INTEGER DEFAULT 0,
@@ -455,9 +456,21 @@ export class AdminController {
         ADD COLUMN IF NOT EXISTS "unreadCount" INTEGER DEFAULT 0;
       `;
 
+      // Add Message.status column (enum: SENT, DELIVERED, READ, FAILED)
+      await this.prisma.$executeRaw`
+        DO $$ BEGIN
+          CREATE TYPE "MessageStatus" AS ENUM ('SENT', 'DELIVERED', 'READ', 'FAILED');
+        EXCEPTION
+          WHEN duplicate_object THEN null;
+        END $$;
+
+        ALTER TABLE "Message"
+        ADD COLUMN IF NOT EXISTS "status" "MessageStatus" DEFAULT 'SENT';
+      `;
+
       return {
         status: 'success',
-        message: 'Conversation count columns added successfully',
+        message: 'Missing columns added successfully (Conversation counts + Message.status)',
         timestamp: new Date().toISOString(),
       };
     } catch (error) {
