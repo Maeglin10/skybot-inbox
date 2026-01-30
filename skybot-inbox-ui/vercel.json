@@ -1,0 +1,11 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "env": {
+    "API_URL": "https://skybot-inbox.onrender.com/api",
+    "API_BASE": "https://skybot-inbox.onrender.com/api"
+  }
+}
