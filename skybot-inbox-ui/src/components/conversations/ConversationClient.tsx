@@ -5,13 +5,12 @@ import Composer from '@/components/conversations/Composer';
 import StatusSelect from '@/components/conversations/StatusSelect';
 import type { Conversation, Message, Status } from '@/lib/types';
 import { useWebSocket } from '@/hooks/use-websocket';
+import { apiClientFetch } from '@/lib/api.client';
 
 async function fetchConversation(id: string): Promise<Conversation> {
-  const res = await fetch(`/api/proxy/conversations/${id}`, {
+  return apiClientFetch(`/conversations/${id}`, {
     cache: 'no-store',
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
 }
 
 function isNearBottom(el: HTMLElement, thresholdPx = 120) {

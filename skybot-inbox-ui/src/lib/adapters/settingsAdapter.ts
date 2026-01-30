@@ -35,6 +35,8 @@ export interface ChangePasswordRequest {
   confirmPassword: string;
 }
 
+import { apiClientFetch } from '../api.client';
+
 // Get clientKey from localStorage
 const getClientKey = () => {
   return typeof window !== 'undefined'
@@ -43,27 +45,14 @@ const getClientKey = () => {
 };
 
 async function apiFetch(path: string, init: RequestInit = {}) {
-  const headers: Record<string, string> = {
-    'x-client-key': getClientKey(),
-    'Content-Type': 'application/json',
-    ...(init.headers as Record<string, string>),
-  };
-
-  const normalized = path.startsWith('/') ? path : `/${path}`;
-  const url = `/api/proxy${normalized}`;
-
-  const res = await fetch(url, {
+  // Use apiClientFetch to ensure Authorization header is sent
+  return apiClientFetch(path, {
     ...init,
-    headers,
-    cache: 'no-store',
+    headers: {
+      ...init.headers,
+      'x-client-key': getClientKey(),
+    },
   });
-
-  if (!res.ok) {
-    const txt = await res.text().catch(() => '');
-    throw new Error(`HTTP ${res.status} ${res.statusText} ${txt}`);
-  }
-
-  return res.json();
 }
 
 // ============ User Preferences ============

@@ -6,6 +6,8 @@ type ListResponse<T> = {
   total: number;
 };
 
+import { apiClientFetch } from '../api.client';
+
 // Get clientKey from environment or use a default for development
 const getClientKey = () => {
   return typeof window !== 'undefined'
@@ -14,26 +16,14 @@ const getClientKey = () => {
 };
 
 async function apiFetch(path: string, init: RequestInit = {}) {
-  const headers = {
-    ...init.headers,
-    'x-client-key': getClientKey(),
-  };
-
-  const normalized = path.startsWith('/') ? path : `/${path}`;
-  const url = `/api/proxy${normalized}`;
-
-  const res = await fetch(url, {
+  // Use apiClientFetch to ensure auth headers are included
+  return apiClientFetch(path, {
     ...init,
-    headers,
-    cache: 'no-store',
+    headers: {
+      ...init.headers,
+      'x-client-key': getClientKey(),
+    },
   });
-
-  if (!res.ok) {
-    const txt = await res.text().catch(() => '');
-    throw new Error(`HTTP ${res.status} ${res.statusText} ${txt}`);
-  }
-
-  return res.json();
 }
 
 export async function fetchLeads(status?: LeadStatus | 'ALL'): Promise<ListResponse<Lead>> {
