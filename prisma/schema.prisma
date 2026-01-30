@@ -154,9 +154,9 @@ model Conversation {
   lastActivityAt    DateTime                  @default(now())
   createdAt         DateTime                  @default(now())
   updatedAt         DateTime                  @updatedAt
-  messageCount      Int                       @default(0)
-  participantCount  Int                       @default(0)
-  unreadCount       Int                       @default(0)
+  messageCount      Int?                      @default(0)
+  participantCount  Int?                      @default(0)
+  unreadCount       Int?                      @default(0)
   contact           Contact                   @relation(fields: [contactId], references: [id], onDelete: Cascade)
   inbox             Inbox                     @relation(fields: [inboxId], references: [id], onDelete: Cascade)
   participants      ConversationParticipant[]
