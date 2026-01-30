@@ -433,4 +433,37 @@ export class AdminController {
       inbox: inbox ? { id: inbox.id, name: inbox.name } : null,
     };
   }
+
+  /**
+   * TEMPORARY: Add conversation count columns
+   * Execute migration to add messageCount, participantCount, unreadCount
+   */
+  @Public()
+  @Post('migrate-conversation-counts')
+  async migrateConversationCounts(@Headers('x-api-key') apiKey: string) {
+    if (apiKey !== process.env.ADMIN_API_KEY) {
+      throw new BadRequestException('Invalid API key');
+    }
+
+    try {
+      await this.prisma.$executeRaw`
+        ALTER TABLE "Conversation"
+        ADD COLUMN IF NOT EXISTS "messageCount" INTEGER DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS "participantCount" INTEGER DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS "unreadCount" INTEGER DEFAULT 0;
+      `;
+
+      return {
+        status: 'success',
+        message: 'Conversation count columns added successfully',
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      return {
+        status: 'error',
+        error: error instanceof Error ? error.message : String(error),
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
 }
