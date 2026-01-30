@@ -471,9 +471,15 @@ export class AdminController {
         ADD COLUMN IF NOT EXISTS "status" "MessageStatus" DEFAULT 'SENT'
       `;
 
+      // Add Message.version column
+      await this.prisma.$executeRaw`
+        ALTER TABLE "Message"
+        ADD COLUMN IF NOT EXISTS "version" INTEGER DEFAULT 1
+      `;
+
       return {
         status: 'success',
-        message: 'Missing columns added successfully (Conversation counts + Message.status)',
+        message: 'Missing columns added successfully (Conversation counts + Message.status + Message.version)',
         timestamp: new Date().toISOString(),
       };
     } catch (error) {

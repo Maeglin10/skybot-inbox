@@ -29,7 +29,7 @@ export class AppController {
     return {
       status: 'ok',
       service: 'skybot-inbox',
-      version: '1.0.0',
+      version: 'v24.0',
       timestamp: new Date().toISOString(),
     };
   }
