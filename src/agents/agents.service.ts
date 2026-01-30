@@ -658,7 +658,7 @@ export class AgentsService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(n8nSecret && { 'x-webhook-secret': n8nSecret }),
+          ...(n8nSecret && { 'x-master-secret': n8nSecret }),
         },
         body: JSON.stringify({
           requestId: triggerData.requestId,
