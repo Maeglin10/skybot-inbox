@@ -2,7 +2,7 @@
 
 ## Token Fourni
 ```
-REDACTED_WHATSAPP_TOKEN
+YOUR_WHATSAPP_ACCESS_TOKEN_HERE
 ```
 
 ## Configuration sur Render
@@ -16,7 +16,7 @@ REDACTED_WHATSAPP_TOKEN
 2. Cliquer sur **Add Environment Variable**
 3. Configurer:
    - **Key**: `WHATSAPP_ACCESS_TOKEN`
-   - **Value**: `REDACTED_WHATSAPP_TOKEN`
+   - **Value**: `YOUR_WHATSAPP_ACCESS_TOKEN_HERE`
 4. Cliquer sur **Save Changes**
 
 ### Étape 3: Redéployer le Service

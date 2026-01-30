@@ -78,14 +78,18 @@ Access the application at http://localhost:3001
 
 ## 📚 Documentation
 
-Complete documentation available in `/docs`:
+**[📖 Complete Documentation Index](docs/INDEX.md)**
 
-- **[N8N Integration Guide](docs/n8n-testing/N8N-INTEGRATION-GUIDE.md)** - Complete N8N setup and testing
-- **[Test Results](docs/n8n-testing/TEST-RESULTS.md)** - Automated test status and coverage
-- **[API Reference](docs/api/)** - Complete API documentation
-- **[Architecture](docs/architecture/)** - System architecture and design
-- **[Deployment](docs/deployment/)** - Deployment guides for various platforms
-- **[Troubleshooting](docs/troubleshooting/)** - Common issues and solutions
+### Quick Links
+
+- **[Quick Start Guide](docs/getting-started/QUICK_START.md)** - Get up and running in 10 minutes
+- **[Architecture Overview](docs/architecture/OVERVIEW.md)** - System design and architecture
+- **[API Reference](docs/api/REST_API.md)** - Complete REST API documentation
+- **[Module Index](docs/modules/INDEX.md)** - All 37 modules documented
+- **[Environment Variables](docs/getting-started/ENVIRONMENT_VARIABLES.md)** - Complete env var reference
+- **[Deployment Guide](docs/deployment/RENDER.md)** - Deploy to Render.com
+- **[Security Best Practices](docs/security/BEST_PRACTICES.md)** - Security guidelines
+- **[MCP Servers](docs/mcp-servers/SKYBOT_INBOX_MCP.md)** - Real-time monitoring tools
 
 ---
 

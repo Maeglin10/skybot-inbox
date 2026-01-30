@@ -29,8 +29,8 @@ fix: TypeScript errors + Google OAuth optional + secure verify token
 ### Obligatoires (Critiques)
 ```bash
 # Meta pour Instagram + Facebook OAuth
-META_APP_ID=1554026052411956  # ✅ Tu l'as déjà ajouté
-META_APP_SECRET=REDACTED_META_SECRET  # ✅ Existe
+META_APP_ID=your_meta_app_id_here
+META_APP_SECRET=your_meta_app_secret_here
 
 # Webhook verification (NOUVEAU token sécurisé)
 WHATSAPP_VERIFY_TOKEN=***REMOVED***

@@ -267,10 +267,10 @@ async adminOnlyEndpoint() { ... }
 - `/{pageId}/messages` - Send messages
 
 **Environment Variables**:
-- `META_APP_ID=YOUR_META_APP_ID_HERE` ⚠️ NEEDS USER INPUT
-- `META_APP_SECRET=REDACTED_META_SECRET` ✅ Already set
-- `RENDER_APP_URL=https://skybot-inbox.onrender.com` ✅ Already set
-- `WHATSAPP_VERIFY_TOKEN=verify_token_default` ✅ Already set
+- `META_APP_ID=YOUR_META_APP_ID_HERE`
+- `META_APP_SECRET=YOUR_META_APP_SECRET_HERE`
+- `RENDER_APP_URL=https://skybot-inbox.onrender.com`
+- `WHATSAPP_VERIFY_TOKEN=YOUR_VERIFY_TOKEN_HERE`
 
 ---
 

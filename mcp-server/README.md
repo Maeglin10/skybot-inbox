@@ -70,7 +70,7 @@ npm run build
       "command": "node",
       "args": ["/Users/milliandvalentin/skybot-inbox/mcp-server/dist/index.js"],
       "env": {
-        "DATABASE_URL": "postgresql://skybot_inbox_user:REDACTED_PASSWORD@dpg-d5p7hjh4tr6s73alg8l0-a.oregon-postgres.render.com/skybot_inbox"
+        "DATABASE_URL": "postgresql://user:password@host:5432/skybot_inbox"
       }
     }
   }
