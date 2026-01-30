@@ -26,11 +26,51 @@ export async function apiClientFetch(path: string, init: RequestInit = {}) {
     }
   }
 
-  const res = await fetch(url, {
+  let res = await fetch(url, {
     ...init,
     headers,
     cache: 'no-store',
   });
+
+  // Handle 401 Unauthorized - Attempt Refresh
+  if (res.status === 401 && typeof document !== 'undefined') {
+    try {
+      const refreshMatch = document.cookie.match(new RegExp('(^| )refreshToken=([^;]+)'));
+      if (refreshMatch) {
+         const refreshToken = decodeURIComponent(refreshMatch[2]);
+         
+         // Call refresh endpoint
+         // We use straight fetch here to avoid recursion
+         const refreshRes = await fetch('/api/proxy/auth/refresh', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken })
+         });
+         
+         if (refreshRes.ok) {
+             const data = await refreshRes.json();
+             
+             // Update cookies
+             // Note: We use max-age from response or default to session/1h
+             const cookieOptions = `; path=/; secure; samesite=strict`;
+             document.cookie = `accessToken=${data.accessToken}${cookieOptions}`;
+             document.cookie = `refreshToken=${data.refreshToken}${cookieOptions}`;
+             
+             // Retry original request with new token
+             // @ts-ignore
+             headers['Authorization'] = `Bearer ${data.accessToken}`;
+             
+             res = await fetch(url, {
+                ...init,
+                headers,
+                cache: 'no-store',
+             });
+         }
+      }
+    } catch(e) {
+       console.error("Token refresh attempt failed", e);
+    }
+  }
 
   if (!res.ok) {
     const txt = await res.text().catch(() => '');

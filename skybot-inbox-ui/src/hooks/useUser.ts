@@ -10,6 +10,8 @@ export interface User {
   accountId: string;
 }
 
+import { apiGetClient } from '@/lib/api.client';
+
 export function useUser() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -21,23 +23,14 @@ export function useUser() {
 
   const fetchUser = async () => {
     try {
-      const response = await fetch('/api/proxy/auth/me', {
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          // Not authenticated, redirect to login
-          router.push('/account/login');
-          return;
-        }
-        throw new Error('Failed to fetch user');
-      }
-
-      const data = await response.json();
+      const data = await apiGetClient('/auth/me') as User;
       setUser(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching user:', error);
+      // If 401, redirect to login (apiGetClient throws on error)
+      if (error.message && error.message.includes('HTTP 401')) {
+          router.push('/account/login');
+      }
       setUser(null);
     } finally {
       setLoading(false);
