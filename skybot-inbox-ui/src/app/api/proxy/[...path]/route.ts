@@ -27,9 +27,21 @@ async function forward(
   const auth = req.headers.get("authorization");
   if (auth) headers["authorization"] = auth;
 
-  // Forward Cookie header for JWT authentication
-  const cookie = req.headers.get("cookie");
-  if (cookie) headers["cookie"] = cookie;
+  // Extract accessToken from cookies and add to Authorization header
+  // This bridges frontend cookie-based auth with backend Bearer token auth
+  const cookieHeader = req.headers.get("cookie");
+  if (!auth && cookieHeader) {
+    const cookies = Object.fromEntries(
+      cookieHeader.split(';').map(c => c.trim().split('=').map(s => s.trim()))
+    );
+    const accessToken = cookies['accessToken'];
+    if (accessToken) {
+      headers["authorization"] = `Bearer ${accessToken}`;
+    }
+  }
+
+  // Forward Cookie header (for other potential uses)
+  if (cookieHeader) headers["cookie"] = cookieHeader;
 
   const init: RequestInit = { method: req.method, headers, cache: "no-store" };
   if (req.method !== "GET" && req.method !== "HEAD") {
