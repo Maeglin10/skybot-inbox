@@ -78,6 +78,7 @@ async function bootstrap() {
         // Capture raw body for webhook signature verification
         if (
           url.startsWith('/webhooks/whatsapp') ||
+          url.startsWith('/api/webhooks/whatsapp') ||
           url.startsWith('/webhooks/stripe') ||
           url.startsWith('/api/webhooks/stripe')
         ) {
