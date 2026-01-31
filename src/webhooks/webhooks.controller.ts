@@ -74,6 +74,7 @@ export class WebhooksController {
    * N8N Conversation Update Endpoint
    * Receives conversation data from N8N after processing WhatsApp messages
    * Path: /api/webhooks/n8n/conversation-update
+   * Updated: 2026-01-31
    */
   @Public()
   @Post('../n8n/conversation-update')
