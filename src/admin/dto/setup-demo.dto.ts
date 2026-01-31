@@ -1,13 +1,13 @@
 export class SetupDemoRequestDto {
-  secretKey: string;
+  secretKey?: string;
 }
 
 export class SetupDemoResponseDto {
-  success: boolean;
+  success!: boolean;
   accountId?: string;
   modulesEnabled?: number;
   userCreated?: boolean;
-  message: string;
+  message!: string;
   credentials?: {
     username: string;
     email: string;
