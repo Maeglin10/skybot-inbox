@@ -317,6 +317,7 @@ export class WebhooksService {
     conversationId: string | null;
     requestId: string;
     clientKey: string;
+    phoneNumberId?: string;
     incomingMessage: {
       text: string;
       timestamp: string;
@@ -407,12 +408,15 @@ export class WebhooksService {
       });
     }
 
-    const channel = conversation.channel ?? conversation.inbox.channel ?? 'WHATSAPP';
+    const channel = conversation!.channel ?? conversation!.inbox.channel ?? 'WHATSAPP';
 
     // Create incoming message (if not already created by webhook)
     // Note: Check if message with this externalId already exists
-    const existingIncoming = await this.prisma.message.findUnique({
-      where: { externalId: body.incomingMessage.externalId },
+    const existingIncoming = await this.prisma.message.findFirst({
+      where: {
+        externalId: body.incomingMessage.externalId,
+        channel
+      },
     });
 
     if (!existingIncoming) {
@@ -422,12 +426,12 @@ export class WebhooksService {
 
       await this.prisma.message.create({
         data: {
-          conversationId: body.conversationId,
+          conversationId: conversation!.id,
           channel,
           externalId: body.incomingMessage.externalId,
           direction: 'IN',
           from: body.phone,
-          to: conversation.inbox.externalId ?? null,
+          to: conversation!.inbox.externalId ?? null,
           text: body.incomingMessage.text,
           timestamp: new Date(body.incomingMessage.timestamp),
         },
@@ -446,11 +450,11 @@ export class WebhooksService {
 
     const outgoingMessage = await this.prisma.message.create({
       data: {
-        conversationId: body.conversationId,
+        conversationId: conversation!.id,
         channel,
         externalId: null, // N8N should provide WhatsApp message ID later
         direction: 'OUT',
-        from: conversation.inbox.externalId ?? null,
+        from: conversation!.inbox.externalId ?? null,
         to: body.phone,
         text: body.outgoingMessage.text,
         timestamp: new Date(body.outgoingMessage.timestamp),
@@ -459,7 +463,7 @@ export class WebhooksService {
 
     // Update conversation
     await this.prisma.conversation.update({
-      where: { id: body.conversationId },
+      where: { id: conversation!.id },
       data: {
         lastActivityAt: outgoingMessage.createdAt,
         status: 'OPEN',
@@ -467,7 +471,7 @@ export class WebhooksService {
     });
 
     this.logger.log('[N8N-UPDATE] Conversation update complete', {
-      conversationId: body.conversationId,
+      conversationId: conversation!.id,
       incomingMessageId: existingIncoming?.id,
       outgoingMessageId: outgoingMessage.id,
     });
