@@ -435,6 +435,281 @@ export class AdminController {
   }
 
   /**
+   * ONE-TIME SETUP: Create Demo account with all modules and super admin user
+   *
+   * Security: Protected by SEED_SECRET_KEY from environment
+   *
+   * Usage:
+   *   POST https://skybot-inbox.onrender.com/api/admin/setup-demo
+   *   Header: x-seed-secret: YOUR_SEED_SECRET_KEY
+   *
+   * This endpoint creates:
+   * - Demo Account with all features enabled
+   * - All 44 modules enabled (TenantModule records)
+   * - Super Admin user for Valentin
+   * - Demo client configuration
+   *
+   * Safe to run multiple times (idempotent).
+   */
+  @Public()
+  @Post('setup-demo')
+  @HttpCode(200)
+  async setupDemo(@Headers('x-seed-secret') secret: string) {
+    const expectedSecret = process.env.SEED_SECRET_KEY;
+
+    if (!expectedSecret) {
+      throw new BadRequestException(
+        'Setup is disabled (SEED_SECRET_KEY not configured)',
+      );
+    }
+
+    // Use timing-safe comparison
+    try {
+      const secretBuffer = Buffer.from(secret, 'utf8');
+      const expectedBuffer = Buffer.from(expectedSecret, 'utf8');
+
+      if (secretBuffer.length !== expectedBuffer.length) {
+        throw new BadRequestException('Invalid secret');
+      }
+
+      if (!timingSafeEqual(secretBuffer, expectedBuffer)) {
+        throw new BadRequestException('Invalid secret');
+      }
+    } catch (error) {
+      throw new BadRequestException('Invalid secret');
+    }
+
+    const ALL_MODULES = [
+      'auth', 'accounts', 'users', 'admin', 'prisma',
+      'webhooks', 'whatsapp', 'messages', 'conversations', 'contacts', 'inboxes',
+      'common', 'websockets', 'debug',
+      'agents', 'clients', 'billing', 'channels', 'instagram', 'facebook', 'email', 'webchat',
+      'analytics', 'knowledge', 'crm', 'shopify', 'orders',
+      'airtable', 'integrations', 'zapier', 'slack',
+      'corporate-numbers', 'alerts', 'stories', 'templates', 'media', 'jobs',
+      'legal', 'settings', 'preferences', 'user-preferences',
+      'ingestion', 'tenant-modules', 'competitive-analysis',
+    ];
+
+    const results: any = {
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'unknown',
+    };
+
+    try {
+      // 1. Find or create Demo account
+      let demoAccount = await this.prisma.account.findFirst({
+        where: { name: 'Demo' }
+      });
+
+      if (!demoAccount) {
+        demoAccount = await this.prisma.account.create({
+          data: {
+            name: 'Demo',
+            isDemo: true,
+            status: 'ACTIVE',
+            tier: 'ENTERPRISE',
+            features: {
+              inbox: true,
+              crm: true,
+              analytics: true,
+              channels: true,
+              calendar: true,
+              alerts: true,
+              settings: true,
+              orders: true,
+              billing: true,
+              knowledge: true,
+              integrations: true,
+              media: true,
+              templates: true,
+              reports: true,
+              automation: true,
+            }
+          }
+        });
+        results.account = { status: 'created', id: demoAccount.id };
+      } else {
+        // Update to ensure all features enabled
+        await this.prisma.account.update({
+          where: { id: demoAccount.id },
+          data: {
+            features: {
+              inbox: true,
+              crm: true,
+              analytics: true,
+              channels: true,
+              calendar: true,
+              alerts: true,
+              settings: true,
+              orders: true,
+              billing: true,
+              knowledge: true,
+              integrations: true,
+              media: true,
+              templates: true,
+              reports: true,
+              automation: true,
+            },
+            tier: 'ENTERPRISE',
+            status: 'ACTIVE',
+          }
+        });
+        results.account = { status: 'already_exists_updated', id: demoAccount.id };
+      }
+
+      // 2. Enable all modules
+      let modulesEnabled = 0;
+      const moduleStatuses: any = {};
+
+      for (const moduleKey of ALL_MODULES) {
+        try {
+          const existing = await this.prisma.tenantModule.findUnique({
+            where: {
+              tenantId_moduleKey: {
+                tenantId: demoAccount.id,
+                moduleKey
+              }
+            }
+          });
+
+          if (!existing) {
+            await this.prisma.tenantModule.create({
+              data: {
+                tenantId: demoAccount.id,
+                moduleKey,
+                enabled: true,
+              }
+            });
+            moduleStatuses[moduleKey] = 'created';
+            modulesEnabled++;
+          } else if (!existing.enabled) {
+            await this.prisma.tenantModule.update({
+              where: { id: existing.id },
+              data: { enabled: true }
+            });
+            moduleStatuses[moduleKey] = 're-enabled';
+            modulesEnabled++;
+          } else {
+            moduleStatuses[moduleKey] = 'already_enabled';
+          }
+        } catch (e) {
+          moduleStatuses[moduleKey] = 'error';
+        }
+      }
+
+      results.modules = {
+        total: ALL_MODULES.length,
+        enabled: modulesEnabled,
+        statuses: moduleStatuses
+      };
+
+      // 3. Create super admin user (Valentin)
+      const username = 'valentin';
+      const email = 'valentin.milliand@nexxa.global';
+      const password = process.env.SEED_VALENTIN_PASSWORD || 'ChangeMeInProduction123!';
+
+      try {
+        const bcrypt = require('bcrypt');
+
+        let valentinUser = await this.prisma.userAccount.findFirst({
+          where: {
+            accountId: demoAccount.id,
+            OR: [{ username }, { email }]
+          }
+        });
+
+        if (!valentinUser) {
+          const passwordHash = await bcrypt.hash(password, 10);
+          valentinUser = await this.prisma.userAccount.create({
+            data: {
+              accountId: demoAccount.id,
+              username,
+              email,
+              passwordHash,
+              name: 'Valentin Milliand',
+              role: UserRole.SUPER_ADMIN,
+              status: 'ACTIVE'
+            }
+          });
+
+          // Create preferences
+          try {
+            await this.prisma.userPreference.create({
+              data: {
+                userAccountId: valentinUser.id,
+                theme: 'DARK',
+                language: 'FR',
+                timezone: 'Europe/Paris'
+              }
+            });
+            results.user = { status: 'created_with_preferences', id: valentinUser.id };
+          } catch (e) {
+            results.user = { status: 'created_no_preferences', id: valentinUser.id };
+          }
+        } else {
+          // Update role to SUPER_ADMIN if not already
+          if (valentinUser.role !== UserRole.SUPER_ADMIN) {
+            await this.prisma.userAccount.update({
+              where: { id: valentinUser.id },
+              data: { role: UserRole.SUPER_ADMIN, status: 'ACTIVE' }
+            });
+            results.user = { status: 'updated_to_super_admin', id: valentinUser.id };
+          } else {
+            results.user = { status: 'already_exists', id: valentinUser.id };
+          }
+        }
+
+        results.credentials = {
+          username,
+          email,
+          password: password === process.env.SEED_VALENTIN_PASSWORD ? '[From SEED_VALENTIN_PASSWORD env]' : password
+        };
+      } catch (userError: any) {
+        results.user = { status: 'error', error: userError.message };
+      }
+
+      // 4. Create demo client config
+      try {
+        await this.prisma.clientConfig.upsert({
+          where: {
+            accountId_clientKey: {
+              accountId: demoAccount.id,
+              clientKey: 'demo'
+            }
+          },
+          update: {
+            status: 'ACTIVE',
+            channels: ['WHATSAPP', 'INSTAGRAM', 'FACEBOOK', 'EMAIL', 'WEB'],
+          },
+          create: {
+            accountId: demoAccount.id,
+            clientKey: 'demo',
+            name: 'Demo Client',
+            status: 'ACTIVE',
+            defaultAgentKey: 'master-router',
+            allowedAgents: ['master-router', 'setter', 'closer', 'crm', 'orders', 'aftersale'],
+            channels: ['WHATSAPP', 'INSTAGRAM', 'FACEBOOK', 'EMAIL', 'WEB'],
+            externalAccounts: {},
+          }
+        });
+        results.clientConfig = { status: 'created_or_updated' };
+      } catch (e: any) {
+        results.clientConfig = { status: 'error', error: e.message };
+      }
+
+      results.success = true;
+      results.message = 'Demo account setup complete with all modules and super admin user';
+
+      return results;
+    } catch (error: any) {
+      results.success = false;
+      results.error = error.message;
+      throw error;
+    }
+  }
+
+  /**
    * TEMPORARY: Add ALL missing columns to DB
    * Complete migration for Conversation and Message tables
    */
