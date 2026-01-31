@@ -306,4 +306,176 @@ export class WebhooksService {
     this.demoAccountIdCache = account.id;
     return account.id;
   }
+
+  /**
+   * Handle conversation update from N8N
+   * N8N sends both incoming and outgoing messages after processing
+   */
+  async handleN8NConversationUpdate(body: {
+    phone: string;
+    userName?: string;
+    conversationId: string | null;
+    requestId: string;
+    clientKey: string;
+    incomingMessage: {
+      text: string;
+      timestamp: string;
+      externalId: string;
+    };
+    outgoingMessage: {
+      text: string;
+      timestamp: string;
+    };
+  }) {
+    this.logger.log('[N8N-UPDATE] Processing conversation update', {
+      conversationId: body.conversationId,
+      requestId: body.requestId,
+      clientKey: body.clientKey,
+    });
+
+    // Get or create conversation
+    let conversation;
+
+    if (body.conversationId) {
+      // Try to find existing conversation
+      conversation = await this.prisma.conversation.findUnique({
+        where: { id: body.conversationId },
+        include: {
+          inbox: true,
+          contact: true,
+        },
+      });
+    }
+
+    if (!conversation) {
+      // Create conversation if not exists
+      this.logger.log('[N8N-UPDATE] Creating new conversation', {
+        phone: body.phone,
+        clientKey: body.clientKey,
+      });
+
+      // Get or create account
+      const accountId = await this.getDemoAccountId(); // For now, use Demo account
+
+      // Get or create inbox (by phoneNumberId or default)
+      const phoneNumberId = body.phoneNumberId || 'n8n-whatsapp';
+      const inbox = await this.prisma.inbox.upsert({
+        where: {
+          accountId_externalId: {
+            accountId,
+            externalId: phoneNumberId,
+          },
+        },
+        update: {},
+        create: {
+          accountId,
+          externalId: phoneNumberId,
+          name: `WhatsApp ${phoneNumberId}`,
+          channel: 'WHATSAPP',
+        },
+      });
+
+      // Get or create contact
+      const contact = await this.prisma.contact.upsert({
+        where: { inboxId_phone: { inboxId: inbox.id, phone: body.phone } },
+        update: { name: body.userName || undefined },
+        create: {
+          accountId,
+          inboxId: inbox.id,
+          phone: body.phone,
+          name: body.userName || null,
+        },
+      });
+
+      // Create conversation
+      conversation = await this.prisma.conversation.create({
+        data: {
+          inboxId: inbox.id,
+          contactId: contact.id,
+          channel: 'WHATSAPP',
+          status: 'OPEN',
+          lastActivityAt: new Date(),
+        },
+        include: {
+          inbox: true,
+          contact: true,
+        },
+      });
+
+      this.logger.log('[N8N-UPDATE] Conversation created', {
+        conversationId: conversation.id,
+      });
+    }
+
+    const channel = conversation.channel ?? conversation.inbox.channel ?? 'WHATSAPP';
+
+    // Create incoming message (if not already created by webhook)
+    // Note: Check if message with this externalId already exists
+    const existingIncoming = await this.prisma.message.findUnique({
+      where: { externalId: body.incomingMessage.externalId },
+    });
+
+    if (!existingIncoming) {
+      this.logger.log('[N8N-UPDATE] Creating incoming message', {
+        externalId: body.incomingMessage.externalId,
+      });
+
+      await this.prisma.message.create({
+        data: {
+          conversationId: body.conversationId,
+          channel,
+          externalId: body.incomingMessage.externalId,
+          direction: 'IN',
+          from: body.phone,
+          to: conversation.inbox.externalId ?? null,
+          text: body.incomingMessage.text,
+          timestamp: new Date(body.incomingMessage.timestamp),
+        },
+      });
+    } else {
+      this.logger.debug('[N8N-UPDATE] Incoming message already exists', {
+        externalId: body.incomingMessage.externalId,
+      });
+    }
+
+    // Create outgoing message
+    this.logger.log('[N8N-UPDATE] Creating outgoing message', {
+      conversationId: body.conversationId,
+      textLength: body.outgoingMessage.text.length,
+    });
+
+    const outgoingMessage = await this.prisma.message.create({
+      data: {
+        conversationId: body.conversationId,
+        channel,
+        externalId: null, // N8N should provide WhatsApp message ID later
+        direction: 'OUT',
+        from: conversation.inbox.externalId ?? null,
+        to: body.phone,
+        text: body.outgoingMessage.text,
+        timestamp: new Date(body.outgoingMessage.timestamp),
+      },
+    });
+
+    // Update conversation
+    await this.prisma.conversation.update({
+      where: { id: body.conversationId },
+      data: {
+        lastActivityAt: outgoingMessage.createdAt,
+        status: 'OPEN',
+      },
+    });
+
+    this.logger.log('[N8N-UPDATE] Conversation update complete', {
+      conversationId: body.conversationId,
+      incomingMessageId: existingIncoming?.id,
+      outgoingMessageId: outgoingMessage.id,
+    });
+
+    return {
+      success: true,
+      incomingMessageId: existingIncoming?.id,
+      outgoingMessageId: outgoingMessage.id,
+    };
+  }
 }

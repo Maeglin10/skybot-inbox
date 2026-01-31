@@ -2,12 +2,14 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   Logger,
   Post,
   Query,
   Req,
   Res,
   UseGuards,
+  UnauthorizedException,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import type { WhatsAppCloudWebhook } from './dto/whatsapp-cloud.dto';
@@ -66,5 +68,71 @@ export class WebhooksController {
       });
 
     return { ok: true };
+  }
+
+  /**
+   * N8N Conversation Update Endpoint
+   * Receives conversation data from N8N after processing WhatsApp messages
+   * Path: /api/webhooks/n8n/conversation-update
+   */
+  @Public()
+  @Post('../n8n/conversation-update')
+  async n8nConversationUpdate(
+    @Headers('x-n8n-secret') secret: string,
+    @Body() body: {
+      phone: string;
+      userName?: string;
+      conversationId: string | null;
+      requestId: string;
+      clientKey: string;
+      phoneNumberId?: string;
+      incomingMessage: {
+        text: string;
+        timestamp: string;
+        externalId: string;
+      };
+      outgoingMessage: {
+        text: string;
+        timestamp: string;
+      };
+    },
+  ) {
+    // Verify N8N secret
+    const expectedSecret = process.env.WHATSAPP_VERIFY_TOKEN;
+    if (!secret || secret !== expectedSecret) {
+      this.logger.warn('[N8N] Unauthorized request - invalid secret');
+      throw new UnauthorizedException('Invalid x-n8n-secret header');
+    }
+
+    this.logger.log('[N8N] Received conversation update', {
+      conversationId: body.conversationId,
+      requestId: body.requestId,
+      clientKey: body.clientKey,
+      hasIncoming: !!body.incomingMessage,
+      hasOutgoing: !!body.outgoingMessage,
+    });
+
+    try {
+      await this.webhooksService.handleN8NConversationUpdate(body);
+
+      this.logger.log('[N8N] Conversation update processed successfully', {
+        conversationId: body.conversationId,
+        requestId: body.requestId,
+      });
+
+      return {
+        success: true,
+        conversationId: body.conversationId,
+        requestId: body.requestId,
+      };
+    } catch (error) {
+      this.logger.error('[N8N] Failed to process conversation update', {
+        error: error instanceof Error ? error.message : String(error),
+        conversationId: body.conversationId,
+        requestId: body.requestId,
+      });
+
+      throw error;
+    }
   }
 }
