@@ -17,14 +17,14 @@ import { WebhooksService } from './webhooks.service';
 import { WhatsAppSignatureGuard } from './whatsapp-signature.guard';
 import { Public } from '../auth/decorators/public.decorator';
 
-@Controller('webhooks/whatsapp')
+@Controller('webhooks')
 export class WebhooksController {
   private readonly logger = new Logger(WebhooksController.name);
 
   constructor(private readonly webhooksService: WebhooksService) {}
 
   @Public()
-  @Get()
+  @Get('whatsapp')
   verify(
     @Query('hub.mode') mode: string,
     @Query('hub.verify_token') token: string,
@@ -38,7 +38,7 @@ export class WebhooksController {
   }
 
   @Public()
-  @Post('debug')
+  @Post('whatsapp/debug')
   async debugPost(@Req() req: Request, @Body() body: any) {
     this.logger.log('[WEBHOOK-DEBUG] Received webhook from Meta');
     this.logger.log(`[WEBHOOK-DEBUG] IP: ${req.ip}`);
@@ -56,7 +56,7 @@ export class WebhooksController {
   }
 
   @Public()
-  @Post()
+  @Post('whatsapp')
   @UseGuards(WhatsAppSignatureGuard)
   post(@Req() _req: Request, @Body() body: WhatsAppCloudWebhook) {
     void this.webhooksService
@@ -77,7 +77,7 @@ export class WebhooksController {
    * Updated: 2026-01-31
    */
   @Public()
-  @Post('../n8n/conversation-update')
+  @Post('n8n/conversation-update')
   async n8nConversationUpdate(
     @Headers('x-n8n-secret') secret: string,
     @Body() body: {
